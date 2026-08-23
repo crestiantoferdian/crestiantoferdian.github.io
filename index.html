@@ -6108,9 +6108,26 @@ function loginWithGoogle(){
   if(!navigator.onLine){ setLoginGateStatus('⚠️ Perlu internet buat login pertama kali.'); return; }
   setLoginGateStatus('Membuka login Google…');
   const provider=new firebase.auth.GoogleAuthProvider();
-  // signInWithRedirect (bukan popup) — jauh lebih reliable di dalam TWA/APK
-  // karena TWA tidak selalu mendukung popup window.
-  fbAuth.signInWithRedirect(provider);
+  // Coba signInWithPopup dulu — nggak butuh loncat keluar halaman sama sekali,
+  // jadi nggak kena masalah "third-party storage blocked" yang bikin
+  // signInWithRedirect gagal diam-diam di banyak browser mobile modern.
+  fbAuth.signInWithPopup(provider).catch(function(err){
+    console.warn('signInWithPopup gagal, coba fallback ke redirect:', err.code, err.message);
+    // Kalau popup memang nggak didukung di environment ini (misal di dalam
+    // APK/TWA yang nggak support window popup), atau diblokir browser —
+    // baru fallback ke redirect. Kalau user sendiri yang nutup popup-nya
+    // (batal login), jangan fallback, cukup kasih tau aja.
+    if(err.code==='auth/popup-closed-by-user'){
+      setLoginGateStatus('Login dibatalkan.');
+      return;
+    }
+    if(err.code==='auth/popup-blocked' || err.code==='auth/operation-not-supported-in-this-environment' || err.code==='auth/cancelled-popup-request'){
+      setLoginGateStatus('Popup diblokir, coba cara lain…');
+      fbAuth.signInWithRedirect(provider);
+      return;
+    }
+    setLoginGateStatus('⚠️ Login gagal: '+err.message);
+  });
 }
 
 function skipLoginGate(){
