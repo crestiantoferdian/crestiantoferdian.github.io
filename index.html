@@ -6204,9 +6204,31 @@ function setLoginGateStatus(msg){
   if(el) el.textContent=msg||'';
 }
 
+// Google, demi keamanan, MEMBLOKIR TOTAL proses login lewat WebView polos
+// (bukan browser asli) — ini bukan bug di kode kita, tapi pembatasan dari
+// pihak Google sendiri (dikenal sbg error "disallowed_useragent"). Ini
+// PENTING banget buat rilis Play Store: kalau APK dibungkus pakai WebView
+// biasa (misal lewat tools seperti Appilix/WebViewGold/Cordova polos), Login
+// Google TIDAK AKAN PERNAH BISA jalan sama sekali, di HP siapa pun. Solusinya
+// aplikasi harus dibungkus sebagai TWA (Trusted Web Activity, misal pakai
+// Bubblewrap/PWABuilder) yang secara teknis tetap Chrome asli di baliknya,
+// bukan WebView biasa — TWA ini yang didukung resmi oleh Google utk Sign-In.
+function isProbablyBareWebView(){
+  const ua=navigator.userAgent||'';
+  // Tanda umum WebView Android: ada "; wv)" di UA, atau versi Chrome tanpa "Safari"
+  // di belakangnya (WebView asli biasanya tetap punya token Safari tapi beberapa
+  // versi menghilangkannya) — cek keduanya biar lebih akurat.
+  return /; ?wv\)/i.test(ua) || (/\bChrome\/[\d.]+\b/.test(ua) && !/Safari\//.test(ua));
+}
+
 function loginWithGoogle(){
   if(!fbAuth){ setLoginGateStatus('⚠️ Firebase belum di-setup.'); return; }
   if(!navigator.onLine){ setLoginGateStatus('⚠️ Perlu internet buat login pertama kali.'); return; }
+  if(isProbablyBareWebView()){
+    setLoginGateStatus('⚠️ Login Google tidak didukung di tampilan aplikasi ini (WebView). Coba buka lewat Chrome langsung, atau kalau ini APK Play Store, perlu dibungkus ulang sebagai TWA.');
+    alert('Login Google diblokir oleh Google di WebView biasa (ini pembatasan dari Google, bukan bug aplikasi).\n\nCoba buka linknya di Chrome langsung dulu untuk memastikan. Kalau ini APK yang mau/sudah dirilis ke Play Store, APK-nya perlu dibungkus sebagai TWA (Trusted Web Activity), bukan WebView polos, supaya Login Google bisa berfungsi.');
+    return;
+  }
   setLoginGateStatus('Membuka login Google…');
   const provider=new firebase.auth.GoogleAuthProvider();
   // Coba signInWithPopup dulu — nggak butuh loncat keluar halaman sama sekali,
@@ -6223,11 +6245,16 @@ function loginWithGoogle(){
       return;
     }
     if(err.code==='auth/popup-blocked' || err.code==='auth/operation-not-supported-in-this-environment' || err.code==='auth/cancelled-popup-request'){
-      setLoginGateStatus('Popup diblokir, coba cara lain…');
-      fbAuth.signInWithRedirect(provider);
+      setLoginGateStatus('Popup diblokir, mengalihkan ke halaman login Google…');
+      fbAuth.signInWithRedirect(provider).catch(function(err2){
+        console.error('signInWithRedirect juga gagal:',err2);
+        setLoginGateStatus('⚠️ Login gagal total: '+err2.message);
+        alert('Login Google gagal ('+err2.message+'). Coba buka aplikasi ini di Chrome secara langsung (bukan lewat aplikasi/browser lain), lalu coba lagi.');
+      });
       return;
     }
     setLoginGateStatus('⚠️ Login gagal: '+err.message);
+    alert('Login Google gagal: '+err.message);
   });
 }
 
@@ -6450,6 +6477,20 @@ function pullFromCloud(){
           const cloudStudents=(sDoc.exists && sDoc.data() && sDoc.data().data) || [];
           const cloudCount=cloudStudents.length;
           const localCount=students.length;
+          // BUGFIX PENTING (keluhan dialog mengganggu tiap buka app): kalau
+          // jumlah murid di HP & cloud SUDAH SAMA, itu tandanya data sudah
+          // sinkron — nggak perlu tanya-tanya lagi ke user tiap kali app
+          // dibuka. Perlakukan seperti user pilih "Batal": data lokal tetap
+          // dipakai (karena itu yang paling baru dipakai user), dan didorong
+          // ke cloud biar tetap update, TANPA muncul dialog sama sekali.
+          // Dialog HANYA muncul kalau jumlahnya benar-benar beda —
+          // itu baru situasi yang genuinely perlu keputusan user.
+          if(cloudCount===localCount){
+            setLoginGateStatus('');
+            _cloudReadyToPush=true;
+            pushToCloud();
+            return;
+          }
           const metaData=doc.data()||{};
           const cloudUpdated=metaData.updatedAtLocal ? new Date(metaData.updatedAtLocal).toLocaleString('id-ID') : 'tidak diketahui';
           let msg='Akun ini sudah punya data tersimpan di cloud.\n\n'+
