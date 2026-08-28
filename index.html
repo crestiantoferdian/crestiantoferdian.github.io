@@ -4642,6 +4642,11 @@ function renderLainnya(){
           <div class="menu-text"><div class="menu-label">Pulihkan dari File</div><div class="menu-desc">Import dari file backup .txt atau .json</div></div>
           <span class="menu-arrow">›</span>
         </div>
+        ${localStorage.getItem('rms4_emergency_backup')?`<div class="menu-item" onclick="restoreEmergencyBackup()">
+          <div class="menu-icon" style="background:#fee2e2">🆘</div>
+          <div class="menu-text"><div class="menu-label">Pulihkan Cadangan Darurat</div><div class="menu-desc">Backup otomatis sesaat sebelum data ditimpa cloud</div></div>
+          <span class="menu-arrow">›</span>
+        </div>`:''}
       </div>
       <div class="menu-card">
         <div class="menu-item" onclick="renderNotifSettings()">
@@ -4728,6 +4733,27 @@ function restoreSettingsData(obj){
   Object.entries(obj).forEach(([k,v])=>{
     if(BACKUP_SETTINGS_KEYS.includes(k)) localStorage.setItem(k,v);
   });
+}
+
+// Pulihkan cadangan darurat yang otomatis dibuat sesaat sebelum data lokal
+// ditimpa oleh data dari cloud (lihat saveEmergencyBackup di bagian sinkronisasi).
+function restoreEmergencyBackup(){
+  const raw=localStorage.getItem('rms4_emergency_backup');
+  if(!raw){ toast('Tidak ada cadangan darurat tersimpan.'); return; }
+  let bak;
+  try{ bak=JSON.parse(raw); }catch(e){ toast('Cadangan darurat rusak, tidak bisa dipulihkan.'); return; }
+  const savedAt=bak.savedAt?new Date(bak.savedAt).toLocaleString('id-ID'):'tidak diketahui';
+  if(!confirm('Pulihkan cadangan darurat dari '+savedAt+'?\n\nIni akan MENIMPA data yang sedang ada di HP ini sekarang dengan cadangan tersebut ('+((bak.students||[]).length)+' murid). Lanjutkan?')) return;
+  students=bak.students||[];
+  attendance=bak.attendance||{};
+  attNotes=bak.attNotes||{};
+  attMeta=bak.attMeta||{};
+  quickLinks=bak.quickLinks||quickLinks;
+  teacherTasks=bak.teacherTasks||teacherTasks;
+  save();
+  render();
+  renderLainnya();
+  toast('✅ Cadangan darurat berhasil dipulihkan!');
 }
 
 function exportData(){
@@ -6106,6 +6132,13 @@ let fbApp=null, fbAuth=null, fbDb=null, currentUser=null;
 let _cloudSyncTimer=null;
 let _cloudPulling=false; // true selagi lagi menarik data dari cloud, supaya save() yg terpicu saat itu tidak balik ngirim ke cloud
 let _authResolved=false; // true begitu Firebase sudah pasti tau status login (login atau tidak)
+// BUGFIX: sebelumnya push ke cloud bisa kepicu (misal dari save() yg entah
+// kenapa jalan duluan) SEBELUM proses tarik-data awal dari cloud selesai.
+// Kalau itu terjadi, cloud bisa ketimpa data yang salah TANPA user sadar.
+// _cloudReadyToPush hanya jadi true setelah proses pull awal (atau
+// keputusan user soal pull) benar-benar selesai, supaya push nggak pernah
+// balapan sama pull.
+let _cloudReadyToPush=false;
 
 // Sembunyikan gate sepenuhnya (dipakai kalau ternyata user SUDAH login,
 // atau Firebase belum/tidak di-setup) — fade halus, bukan hilang mendadak.
@@ -6153,6 +6186,7 @@ function initFirebase(){
   fbAuth.onAuthStateChanged(function(user){
     _authResolved=true;
     currentUser=user;
+    _cloudReadyToPush=false; // reset tiap kali status login berubah — harus tarik/putuskan dulu sebelum boleh kirim
     if(user){
       hideLoginGate();
       pullFromCloud();
@@ -6252,7 +6286,7 @@ function buildCloudParts(){
 }
 
 function scheduleCloudSync(){
-  if(!fbDb||!currentUser||_cloudPulling) return; // belum login / lagi proses tarik data dari cloud
+  if(!fbDb||!currentUser||_cloudPulling||!_cloudReadyToPush) return; // belum login / lagi proses tarik data dari cloud / belum selesai proses pull awal
   clearTimeout(_cloudSyncTimer);
   // Debounce 4 detik: nunggu user selesai beberapa aksi beruntun sebelum kirim,
   // supaya tidak spam write ke Firestore tiap ketukan.
@@ -6263,7 +6297,7 @@ let _cloudRetryCount=0;
 let _cloudRetryTimer=null;
 
 function pushToCloud(){
-  if(!fbDb||!currentUser) return;
+  if(!fbDb||!currentUser||!_cloudReadyToPush) return;
   const baseRef=fbDb.collection('backups').doc(currentUser.uid);
   const parts=buildCloudParts();
   const nowIso=new Date().toISOString();
@@ -6331,6 +6365,19 @@ window.addEventListener('online', function(){
   if(currentUser && fbDb){ _cloudRetryCount=0; pushToCloud(); }
 });
 
+// Simpan cadangan darurat ke localStorage (key TERPISAH dari data utama)
+// tepat sebelum ada kemungkinan data lokal ditimpa oleh data dari cloud.
+// Ini jaring pengaman kalau user salah pencet "Oke" di dialog konfirmasi —
+// data yang tertimpa masih bisa dipulihkan lewat tab Lainnya.
+function saveEmergencyBackup(){
+  try{
+    localStorage.setItem('rms4_emergency_backup', JSON.stringify({
+      savedAt:new Date().toISOString(),
+      students, attendance, attNotes, attMeta, quickLinks, teacherTasks
+    }));
+  }catch(e){ console.warn('Gagal simpan backup darurat:',e); }
+}
+
 function pullFromCloud(){
   if(!fbDb||!currentUser) return;
   setLoginGateStatus('Mengambil data dari akunmu…');
@@ -6364,6 +6411,7 @@ function pullFromCloud(){
           render();
           renderAccountSection();
           _cloudPulling=false;
+          _cloudReadyToPush=true; // proses pull awal sesi ini selesai, sekarang aman utk mulai push lagi
           toast('☁️ Data dari akunmu berhasil dimuat!');
         });
       };
@@ -6372,16 +6420,47 @@ function pullFromCloud(){
       // supaya tidak kehilangan data tanpa sadar.
       const hasLocalData=(students&&students.length>0);
       if(hasLocalData){
-        if(confirm('Akun ini sudah punya data tersimpan di cloud. Timpa data di HP ini dengan data dari cloud?\n\n(Kalau data di HP ini penting & belum ke-backup, tekan Batal dulu lalu backup manual dari tab Lainnya.)')){
-          proceedPull();
-        } else {
-          setLoginGateStatus('');
-        }
+        // BUGFIX: sebelumnya dialog konfirmasi generik, jadi user harus MENEBAK
+        // apa isi cloud sebelum memutuskan. Sekarang ambil dulu jumlah murid &
+        // waktu terakhir simpan dari cloud, supaya user lihat perbandingan
+        // NYATA sebelum menekan Oke — dan kalau ternyata cloud kosong/lebih
+        // sedikit dari lokal, kasih peringatan tegas.
+        saveEmergencyBackup(); // jaring pengaman dulu, apa pun keputusan user nanti
+        baseRef.collection('parts').doc('students').get().then(function(sDoc){
+          const cloudStudents=(sDoc.exists && sDoc.data() && sDoc.data().data) || [];
+          const cloudCount=cloudStudents.length;
+          const localCount=students.length;
+          const metaData=doc.data()||{};
+          const cloudUpdated=metaData.updatedAtLocal ? new Date(metaData.updatedAtLocal).toLocaleString('id-ID') : 'tidak diketahui';
+          let msg='Akun ini sudah punya data tersimpan di cloud.\n\n'+
+            '📱 Di HP ini sekarang: '+localCount+' murid\n'+
+            '☁️ Di cloud: '+cloudCount+' murid (terakhir disimpan '+cloudUpdated+')\n\n'+
+            'Timpa data di HP ini dengan data dari cloud?';
+          if(cloudCount<localCount){
+            msg+='\n\n⚠️ PERHATIAN: Data cloud lebih SEDIKIT dari HP ini. Kalau kamu tekan Oke, murid yang cuma ada di HP ini akan HILANG. Kalau ragu, tekan Batal — data HP ini tetap aman & sudah dicadangkan otomatis juga (bisa dipulihkan lewat tab Lainnya kalau perlu).';
+          }
+          if(confirm(msg)){
+            proceedPull();
+          } else {
+            setLoginGateStatus('');
+            _cloudReadyToPush=true;
+          }
+        }).catch(function(){
+          // Gagal ambil ringkasan cloud — tetap tampilkan konfirmasi (versi tanpa detail)
+          // supaya proses tidak macet, tapi tetap jangan diam-diam ditimpa.
+          if(confirm('Akun ini sudah punya data tersimpan di cloud, tapi ringkasannya gagal diambil. Timpa data di HP ini dengan data dari cloud?\n\n(Data HP ini sudah dicadangkan otomatis dan bisa dipulihkan lewat tab Lainnya kalau perlu.)')){
+            proceedPull();
+          } else {
+            setLoginGateStatus('');
+            _cloudReadyToPush=true;
+          }
+        });
       } else {
         proceedPull();
       }
     } else {
       // Belum ada data di cloud sama sekali → ini login pertama kali, kirim data lokal (kalau ada) ke cloud
+      _cloudReadyToPush=true;
       pushToCloud();
     }
   }).catch(function(err){
