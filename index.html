@@ -6389,9 +6389,29 @@ function pullFromCloud(){
         // Ambil semua bagian dari sub-collection 'parts' secara paralel
         Promise.all(['students','attendance','attNotes','attMeta','links','settings','misc','logo','sound'].map(function(key){
           return baseRef.collection('parts').doc(key).get()
-            .then(function(d){ return {key,data:d.exists?d.data():null}; })
-            .catch(function(){ return {key,data:null}; });
+            .then(function(d){ return {key,data:d.exists?d.data():null,error:false}; })
+            .catch(function(err){ return {key,data:null,error:true,errMsg:err&&err.message}; });
         })).then(function(results){
+          // BUGFIX PENTING: sebelumnya kegagalan BACA (error/permission-denied)
+          // diperlakukan sama persis dengan "field ini memang belum pernah ada
+          // di cloud" (d.exists===false) — keduanya jadi data:null lalu di-default
+          // jadi array/objek KOSONG dan LANGSUNG ditulis ke localStorage. Itu
+          // yang bikin data murid hilang total waktu Firestore Rules belum
+          // benar. Sekarang error BACA dibedakan dari "memang kosong", dan
+          // kalau salah satu bagian PENTING gagal DIBACA (bukan memang kosong),
+          // seluruh proses pull dibatalkan TANPA menyentuh localStorage sama
+          // sekali — data lokal 100% aman apa pun penyebab gagalnya.
+          const criticalKeys=['students','attendance','attNotes','attMeta'];
+          const erroredCritical=results.filter(function(r){ return r.error && criticalKeys.includes(r.key); });
+          if(erroredCritical.length>0){
+            _cloudPulling=false;
+            _cloudReadyToPush=true;
+            const reasons=erroredCritical.map(function(r){ return r.errMsg; }).filter(Boolean).join('; ');
+            console.error('Gagal baca bagian penting dari cloud, pull dibatalkan demi keamanan data lokal:', erroredCritical);
+            alert('⚠️ Gagal mengambil data dari cloud ('+(reasons||'kemungkinan izin akses Firestore belum benar, atau koneksi terputus')+').\n\nData di HP ini TIDAK diubah/ditimpa demi keamanan. Coba lagi nanti, atau cek Firestore Security Rules kalau masalah ini terus berulang.');
+            setLoginGateStatus('');
+            return;
+          }
           const parts={};
           results.forEach(function(r){ parts[r.key]=r.data; });
           const linksData=(parts.links&&parts.links.data)||{};
@@ -6444,16 +6464,25 @@ function pullFromCloud(){
           } else {
             setLoginGateStatus('');
             _cloudReadyToPush=true;
+            // Data lokal diputuskan sebagai yang benar (user pilih Batal) — langsung
+            // dorong ke cloud sekarang juga, jangan nunggu user sempat edit sesuatu
+            // dulu baru ke-trigger scheduleCloudSync(). Ini penting terutama abis
+            // Security Rules baru diperbaiki, supaya cloud segera terisi data asli.
+            pushToCloud();
           }
-        }).catch(function(){
-          // Gagal ambil ringkasan cloud — tetap tampilkan konfirmasi (versi tanpa detail)
-          // supaya proses tidak macet, tapi tetap jangan diam-diam ditimpa.
-          if(confirm('Akun ini sudah punya data tersimpan di cloud, tapi ringkasannya gagal diambil. Timpa data di HP ini dengan data dari cloud?\n\n(Data HP ini sudah dicadangkan otomatis dan bisa dipulihkan lewat tab Lainnya kalau perlu.)')){
-            proceedPull();
-          } else {
-            setLoginGateStatus('');
-            _cloudReadyToPush=true;
-          }
+        }).catch(function(err){
+          // BUGFIX: sebelumnya di sini tetap ditampilkan dialog konfirmasi generik
+          // yang kalau di-"Oke"-kan, proceedPull() akan mencoba baca 'parts' lagi —
+          // dan karena PENYEBAB gagalnya (misal Security Rules Firestore belum
+          // mengizinkan akses ke sub-collection 'parts') tidak hilang cuma dengan
+          // dialog baru, proceedPull() JUGA bakal gagal baca lalu menimpa data
+          // lokal dengan kekosongan. Sekarang: kalau ringkasan cloud aja sudah
+          // gagal diambil, jangan tawarkan opsi "timpa data" sama sekali —
+          // data lokal dibiarkan aman apa adanya, cukup kasih tau statusnya.
+          console.error('Gagal ambil ringkasan cloud, proses pull dibatalkan demi keamanan data lokal:',err);
+          setLoginGateStatus('⚠️ Sinkronisasi cloud sedang bermasalah (kemungkinan izin akses Firestore belum benar, atau koneksi terputus). Data di HP ini tetap dipakai apa adanya, tidak ada yang ditimpa.');
+          _cloudReadyToPush=true; // tetap izinkan push jalan normal, siapa tau cuma masalah baca bukan tulis
+          pushToCloud();
         });
       } else {
         proceedPull();
