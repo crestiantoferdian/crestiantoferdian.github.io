@@ -6231,15 +6231,44 @@ function scheduleCloudSync(){
   _cloudSyncTimer=setTimeout(pushToCloud,4000);
 }
 
+let _cloudRetryCount=0;
+let _cloudRetryTimer=null;
+
 function pushToCloud(){
   if(!fbDb||!currentUser) return;
   fbDb.collection('backups').doc(currentUser.uid).set(buildCloudBundle())
-    .then(function(){ setCloudSyncStatus('✅ Tersimpan ke cloud • '+new Date().toLocaleTimeString('id-ID')); })
+    .then(function(){
+      _cloudRetryCount=0;
+      clearTimeout(_cloudRetryTimer);
+      setCloudSyncStatus('✅ Tersimpan ke cloud • '+new Date().toLocaleTimeString('id-ID'));
+    })
     .catch(function(err){
-      console.error('Gagal sync ke cloud:',err);
-      setCloudSyncStatus('⚠️ Gagal sync ke cloud (offline?) — dicoba lagi otomatis nanti.');
+      console.error('Gagal sync ke cloud:',err.code,err.message);
+      // BUGFIX: sebelumnya cuma NULIS "dicoba lagi otomatis nanti" tapi
+      // nggak ada kode yang beneran nyoba lagi — jadi kalau gagal sekali
+      // (misal koneksi putus sesaat), pesan warning ini nyangkut selamanya
+      // di layar walau internetnya udah balik normal. Sekarang beneran
+      // di-retry otomatis dengan jeda yang makin panjang (10s → 30s → 60s),
+      // maksimal 5x percobaan.
+      _cloudRetryCount++;
+      const detail=err.code==='permission-denied'
+        ? 'akses ditolak (cek security rules Firestore)'
+        : (!navigator.onLine ? 'HP sedang offline' : (err.message||'error tidak diketahui'));
+      if(_cloudRetryCount<=5){
+        const delaySec=[10,30,60,60,60][_cloudRetryCount-1];
+        setCloudSyncStatus('⚠️ Gagal sync ('+detail+') — coba lagi dalam '+delaySec+' detik…');
+        clearTimeout(_cloudRetryTimer);
+        _cloudRetryTimer=setTimeout(pushToCloud, delaySec*1000);
+      } else {
+        setCloudSyncStatus('⚠️ Gagal sync berkali-kali ('+detail+'). Buka lagi tab Lainnya atau cek koneksi.');
+      }
     });
 }
+// Begitu HP balik online (misal abis lewat area tanpa sinyal), langsung
+// coba sync ulang saat itu juga, nggak perlu nunggu ada perubahan data baru.
+window.addEventListener('online', function(){
+  if(currentUser && fbDb){ _cloudRetryCount=0; pushToCloud(); }
+});
 
 function pullFromCloud(){
   if(!fbDb||!currentUser) return;
