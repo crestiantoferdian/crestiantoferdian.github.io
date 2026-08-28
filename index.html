@@ -5763,9 +5763,14 @@ function openSheetLink(idx){
   const old=document.getElementById('sheetPopup');
   if(old){old.remove();return;}
 
-  const now=new Date();
+  // BUGFIX: sebelumnya pakai new Date() (= tanggal HP hari ini), padahal
+  // yang seharusnya ditampilkan adalah TANGGAL SESI yang lagi dilaporkan
+  // (dateKey) — supaya kalau lapor telat (misal baru sempat isi laporan
+  // kemarin hari ini), tanggal yang muncul tetap tanggal sesi aslinya.
+  const [yy,mm,dd]=dateKey.split('-').map(Number);
+  const sessionDate=new Date(yy, mm-1, dd);
   const monthNames=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-  const dateText=`${now.getDate()} ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+  const dateText=`${sessionDate.getDate()} ${monthNames[sessionDate.getMonth()]} ${sessionDate.getFullYear()}`;
 
   const popup=document.createElement('div');
   popup.id='sheetPopup';
@@ -5782,7 +5787,7 @@ function openSheetLink(idx){
         margin-bottom:20px;color:var(--text);
         user-select:all;-webkit-user-select:all;
       ">${dateText}</div>
-      ${alreadySent?`<div style="font-size:0.78rem;color:var(--hadir);margin-bottom:12px;font-weight:600;text-align:center">✅ Sudah dikirim hari ini</div>`:''}
+      ${alreadySent?`<div style="font-size:0.78rem;color:var(--hadir);margin-bottom:12px;font-weight:600;text-align:center">✅ Sudah dikirim untuk tanggal ini</div>`:''}
       <div style="display:flex;gap:10px;margin-bottom:10px">
         <button onclick="goToSheet('${link}')" style="
           flex:1;padding:15px;border-radius:14px;border:none;
