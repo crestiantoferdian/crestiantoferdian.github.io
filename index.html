@@ -29,11 +29,13 @@
   3. Authentication → Settings → Authorized domains → tambahkan domain GitHub Pages-mu
      (crestiantoferdian.github.io) supaya redirect login tidak ditolak.
   4. Firestore Database → Create database → mode production, region terdekat (asia-southeast).
-  5. Firestore → Rules, ganti isinya jadi (supaya user cuma bisa baca/tulis datanya sendiri):
+  5. Firestore → Rules, ganti isinya jadi (supaya user cuma bisa baca/tulis datanya sendiri) —
+     PENTING: per update terbaru, data dipecah jadi sub-collection 'parts', jadi rule-nya
+     WAJIB pakai {document=**} biar sub-collection ikut ke-cover, bukan cuma dokumen /backups/{uid} saja:
        rules_version = '2';
        service cloud.firestore {
          match /databases/{database}/documents {
-           match /backups/{uid} {
+           match /backups/{uid}/{document=**} {
              allow read, write: if request.auth != null && request.auth.uid == uid;
            }
          }
@@ -6212,14 +6214,40 @@ function logoutFirebase(){
 
 // Bundel data yang sama persis dengan yang dipakai fitur "Backup Manual" (exportData),
 // supaya cloud sync & backup manual selalu konsisten formatnya.
-function buildCloudBundle(){
+// BUGFIX: sebelumnya SEMUA data (murid, absensi, catatan, logo, suara custom)
+// dijejalkan jadi 1 dokumen Firestore — tapi Firestore punya batas KERAS
+// 1 MB per dokumen. Setelah berbulan-bulan dipakai (histori absensi + catatan
+// progress terus bertambah, ditambah logo/suara custom yang disimpan sebagai
+// teks base64 panjang), totalnya bisa gampang lewat 1 MB dan bikin SEMUA
+// sync gagal — padahal cuma 1-2 bagian yang kegedean.
+//
+// Sekarang dipecah jadi beberapa dokumen terpisah, masing-masing dapat jatah
+// 1 MB SENDIRI, dan ditulis SATU-SATU (bukan 1 paket) — supaya kalau logo
+// atau suara custom kebetulan kegedean, itu SAJA yang gagal, sementara data
+// murid/absensi/progress yang jauh lebih penting tetap berhasil tersimpan.
+function buildCloudParts(){
+  const settings=collectSettingsData();
+  // Pisahkan 2 field yang berisiko besar (base64 gambar/suara) dari
+  // pengaturan kecil lainnya (nama sekolah, warna tema, dll).
+  const logoImg=settings['rms_school_logo_img']; delete settings['rms_school_logo_img'];
+  const customMp3=settings['llk_notif_custom_mp3']; delete settings['llk_notif_custom_mp3'];
+  // BUGFIX: sebelumnya 'core' (students+attendance+attNotes+attMeta+quickLinks+
+  // teacherTasks) digabung jadi SATU dokumen — begitu histori absensi menumpuk
+  // (51 murid + berbulan-bulan data), totalnya kelewat batas 1MB Firestore per
+  // dokumen dan sync GAGAL TOTAL. Sekarang dipecah jadi dokumen sendiri-sendiri
+  // per kategori data, supaya masing-masing jauh di bawah batas — dan kalaupun
+  // salah satu kategori (misal 'attendance') suatu saat membesar lagi, kategori
+  // lain (students, dll) tetap aman tersimpan.
   return {
-    students,attendance,attNotes,attMeta,quickLinks,teacherTasks,
-    misc:collectPrefixedData(),
-    settings:collectSettingsData(),
-    updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
-    updatedAtLocal:new Date().toISOString(),
-    version:'6'
+    students:{ data:students },
+    attendance:{ data:attendance },
+    attNotes:{ data:attNotes },
+    attMeta:{ data:attMeta },
+    links:{ data:{ quickLinks, teacherTasks } },
+    settings:{ data:settings },
+    misc:{ data:collectPrefixedData() },
+    logo:logoImg!==undefined?{ data:logoImg }:null,
+    sound:customMp3!==undefined?{ data:customMp3 }:null
   };
 }
 
@@ -6236,33 +6264,66 @@ let _cloudRetryTimer=null;
 
 function pushToCloud(){
   if(!fbDb||!currentUser) return;
-  fbDb.collection('backups').doc(currentUser.uid).set(buildCloudBundle())
-    .then(function(){
+  const baseRef=fbDb.collection('backups').doc(currentUser.uid);
+  const parts=buildCloudParts();
+  const nowIso=new Date().toISOString();
+
+  // Tulis dokumen "penanda" utama (kecil, cuma metadata) + tiap bagian data
+  // sebagai dokumen TERPISAH di sub-collection 'parts' — masing-masing
+  // ditulis independen (Promise.allSettled), bukan digabung jadi 1 batch,
+  // supaya kegagalan di 1 bagian (misal 'sound' kegedean) TIDAK ikut
+  // menggagalkan bagian lain yang lebih penting (misal 'core').
+  const writes=[
+    baseRef.set({ updatedAt:firebase.firestore.FieldValue.serverTimestamp(), updatedAtLocal:nowIso, version:'7' })
+      .then(()=>({key:'meta',ok:true})).catch(err=>({key:'meta',ok:false,err}))
+  ];
+  Object.keys(parts).forEach(function(key){
+    if(parts[key]===null) return; // field nggak ada (misal belum pernah upload logo/suara custom) — skip aja
+    writes.push(
+      baseRef.collection('parts').doc(key).set(parts[key])
+        .then(()=>({key,ok:true}))
+        .catch(err=>({key,ok:false,err}))
+    );
+  });
+
+  Promise.all(writes).then(function(results){
+    const failed=results.filter(r=>!r.ok);
+    const criticalKeys=['meta','students','attendance','attNotes','attMeta','links'];
+    const failedCore=failed.find(r=>criticalKeys.includes(r.key));
+    if(failed.length===0){
       _cloudRetryCount=0;
       clearTimeout(_cloudRetryTimer);
       setCloudSyncStatus('✅ Tersimpan ke cloud • '+new Date().toLocaleTimeString('id-ID'));
-    })
-    .catch(function(err){
-      console.error('Gagal sync ke cloud:',err.code,err.message);
-      // BUGFIX: sebelumnya cuma NULIS "dicoba lagi otomatis nanti" tapi
-      // nggak ada kode yang beneran nyoba lagi — jadi kalau gagal sekali
-      // (misal koneksi putus sesaat), pesan warning ini nyangkut selamanya
-      // di layar walau internetnya udah balik normal. Sekarang beneran
-      // di-retry otomatis dengan jeda yang makin panjang (10s → 30s → 60s),
-      // maksimal 5x percobaan.
+    } else if(!failedCore){
+      // Data PENTING (murid/absensi/progress) berhasil, cuma bagian
+      // pelengkap (logo/suara custom/dll) yang gagal — nggak perlu retry
+      // terus-terusan, cukup kasih tau apa adanya.
+      _cloudRetryCount=0;
+      clearTimeout(_cloudRetryTimer);
+      const names={settings:'pengaturan',misc:'data pelengkap',logo:'logo custom',sound:'suara notifikasi custom'};
+      const list=failed.map(f=>names[f.key]||f.key).join(', ');
+      console.warn('Bagian gagal sync (non-kritis):', failed);
+      setCloudSyncStatus('✅ Data murid & absensi tersimpan. ⚠️ '+list+' gagal disimpan (kemungkinan ukurannya kegedean untuk cloud).');
+    } else {
+      // Data PENTING gagal — ini yang perlu di-retry serius.
+      console.error('Gagal sync bagian penting:', failedCore.err);
       _cloudRetryCount++;
+      const err=failedCore.err||{};
       const detail=err.code==='permission-denied'
         ? 'akses ditolak (cek security rules Firestore)'
+        : err.code==='invalid-argument'
+        ? 'ukuran data terlalu besar untuk 1 dokumen'
         : (!navigator.onLine ? 'HP sedang offline' : (err.message||'error tidak diketahui'));
       if(_cloudRetryCount<=5){
         const delaySec=[10,30,60,60,60][_cloudRetryCount-1];
-        setCloudSyncStatus('⚠️ Gagal sync ('+detail+') — coba lagi dalam '+delaySec+' detik…');
+        setCloudSyncStatus('⚠️ Gagal sync data utama ('+detail+') — coba lagi dalam '+delaySec+' detik…');
         clearTimeout(_cloudRetryTimer);
         _cloudRetryTimer=setTimeout(pushToCloud, delaySec*1000);
       } else {
         setCloudSyncStatus('⚠️ Gagal sync berkali-kali ('+detail+'). Buka lagi tab Lainnya atau cek koneksi.');
       }
-    });
+    }
+  });
 }
 // Begitu HP balik online (misal abis lewat area tanpa sinyal), langsung
 // coba sync ulang saat itu juga, nggak perlu nunggu ada perubahan data baru.
@@ -6273,25 +6334,38 @@ window.addEventListener('online', function(){
 function pullFromCloud(){
   if(!fbDb||!currentUser) return;
   setLoginGateStatus('Mengambil data dari akunmu…');
-  fbDb.collection('backups').doc(currentUser.uid).get().then(function(doc){
+  const baseRef=fbDb.collection('backups').doc(currentUser.uid);
+  baseRef.get().then(function(doc){
     if(doc.exists){
       const proceedPull=function(){
         _cloudPulling=true;
-        const data=doc.data();
-        localStorage.setItem('rms4_s',JSON.stringify(data.students||[]));
-        localStorage.setItem('rms4_a',JSON.stringify(data.attendance||{}));
-        localStorage.setItem('rms4_n',JSON.stringify(data.attNotes||{}));
-        localStorage.setItem('rms4_meta',JSON.stringify(data.attMeta||{}));
-        localStorage.setItem('rms4_links',JSON.stringify(data.quickLinks||[]));
-        localStorage.setItem('rms4_tasks',JSON.stringify(data.teacherTasks||[]));
-        restorePrefixedData(data.misc||{});
-        restoreSettingsData(data.settings||{});
-        loadStorage();
-        applySettings();
-        render();
-        renderAccountSection();
-        _cloudPulling=false;
-        toast('☁️ Data dari akunmu berhasil dimuat!');
+        // Ambil semua bagian dari sub-collection 'parts' secara paralel
+        Promise.all(['students','attendance','attNotes','attMeta','links','settings','misc','logo','sound'].map(function(key){
+          return baseRef.collection('parts').doc(key).get()
+            .then(function(d){ return {key,data:d.exists?d.data():null}; })
+            .catch(function(){ return {key,data:null}; });
+        })).then(function(results){
+          const parts={};
+          results.forEach(function(r){ parts[r.key]=r.data; });
+          const linksData=(parts.links&&parts.links.data)||{};
+          localStorage.setItem('rms4_s',JSON.stringify((parts.students&&parts.students.data)||[]));
+          localStorage.setItem('rms4_a',JSON.stringify((parts.attendance&&parts.attendance.data)||{}));
+          localStorage.setItem('rms4_n',JSON.stringify((parts.attNotes&&parts.attNotes.data)||{}));
+          localStorage.setItem('rms4_meta',JSON.stringify((parts.attMeta&&parts.attMeta.data)||{}));
+          localStorage.setItem('rms4_links',JSON.stringify(linksData.quickLinks||[]));
+          localStorage.setItem('rms4_tasks',JSON.stringify(linksData.teacherTasks||[]));
+          restorePrefixedData((parts.misc&&parts.misc.data)||{});
+          const settingsData=(parts.settings&&parts.settings.data)||{};
+          if(parts.logo&&parts.logo.data!==undefined) settingsData['rms_school_logo_img']=parts.logo.data;
+          if(parts.sound&&parts.sound.data!==undefined) settingsData['llk_notif_custom_mp3']=parts.sound.data;
+          restoreSettingsData(settingsData);
+          loadStorage();
+          applySettings();
+          render();
+          renderAccountSection();
+          _cloudPulling=false;
+          toast('☁️ Data dari akunmu berhasil dimuat!');
+        });
       };
       // Kalau HP ini sudah punya data lokal duluan (misal sempat dipakai offline
       // sebelum login), jangan langsung ditimpa diam-diam — konfirmasi dulu ke user
