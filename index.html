@@ -6272,6 +6272,15 @@ function loginWithGoogle(){
   }
   setLoginGateStatus('Membuka login Google…');
   const provider=new firebase.auth.GoogleAuthProvider();
+  // Set persistence LOCAL secara eksplisit (walau ini sebenarnya sudah default
+  // Firebase) — supaya sesi login disimpan sepersisten mungkin di penyimpanan
+  // browser/TWA, bertahan lintas restart app. Ini nggak bisa 100% mencegah
+  // Android (terutama MIUI/HyperOS) menghapus paksa data app demi hemat
+  // baterai/memori — kalau itu terjadi, sesi tetap akan ke-reset dan minta
+  // login ulang, di luar kendali kode ini.
+  fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(e){
+    console.warn('Gagal set persistence (lanjut pakai default):', e);
+  });
   // Coba signInWithPopup dulu — nggak butuh loncat keluar halaman sama sekali,
   // jadi nggak kena masalah "third-party storage blocked" yang bikin
   // signInWithRedirect gagal diam-diam di banyak browser mobile modern.
