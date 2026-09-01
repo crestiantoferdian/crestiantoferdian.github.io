@@ -2136,15 +2136,14 @@ function countSessionsForBilling(name){
   return total-lastPaid;
 }
 
-function countSessionsThisMonth(name){
-  // Khusus mode "Ingatkan Setiap Akhir Bulan": hitung sesi HANYA di bulan
-  // kalender berjalan (bulan lalu yang sudah lewat/sudah dibayar tidak ikut
-  // terhitung), beda dengan countSessionsForBilling yang akumulatif sejak
-  // lastPaidAt (dipakai untuk mode per-siklus sesi).
-  const monthPrefix=getMonthKey();
+function countSessionsThisMonth(name, monthKey){
+  // Khusus mode "Ingatkan Setiap Akhir Bulan": hitung sesi HANYA di 1 bulan
+  // kalender tertentu. Kalau monthKey nggak diisi, defaultnya bulan berjalan
+  // (dipakai untuk statistik umum "sesi bulan ini" yang bukan soal tagihan).
+  monthKey = monthKey || getMonthKey();
   let count=0;
   Object.entries(attendance).forEach(([dk,dayAtt])=>{
-    if(!dk.startsWith(monthPrefix)) return;
+    if(!dk.startsWith(monthKey)) return;
     if(dayAtt[name]==='hadir'||dayAtt[name]==='alpa') count++;
     Object.keys(dayAtt).forEach(k=>{
       if(k.startsWith(name+'_extra_')&&(dayAtt[k]==='hadir'||dayAtt[k]==='alpa')) count++;
@@ -2163,16 +2162,45 @@ function isEndOfMonthWindow(){
   const daysInM=new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
   return d.getDate()>=daysInM-2; // 3 hari terakhir bulan berjalan
 }
+// BUGFIX: menentukan "bulan mana yang lagi ditagih" ke siswa. Sebelumnya
+// tagihan cuma dicek terhadap BULAN BERJALAN saja — begitu tanggal 1 bulan
+// baru tiba, "bulan berjalan" ikut berganti, dan tagihan yang belum dibayar
+// dari bulan sebelumnya jadi hilang dari tampilan (dianggap seolah lunas),
+// padahal siswa belum bayar sama sekali. Sekarang: begitu window akhir bulan
+// (3 hari terakhir) sudah lewat, bulan yang jadi acuan tagihan otomatis
+// pindah ke bulan yang baru saja selesai, dan TETAP di situ (nggak ikut maju
+// lagi ke bulan berikutnya) sampai memang ditandai lunas — jadi tagihan lama
+// akan terus muncul tanpa batas waktu sampai dipencet manual "Sudah Bayar".
+function getBillingMonthKey(){
+  const d=new Date();
+  const daysInM=new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  if(d.getDate()>=daysInM-2){
+    // Masih dalam window 3 hari terakhir bulan ini → yang ditagih = bulan ini
+    return getMonthKey(d);
+  }
+  // Sudah lewat window akhir bulan → bulan yang ditagih = bulan sebelumnya
+  // (yang sudah pasti selesai dan seharusnya sudah dibayar)
+  return getMonthKey(new Date(d.getFullYear(), d.getMonth()-1, 1));
+}
 function computeIsDue(s){
-  const total=paymentMode==='monthly'?countSessionsThisMonth(s.name):countSessionsForBilling(s.name);
+  let billingMonth=null;
+  let total;
+  if(paymentMode==='monthly'){
+    billingMonth=getBillingMonthKey();
+    total=countSessionsThisMonth(s.name, billingMonth);
+  }else{
+    total=countSessionsForBilling(s.name);
+  }
   const cycle=s.payCycle||4;
   let isDue=false;
   if(paymentMode==='session'){
     isDue=total>0&&total%cycle===0;
   }else if(paymentMode==='monthly'){
-    isDue=isEndOfMonthWindow()&&s.monthlyPaidThru!==getMonthKey();
+    // isDue TETAP true selama monthlyPaidThru belum menyamai bulan yang
+    // sedang ditagih — nggak peduli sekarang tanggal berapa, bulan apa.
+    isDue=s.monthlyPaidThru!==billingMonth;
   }
-  return {total,cycle,isDue};
+  return {total,cycle,isDue,billingMonth};
 }
 function setPaymentMode(mode){
   paymentMode=mode;
@@ -2247,9 +2275,16 @@ function sendPaymentWA(name){
   const tpl=getPaymentTemplate(mode);
   let vars;
   if(mode==='monthly'){
-    const info=getMonthlySessionInfo(name);
+    // BUGFIX: sebelumnya selalu pakai data bulan berjalan (sekarang), padahal
+    // kalau lagi nagih tagihan yang ke-skip dari bulan lalu, pesannya harus
+    // nyebut bulan & tanggal sesi yang bener (bulan yang ditagih), bukan
+    // bulan saat pesan dikirim.
+    const billingMonth=getBillingMonthKey();
+    const [by,bm]=billingMonth.split('-').map(Number);
+    const billingDate=new Date(by, bm-1, 1);
+    const info=getMonthlySessionInfo(name, billingMonth);
     const rate=s.rate||40000;
-    vars={nama:name,sesi:info.count,tanggal:info.tanggalStr,bulan:getMonthNameID(),siklus:s.payCycle||4,salam:getGreetingID(),biaya:formatRupiah(info.count*rate)};
+    vars={nama:name,sesi:info.count,tanggal:info.tanggalStr,bulan:getMonthNameID(billingDate),siklus:s.payCycle||4,salam:getGreetingID(),biaya:formatRupiah(info.count*rate)};
   }else{
     const sesiBelumBayar=countSessionsForBilling(name); // sesi sejak terakhir bayar — ini yang ditagih
     const rate=s.rate||40000;
@@ -2677,7 +2712,13 @@ function confirmMarkPaid(btn, studentName){
   const idx = students.findIndex(x => x.name === studentName);
   if(idx !== -1){
     if(paymentMode==='monthly'){
-      students[idx].monthlyPaidThru = getMonthKey();
+      // BUGFIX: sebelumnya selalu nyimpen getMonthKey() (= bulan HP saat
+      // tombol dipencet). Kalau tombol dipencet SETELAH ganti bulan (misal
+      // baru sempat nagih tanggal 3 bulan berikutnya), yang kesimpen malah
+      // bulan salah (bulan berjalan, bukan bulan yang ditagih) — akibatnya
+      // tagihan nggak beneran hilang. Sekarang nyimpen bulan yang MEMANG
+      // sedang ditagih (getBillingMonthKey()), konsisten dengan computeIsDue().
+      students[idx].monthlyPaidThru = getBillingMonthKey();
     }else{
       const totalNow = countSessions(studentName);
       students[idx].lastPaidAt = totalNow;
