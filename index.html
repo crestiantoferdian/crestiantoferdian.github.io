@@ -873,6 +873,22 @@ body{
   </div>
 </div>
 
+<!-- Modal sederhana 1-field, dipakai gantian untuk: tambah mata pelajaran, tambah topik, edit topik -->
+<div class="overlay" id="curriculumOverlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="currModalTitle">📚 Mata Pelajaran Baru</div>
+    <div class="mfield">
+      <label id="currModalLabel">Nama</label>
+      <input type="text" id="f_curr_text" placeholder="" maxlength="60" onkeydown="if(event.key==='Enter')saveCurrModal()"/>
+    </div>
+    <div class="mactions">
+      <button class="mbtn mbtn-cancel" onclick="closeCurrModal()">Batal</button>
+      <button class="mbtn mbtn-save" onclick="saveCurrModal()">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
 <!-- NOTIF BANNER -->
 <div class="notif-banner" id="notifBanner">
   <span style="font-size:1.2rem">🔔</span>
@@ -950,6 +966,9 @@ let calYear=new Date().getFullYear();
 let calMonth=new Date().getMonth();
 let selectedCalDate=null;
 let quickLinks=[]; // {id,name,url} — tombol tautan kustom di tab Materi
+// {[namaMataPelajaran]: [{id,label}]} — daftar topik per mata pelajaran, dikelola
+// dari tab Materi > Kurikulum. Progress ceklis per siswa disimpan di s.curriculumChecked.
+let curriculumTemplates={};
 let kirimSelectedDate=null; // dateKey (YYYY-MM-DD) yang lagi dilihat di tab Kirim, null = pakai hari ini
 function dayNameFromDate(dateKey){
   const d=new Date(dateKey+'T00:00:00');
@@ -1006,6 +1025,7 @@ function save(){
   localStorage.setItem('rms4_meta',JSON.stringify(attMeta));
   localStorage.setItem('rms4_links',JSON.stringify(quickLinks));
   localStorage.setItem('rms4_tasks',JSON.stringify(teacherTasks));
+  localStorage.setItem('rms4_curriculum',JSON.stringify(curriculumTemplates));
   // Tiap kali data lokal berubah, jadwalkan sync ke cloud (lihat blok FIREBASE di akhir file)
   if(typeof scheduleCloudSync==='function') scheduleCloudSync();
 }
@@ -1016,6 +1036,7 @@ function loadStorage(){
   try{attMeta=JSON.parse(localStorage.getItem('rms4_meta')||'{}');}catch(e){attMeta={};}
   try{quickLinks=JSON.parse(localStorage.getItem('rms4_links')||'[]');}catch(e){quickLinks=[];}
   try{teacherTasks=JSON.parse(localStorage.getItem('rms4_tasks')||'[]');}catch(e){teacherTasks=[];}
+  try{curriculumTemplates=JSON.parse(localStorage.getItem('rms4_curriculum')||'{}');}catch(e){curriculumTemplates={};}
   // Migrasi data lama: rescueDay/rescueUntil → reschedules array
   let migrated=false;
   students.forEach(function(s){
@@ -1604,6 +1625,7 @@ window.addEventListener('popstate',function(e){
   const nov=document.getElementById('noteOverlay');
   const rov=document.getElementById('rescheduleOverlay');
   const lov=document.getElementById('linkOverlay');
+  const curov=document.getElementById('curriculumOverlay');
   const pov=document.getElementById('photoLightboxOverlay');
   const gcov=document.getElementById('genericConfirmOverlay');
   if(gcov&&gcov.classList.contains('open')){
@@ -1624,6 +1646,9 @@ window.addEventListener('popstate',function(e){
   if(lov&&lov.classList.contains('open')){
     closeLinkModal(); history.pushState({tab:currentTab,view:'main'},''); return;
   }
+  if(curov&&curov.classList.contains('open')){
+    closeCurrModal(); history.pushState({tab:currentTab,view:'main'},''); return;
+  }
 
   // 2. Kembali dari halaman detail murid (track)
   if(viewingStudent){
@@ -1641,7 +1666,15 @@ window.addEventListener('popstate',function(e){
     history.pushState({tab:'links',view:'main'},''); return;
   }
 
-  // 2c2. Kembali dari halaman Materi/PR Guru ke landing tab Materi
+  // 2c1. Kembali dari halaman topik 1 mata pelajaran ke daftar mata pelajaran
+  if(viewingCurriculumSubject){
+    viewingCurriculumSubject=null;
+    currentTab='links';
+    renderLinks();
+    history.pushState({tab:'links',view:'main'},''); return;
+  }
+
+  // 2c2. Kembali dari halaman Materi/PR Guru/Kurikulum ke landing tab Materi
   if(materiSection){
     materiSection=null;
     currentTab='links';
@@ -3234,7 +3267,31 @@ function renderStudentProfile(name, period){
     +'</div>'
   +'</div>';
 
+  // Curriculum card — cuma muncul kalau ada template kurikulum yang cocok
+  // dengan mata pelajaran (s.instrument) siswa ini.
   const studentIdx = students.findIndex(x=>x.name===name);
+  const currKey = findCurriculumSubjectKey(s.instrument);
+  const currList = currKey ? (curriculumTemplates[currKey]||[]) : [];
+  const curriculumCard = (!currList.length) ? '' : (function(){
+    const checked = s.curriculumChecked||{};
+    const doneCount = currList.filter(t=>checked[t.id]).length;
+    const rows = currList.map(t=>{
+      const isChecked = !!checked[t.id];
+      const safeId = t.id.replace(/'/g,"\\'");
+      return '<div onclick="toggleCurriculumItem('+studentIdx+',\''+safeId+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 2px;cursor:pointer;border-bottom:1px solid var(--border)">'
+        +'<span style="width:22px;height:22px;border-radius:7px;border:2px solid '+(isChecked?'var(--hadir)':'var(--border)')+';background:'+(isChecked?'var(--hadir)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:0.75rem">'+(isChecked?'✓':'')+'</span>'
+        +'<span style="font-size:0.85rem;color:'+(isChecked?'var(--muted)':'var(--text)')+';text-decoration:'+(isChecked?'line-through':'none')+';flex:1">'+escapeHtml(t.label)+'</span>'
+      +'</div>';
+    }).join('');
+    return '<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:15px 16px 4px;margin-bottom:12px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+        +'<div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.09em">📚 Kurikulum · '+escapeHtml(currKey)+'</div>'
+        +'<div style="font-size:0.72rem;font-weight:700;color:var(--hadir)">'+doneCount+'/'+currList.length+'</div>'
+      +'</div>'
+      +rows
+    +'</div>';
+  })();
+
   document.getElementById('mainContent').innerHTML =
     '<div class="page-title-area">'
       +'<div style="display:flex;align-items:center;justify-content:space-between">'
@@ -3270,6 +3327,8 @@ function renderStudentProfile(name, period){
       +'</div>'
       // Billing card
       +billingCard
+      // Curriculum card
+      +curriculumCard
       // History
       +'<div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Riwayat Pertemuan</div>'
       +entriesHtml
@@ -4268,7 +4327,8 @@ function fallbackKirimCopy(txt,dk){
 
 // ── TAB LINK (folder + tombol tautan kustom) ─────────
 let viewingLinkFolder=null; // id folder yang sedang dibuka, null = daftar utama
-let materiSection=null; // null = landing (2 kotak), 'materi' = daftar folder/tautan, 'pr' = daftar PR Guru
+let materiSection=null; // null = landing (3 kotak), 'materi' = daftar folder/tautan, 'pr' = daftar PR Guru, 'kurikulum' = daftar mata pelajaran
+let viewingCurriculumSubject=null; // nama mata pelajaran yang lagi dibuka topik-topiknya
 const LINK_ICON_CHOICES=['📁','🔗','🎹','🎸','🎻','🥁','🎤','🎵','📚','📝','🎬','📷','💰','🌐','⭐','📌'];
 let selectedLinkIcon='📁';
 
@@ -4296,12 +4356,15 @@ function linkIconHtml(item, fallbackEmoji){
 
 function renderLinks(){
   if(viewingLinkFolder){ renderLinkFolderView(viewingLinkFolder); return; }
+  if(viewingCurriculumSubject){ renderCurriculumSubjectPage(viewingCurriculumSubject); return; }
   if(materiSection==='pr'){ renderMateriPrPage(); return; }
   if(materiSection==='materi'){ renderMateriListPage(); return; }
+  if(materiSection==='kurikulum'){ renderMateriKurikulumPage(); return; }
 
-  // ── LANDING: 2 kotak besar (Materi & PR Guru) ──
+  // ── LANDING: 3 kotak besar (Materi, PR Guru & Kurikulum) ──
   const totalMateri=quickLinks.length;
   const pendingPr=teacherTasks.filter(t=>!t.done).length;
+  const totalSubjects=Object.keys(curriculumTemplates).length;
   document.getElementById('mainContent').innerHTML=`
     <div class="page-title-area">
       <div class="page-title" style="margin:0">Materi</div>
@@ -4319,6 +4382,11 @@ function renderLinks(){
           <span style="font-size:2.4rem">📝</span>
           <span style="font-weight:800;font-size:0.95rem;color:var(--text)">PR Guru</span>
           <span style="font-size:0.72rem;color:var(--muted)">${pendingPr?pendingPr+' belum selesai':'Semua beres ✓'}</span>
+        </button>
+        <button onclick="openMateriSection('kurikulum')" style="position:relative;aspect-ratio:1;background:var(--card);border:1.5px solid var(--border);border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:var(--shadow-sm)">
+          <span style="font-size:2.4rem">📚</span>
+          <span style="font-weight:800;font-size:0.95rem;color:var(--text)">Kurikulum</span>
+          <span style="font-size:0.72rem;color:var(--muted)">${totalSubjects?totalSubjects+' mata pelajaran':'Belum ada'}</span>
         </button>
       </div>
     </div>`;
@@ -4400,6 +4468,174 @@ function renderMateriListPage(){
       ${topLinks.length?`<div style="font-size:0.68rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.06em;margin:${folders.length?'18':'0'}px 2px 8px">🔗 Tautan Langsung (${topLinks.length})</div>${linkItems}`:''}
       `}
     </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// KURIKULUM — daftar topik/pelajaran per mata pelajaran, dengan ceklis
+// progress per siswa. Templatenya global (dikelola di sini), progress
+// ceklisnya per-siswa (disimpan di s.curriculumChecked, ikut ke-backup
+// otomatis bersama data siswa lainnya).
+// ══════════════════════════════════════════════════════════════════
+function findCurriculumSubjectKey(instrument){
+  if(!instrument) return null;
+  const target=instrument.trim().toLowerCase();
+  return Object.keys(curriculumTemplates).find(k=>k.trim().toLowerCase()===target)||null;
+}
+
+function renderMateriKurikulumPage(){
+  viewingCurriculumSubject=null;
+  const subjects=Object.keys(curriculumTemplates).sort((a,b)=>a.localeCompare(b));
+  const items=subjects.map(sub=>{
+    const count=(curriculumTemplates[sub]||[]).length;
+    const safe=sub.replace(/'/g,"\\'");
+    return `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-xs)">
+      <button onclick="renderCurriculumSubjectPage('${safe}')" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:none;text-align:left;cursor:pointer;padding:0">
+        <span style="font-size:1.3rem;flex-shrink:0">📚</span>
+        <span style="min-width:0">
+          <div style="font-weight:700;font-size:0.95rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(sub)}</div>
+          <div style="font-size:0.72rem;color:var(--muted)">${count} topik</div>
+        </span>
+      </button>
+      <button onclick="deleteCurriculumSubject('${safe}')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--card);font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center">🗑️</button>
+    </div>`;
+  }).join('');
+
+  document.getElementById('mainContent').innerHTML=
+    `<div class="page-title-area">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="closeMateriSection()" style="flex-shrink:0;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-xs)">←</button>
+        <div class="page-title" style="margin:0">📚 Kurikulum</div>
+      </div>
+      <div class="page-sub">Kelola topik per mata pelajaran. Muncul otomatis di halaman Track siswa sesuai kolom "Mata Pelajaran"-nya.</div>
+    </div>
+    <div style="padding:0 20px 24px">
+      <button onclick="openAddCurriculumSubjectModal()" style="width:100%;padding:14px;background:var(--red);color:#fff;border:none;border-radius:14px;font-family:sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.12);margin-bottom:18px">+ Tambah Mata Pelajaran</button>
+      ${subjects.length?items:'<div class="empty"><div class="empty-icon">📚</div><div class="empty-t">Belum ada kurikulum</div><div class="empty-d">Nama mata pelajaran harus persis sama dengan isian kolom "Mata Pelajaran" di data siswa (misal: Piano, Vokal, Matematika).</div></div>'}
+    </div>`;
+}
+
+function renderCurriculumSubjectPage(subject){
+  viewingCurriculumSubject=subject;
+  const list=curriculumTemplates[subject]||[];
+  const safe=subject.replace(/'/g,"\\'");
+  const items=list.map(t=>{
+    const safeId=t.id.replace(/'/g,"\\'");
+    return `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-xs)">
+      <span style="flex:1;min-width:0;font-weight:600;font-size:0.9rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.label)}</span>
+      <button onclick="openEditCurriculumTopicModal('${safe}','${safeId}')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--card);font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center">✏️</button>
+      <button onclick="deleteCurriculumTopic('${safe}','${safeId}')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--card);font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center">🗑️</button>
+    </div>`;
+  }).join('');
+
+  document.getElementById('mainContent').innerHTML=
+    `<div class="page-title-area">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="viewingCurriculumSubject=null;renderMateriKurikulumPage()" style="flex-shrink:0;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-xs)">←</button>
+        <div class="page-title" style="margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📚 ${escapeHtml(subject)}</div>
+      </div>
+      <div class="page-sub">${list.length} topik</div>
+    </div>
+    <div style="padding:0 20px 24px">
+      <button onclick="openAddCurriculumTopicModal('${safe}')" style="width:100%;padding:14px;background:var(--red);color:#fff;border:none;border-radius:14px;font-family:sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.12);margin-bottom:18px">+ Tambah Topik</button>
+      ${list.length?items:'<div class="empty"><div class="empty-icon">📝</div><div class="empty-t">Belum ada topik</div><div class="empty-d">Tambah topik-topik yang mau ditandai selesai, misal: Perkalian, Pengurangan, dst.</div></div>'}
+    </div>`;
+}
+
+function deleteCurriculumSubject(subject){
+  if(!confirm('Hapus mata pelajaran "'+subject+'" beserta semua topiknya?\n\nCeklis progress siswa untuk mata pelajaran ini juga akan hilang.')) return;
+  delete curriculumTemplates[subject];
+  save();
+  renderMateriKurikulumPage();
+  toast('🗑️ Mata pelajaran dihapus');
+}
+
+function deleteCurriculumTopic(subject, topicId){
+  const list=curriculumTemplates[subject]||[];
+  const idx=list.findIndex(x=>x.id===topicId);
+  if(idx<0) return;
+  if(!confirm('Hapus topik "'+list[idx].label+'"?')) return;
+  list.splice(idx,1);
+  save();
+  renderCurriculumSubjectPage(subject);
+  toast('🗑️ Topik dihapus');
+}
+
+// Modal sederhana (1 field teks) dipakai bergantian untuk 3 keperluan:
+// tambah mata pelajaran, tambah topik, edit topik.
+let currModalMode=null; // 'subject' | 'addTopic' | 'editTopic'
+let currModalSubject=null;
+let currModalTopicId=null;
+
+function openAddCurriculumSubjectModal(){
+  currModalMode='subject'; currModalSubject=null; currModalTopicId=null;
+  document.getElementById('currModalTitle').textContent='📚 Mata Pelajaran Baru';
+  document.getElementById('currModalLabel').textContent='Nama Mata Pelajaran';
+  document.getElementById('f_curr_text').value='';
+  document.getElementById('f_curr_text').placeholder='cth: Piano, Vokal, Matematika';
+  history.pushState({tab:currentTab, view:'modal'},'');
+  document.getElementById('curriculumOverlay').classList.add('open');
+}
+function openAddCurriculumTopicModal(subject){
+  currModalMode='addTopic'; currModalSubject=subject; currModalTopicId=null;
+  document.getElementById('currModalTitle').textContent='+ Topik Baru';
+  document.getElementById('currModalLabel').textContent='Nama Topik';
+  document.getElementById('f_curr_text').value='';
+  document.getElementById('f_curr_text').placeholder='cth: Perkalian, Bilangan Desimal';
+  history.pushState({tab:currentTab, view:'modal'},'');
+  document.getElementById('curriculumOverlay').classList.add('open');
+}
+function openEditCurriculumTopicModal(subject, topicId){
+  const t=(curriculumTemplates[subject]||[]).find(x=>x.id===topicId);
+  if(!t) return;
+  currModalMode='editTopic'; currModalSubject=subject; currModalTopicId=topicId;
+  document.getElementById('currModalTitle').textContent='✏️ Edit Topik';
+  document.getElementById('currModalLabel').textContent='Nama Topik';
+  document.getElementById('f_curr_text').value=t.label;
+  history.pushState({tab:currentTab, view:'modal'},'');
+  document.getElementById('curriculumOverlay').classList.add('open');
+}
+function closeCurrModal(){
+  document.getElementById('curriculumOverlay').classList.remove('open');
+}
+function saveCurrModal(){
+  const val=document.getElementById('f_curr_text').value.trim();
+  if(!val){ toast('Nama wajib diisi'); return; }
+  if(currModalMode==='subject'){
+    const exists=Object.keys(curriculumTemplates).find(k=>k.trim().toLowerCase()===val.toLowerCase());
+    if(exists){ toast('Mata pelajaran ini sudah ada'); return; }
+    curriculumTemplates[val]=[];
+    save(); closeCurrModal();
+    renderMateriKurikulumPage();
+    toast('✅ Mata pelajaran ditambahkan');
+    return;
+  }
+  if(currModalMode==='addTopic'){
+    if(!curriculumTemplates[currModalSubject]) curriculumTemplates[currModalSubject]=[];
+    curriculumTemplates[currModalSubject].push({id:'topic_'+Date.now(), label:val});
+    save(); closeCurrModal();
+    renderCurriculumSubjectPage(currModalSubject);
+    toast('✅ Topik ditambahkan');
+    return;
+  }
+  if(currModalMode==='editTopic'){
+    const t=(curriculumTemplates[currModalSubject]||[]).find(x=>x.id===currModalTopicId);
+    if(t) t.label=val;
+    save(); closeCurrModal();
+    renderCurriculumSubjectPage(currModalSubject);
+    toast('✅ Topik disimpan');
+  }
+}
+
+// Dipanggil dari halaman Track siswa saat ceklis/uncek 1 topik kurikulum.
+function toggleCurriculumItem(studentIdx, itemId){
+  const s=students[studentIdx];
+  if(!s) return;
+  if(!s.curriculumChecked) s.curriculumChecked={};
+  s.curriculumChecked[itemId]=!s.curriculumChecked[itemId];
+  save();
+  renderStudentProfile(s.name, window._profilePeriod);
 }
 
 function renderLinkFolderView(folderId){
@@ -4799,7 +5035,7 @@ function restoreEmergencyBackup(){
 
 function exportData(){
   const data={
-    students,attendance,attNotes,attMeta,quickLinks,teacherTasks,
+    students,attendance,attNotes,attMeta,quickLinks,teacherTasks,curriculumTemplates,
     misc:collectPrefixedData(),
     settings:collectSettingsData(),
     exportedAt:new Date().toISOString(),version:'6'
@@ -5000,6 +5236,7 @@ function readImportFile(input){
       attMeta=data.attMeta||{};
       quickLinks=data.quickLinks||[];
       teacherTasks=data.teacherTasks||[];
+      curriculumTemplates=data.curriculumTemplates||{};
       restorePrefixedData(data.misc||data.sheetSent||{}); // dukung format backup lama juga
       restoreSettingsData(data.settings);
       save();applySettings();render();
@@ -6354,7 +6591,7 @@ function buildCloudParts(){
     attendance:{ data:attendance },
     attNotes:{ data:attNotes },
     attMeta:{ data:attMeta },
-    links:{ data:{ quickLinks, teacherTasks } },
+    links:{ data:{ quickLinks, teacherTasks, curriculumTemplates } },
     settings:{ data:settings },
     misc:{ data:collectPrefixedData() },
     logo:logoImg!==undefined?{ data:logoImg }:null,
@@ -6498,6 +6735,7 @@ function pullFromCloud(){
           localStorage.setItem('rms4_meta',JSON.stringify((parts.attMeta&&parts.attMeta.data)||{}));
           localStorage.setItem('rms4_links',JSON.stringify(linksData.quickLinks||[]));
           localStorage.setItem('rms4_tasks',JSON.stringify(linksData.teacherTasks||[]));
+          localStorage.setItem('rms4_curriculum',JSON.stringify(linksData.curriculumTemplates||{}));
           restorePrefixedData((parts.misc&&parts.misc.data)||{});
           const settingsData=(parts.settings&&parts.settings.data)||{};
           if(parts.logo&&parts.logo.data!==undefined) settingsData['rms_school_logo_img']=parts.logo.data;
