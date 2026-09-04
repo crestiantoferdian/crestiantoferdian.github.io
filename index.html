@@ -3274,21 +3274,60 @@ function renderStudentProfile(name, period){
   const currList = currKey ? (curriculumTemplates[currKey]||[]) : [];
   const curriculumCard = (!currList.length) ? '' : (function(){
     const checked = s.curriculumChecked||{};
-    const doneCount = currList.filter(t=>checked[t.id]).length;
-    const rows = currList.map(t=>{
-      const isChecked = !!checked[t.id];
-      const safeId = t.id.replace(/'/g,"\\'");
-      return '<div onclick="toggleCurriculumItem('+studentIdx+',\''+safeId+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 2px;cursor:pointer;border-bottom:1px solid var(--border)">'
-        +'<span style="width:22px;height:22px;border-radius:7px;border:2px solid '+(isChecked?'var(--hadir)':'var(--border)')+';background:'+(isChecked?'var(--hadir)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:0.75rem">'+(isChecked?'✓':'')+'</span>'
-        +'<span style="font-size:0.85rem;color:'+(isChecked?'var(--muted)':'var(--text)')+';text-decoration:'+(isChecked?'line-through':'none')+';flex:1">'+escapeHtml(t.label)+'</span>'
+    const collapsedSections = s.curriculumCollapsedSections||{};
+    const topicItems = currList.filter(t=>t.type!=='header');
+    const doneCount = topicItems.filter(t=>checked[t.id]).length;
+    const cardCollapsed = s.curriculumCardCollapsed===true; // default: TERBUKA
+
+    // Kelompokkan flat list jadi section-section: topik sebelum Bab pertama
+    // masuk section "tanpa judul", lalu tiap header memulai section baru.
+    const sections=[]; let cur={header:null, topics:[]};
+    currList.forEach(item=>{
+      if(item.type==='header'){
+        if(cur.header || cur.topics.length) sections.push(cur);
+        cur={header:item, topics:[]};
+      } else {
+        cur.topics.push(item);
+      }
+    });
+    if(cur.header || cur.topics.length) sections.push(cur);
+
+    const bodyHtml = sections.map(sec=>{
+      const rows=sec.topics.map(t=>{
+        const isChecked=!!checked[t.id];
+        const safeId=t.id.replace(/'/g,"\\'");
+        return '<div onclick="toggleCurriculumItem('+studentIdx+',\''+safeId+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 2px;cursor:pointer;border-bottom:1px solid var(--border)">'
+          +'<span style="width:22px;height:22px;border-radius:7px;border:2px solid '+(isChecked?'var(--hadir)':'var(--border)')+';background:'+(isChecked?'var(--hadir)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:0.75rem">'+(isChecked?'✓':'')+'</span>'
+          +'<span style="font-size:0.85rem;color:'+(isChecked?'var(--muted)':'var(--text)')+';text-decoration:'+(isChecked?'line-through':'none')+';flex:1">'+escapeHtml(t.label)+'</span>'
+        +'</div>';
+      }).join('');
+      if(!sec.header){
+        // Topik yang nggak ada di bawah Bab manapun — tampil langsung
+        return rows;
+      }
+      const hId=sec.header.id;
+      const safeHId=hId.replace(/'/g,"\\'");
+      const isSecCollapsed=!!collapsedSections[hId];
+      const secDone=sec.topics.filter(t=>checked[t.id]).length;
+      return '<div style="margin-top:6px">'
+        +'<div onclick="toggleCurriculumSection('+studentIdx+',\''+safeHId+'\')" style="display:flex;align-items:center;gap:8px;padding:9px 2px;cursor:pointer;background:var(--bg);margin:0 -2px;border-radius:8px">'
+          +'<span style="font-size:0.72rem;color:var(--muted);flex-shrink:0;transition:transform .2s;transform:rotate('+(isSecCollapsed?'-90deg':'0deg')+')">▾</span>'
+          +'<span style="flex:1;font-weight:800;font-size:0.82rem;color:var(--text)">'+escapeHtml(sec.header.label)+'</span>'
+          +'<span style="font-size:0.7rem;font-weight:700;color:var(--muted)">'+secDone+'/'+sec.topics.length+'</span>'
+        +'</div>'
+        +(isSecCollapsed?'':rows)
       +'</div>';
     }).join('');
+
     return '<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:15px 16px 4px;margin-bottom:12px">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+      +'<div onclick="toggleCurriculumCard('+studentIdx+')" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(cardCollapsed?'4px':'8px')+';cursor:pointer;padding-bottom:'+(cardCollapsed?'11px':'0')+'">'
         +'<div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.09em">📚 Kurikulum · '+escapeHtml(currKey)+'</div>'
-        +'<div style="font-size:0.72rem;font-weight:700;color:var(--hadir)">'+doneCount+'/'+currList.length+'</div>'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+          +'<div style="font-size:0.72rem;font-weight:700;color:var(--hadir)">'+doneCount+'/'+topicItems.length+'</div>'
+          +'<span style="font-size:0.72rem;color:var(--muted);transition:transform .2s;transform:rotate('+(cardCollapsed?'-90deg':'0deg')+')">▾</span>'
+        +'</div>'
       +'</div>'
-      +rows
+      +(cardCollapsed?'':bodyHtml)
     +'</div>';
   })();
 
@@ -4486,7 +4525,7 @@ function renderMateriKurikulumPage(){
   viewingCurriculumSubject=null;
   const subjects=Object.keys(curriculumTemplates).sort((a,b)=>a.localeCompare(b));
   const items=subjects.map(sub=>{
-    const count=(curriculumTemplates[sub]||[]).length;
+    const count=(curriculumTemplates[sub]||[]).filter(t=>t.type!=='header').length;
     const safe=sub.replace(/'/g,"\\'");
     return `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-xs)">
@@ -4518,14 +4557,22 @@ function renderMateriKurikulumPage(){
 function renderCurriculumSubjectPage(subject){
   viewingCurriculumSubject=subject;
   const list=curriculumTemplates[subject]||[];
+  const topicCount=list.filter(t=>t.type!=='header').length;
   const safe=subject.replace(/'/g,"\\'");
   const items=list.map(t=>{
     const safeId=t.id.replace(/'/g,"\\'");
+    const isHeader=t.type==='header';
     return `
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-xs)">
-      <span style="flex:1;min-width:0;font-weight:600;font-size:0.9rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.label)}</span>
-      <button onclick="openEditCurriculumTopicModal('${safe}','${safeId}')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--card);font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center">✏️</button>
-      <button onclick="deleteCurriculumTopic('${safe}','${safeId}')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--card);font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center">🗑️</button>
+    <div id="curr-row-${t.id}" data-topic-id="${t.id}" class="curr-topic-row"
+      ontouchstart="currRowTouchStart(event,'${safe}','${safeId}')" ontouchmove="currRowTouchCancelCheck(event)" ontouchend="currRowTouchEndCheck()" ontouchcancel="currRowTouchEndCheck()"
+      onmousedown="currRowTouchStart(event,'${safe}','${safeId}')"
+      style="background:${isHeader?'var(--bg)':'var(--card)'};border:1px solid var(--border);border-radius:14px;padding:14px 12px 14px 6px;margin:${isHeader?'14px 0 10px':'0 0 10px'};display:flex;align-items:center;gap:8px;box-shadow:${isHeader?'none':'var(--shadow-xs)'};touch-action:pan-y">
+      <span style="flex-shrink:0;width:28px;text-align:center;font-size:1.05rem;color:var(--muted);cursor:grab;pointer-events:none">⠿</span>
+      <span style="flex:1;min-width:0;font-weight:${isHeader?'800':'600'};font-size:${isHeader?'0.82rem':'0.9rem'};color:var(--text);${isHeader?'text-transform:uppercase;letter-spacing:0.05em':''};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none">${isHeader?'📌 ':''}${escapeHtml(t.label)}</span>
+      <span class="curr-topic-actions" style="display:flex;gap:8px;flex-shrink:0">
+        <button onclick="openEditCurriculumTopicModal('${safe}','${safeId}')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--card);font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center">✏️</button>
+        <button onclick="deleteCurriculumTopic('${safe}','${safeId}')" style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--card);font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center">🗑️</button>
+      </span>
     </div>`;
   }).join('');
 
@@ -4535,12 +4582,132 @@ function renderCurriculumSubjectPage(subject){
         <button onclick="viewingCurriculumSubject=null;renderMateriKurikulumPage()" style="flex-shrink:0;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-xs)">←</button>
         <div class="page-title" style="margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📚 ${escapeHtml(subject)}</div>
       </div>
-      <div class="page-sub">${list.length} topik</div>
+      <div class="page-sub">${topicCount} topik${list.length>1?' · Tahan & geser ⠿ untuk ubah urutan':''}</div>
     </div>
     <div style="padding:0 20px 24px">
-      <button onclick="openAddCurriculumTopicModal('${safe}')" style="width:100%;padding:14px;background:var(--red);color:#fff;border:none;border-radius:14px;font-family:sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.12);margin-bottom:18px">+ Tambah Topik</button>
-      ${list.length?items:'<div class="empty"><div class="empty-icon">📝</div><div class="empty-t">Belum ada topik</div><div class="empty-d">Tambah topik-topik yang mau ditandai selesai, misal: Perkalian, Pengurangan, dst.</div></div>'}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
+        <button onclick="openAddCurriculumHeaderModal('${safe}')" style="padding:14px 8px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:14px;font-family:sans-serif;font-weight:700;font-size:0.8rem;cursor:pointer">📌 + Bab</button>
+        <button onclick="openAddCurriculumTopicModal('${safe}')" style="padding:14px 8px;background:var(--red);color:#fff;border:none;border-radius:14px;font-family:sans-serif;font-weight:700;font-size:0.8rem;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.12)">+ Topik</button>
+      </div>
+      <div id="curr-topic-list">
+      ${list.length?items:'<div class="empty"><div class="empty-icon">📝</div><div class="empty-t">Belum ada topik</div><div class="empty-d">Tambah "Bab" sebagai judul pengelompokan (opsional), lalu tambah topik-topik di bawahnya, misal: Perkalian, Pengurangan, dst.</div></div>'}
+      </div>
     </div>`;
+}
+
+// ── DRAG REORDER (tahan lalu geser) ────────────────────────────────
+// Ditahan sebentar (380ms) tanpa gerak besar → mulai mode drag.
+// Kalau jari/kursor gerak duluan sebelum 380ms → dianggap mau scroll biasa,
+// drag dibatalkan (supaya nggak ganggu scroll normal daftar topik).
+let currLongPressTimer=null;
+let currLongPressInfo=null;
+let currDragEl=null, currDragSubject=null, currDragList=null;
+
+function currRowTouchStart(ev, subject, topicId){
+  if(ev.target.closest('.curr-topic-actions')) return; // jangan drag kalau nge-tap tombol edit/hapus
+  if(ev.type==='mousedown' && ev.button!==0) return;
+  const x=(ev.touches?ev.touches[0].clientX:ev.clientX);
+  const y=(ev.touches?ev.touches[0].clientY:ev.clientY);
+  currLongPressInfo={subject,topicId,startX:x,startY:y,moved:false};
+  clearTimeout(currLongPressTimer);
+  currLongPressTimer=setTimeout(function(){
+    if(currLongPressInfo && !currLongPressInfo.moved){
+      if(navigator.vibrate) navigator.vibrate(25);
+      currDragStart(subject, topicId, x, y);
+    }
+  },380);
+  if(!ev.touches){
+    window.addEventListener('mousemove', currRowTouchCancelCheck);
+    window.addEventListener('mouseup', currRowTouchEndCheck);
+  }
+}
+function currRowTouchCancelCheck(ev){
+  if(!currLongPressInfo) return;
+  const x=(ev.touches?ev.touches[0].clientX:ev.clientX);
+  const y=(ev.touches?ev.touches[0].clientY:ev.clientY);
+  const dx=Math.abs(x-currLongPressInfo.startX), dy=Math.abs(y-currLongPressInfo.startY);
+  if((dx>10||dy>10) && !currDragEl){
+    clearTimeout(currLongPressTimer);
+    currLongPressInfo=null;
+  }
+}
+function currRowTouchEndCheck(){
+  clearTimeout(currLongPressTimer);
+  currLongPressInfo=null;
+  window.removeEventListener('mousemove', currRowTouchCancelCheck);
+  window.removeEventListener('mouseup', currRowTouchEndCheck);
+}
+
+function currDragStart(subject, topicId, startY0, startY){
+  const row=document.getElementById('curr-row-'+topicId);
+  const list=document.getElementById('curr-topic-list');
+  if(!row||!list) return;
+  currDragEl=row; currDragSubject=subject; currDragList=list;
+  currDragEl.dataset.startY=startY;
+  currDragEl.style.position='relative';
+  currDragEl.style.zIndex='30';
+  currDragEl.style.boxShadow='0 10px 24px rgba(0,0,0,0.22)';
+  currDragEl.classList.add('curr-dragging');
+  document.addEventListener('touchmove', currDragMove, {passive:false});
+  document.addEventListener('touchend', currDragEnd);
+  document.addEventListener('touchcancel', currDragEnd);
+  document.addEventListener('mousemove', currDragMove);
+  document.addEventListener('mouseup', currDragEnd);
+}
+function currDragMove(ev){
+  if(!currDragEl) return;
+  if(ev.cancelable) ev.preventDefault();
+  const clientY=(ev.touches?ev.touches[0].clientY:ev.clientY);
+  const startY=parseFloat(currDragEl.dataset.startY);
+  const delta=clientY-startY;
+  currDragEl.style.transform='translateY('+delta+'px)';
+
+  const rows=Array.from(currDragList.children);
+  const idx=rows.indexOf(currDragEl);
+  const dragRect=currDragEl.getBoundingClientRect();
+  const dragMid=dragRect.top+dragRect.height/2;
+
+  if(idx>0){
+    const prev=rows[idx-1];
+    const prevRect=prev.getBoundingClientRect();
+    if(dragMid < prevRect.top+prevRect.height/2){
+      currDragList.insertBefore(currDragEl, prev);
+      currDragEl.style.transform='translateY(0px)';
+      currDragEl.dataset.startY=clientY;
+      return;
+    }
+  }
+  if(idx<rows.length-1){
+    const next=rows[idx+1];
+    const nextRect=next.getBoundingClientRect();
+    if(dragMid > nextRect.top+nextRect.height/2){
+      currDragList.insertBefore(next, currDragEl);
+      currDragEl.style.transform='translateY(0px)';
+      currDragEl.dataset.startY=clientY;
+      return;
+    }
+  }
+}
+function currDragEnd(){
+  if(!currDragEl) return;
+  currDragEl.style.position='';
+  currDragEl.style.zIndex='';
+  currDragEl.style.boxShadow='';
+  currDragEl.style.transform='';
+  currDragEl.classList.remove('curr-dragging');
+  // Simpan urutan baru sesuai posisi DOM sekarang
+  const newOrderIds=Array.from(currDragList.children).map(el=>el.dataset.topicId).filter(Boolean);
+  const list=curriculumTemplates[currDragSubject]||[];
+  const map={}; list.forEach(t=>{map[t.id]=t;});
+  curriculumTemplates[currDragSubject]=newOrderIds.map(id=>map[id]).filter(Boolean);
+  save();
+  document.removeEventListener('touchmove', currDragMove);
+  document.removeEventListener('touchend', currDragEnd);
+  document.removeEventListener('touchcancel', currDragEnd);
+  document.removeEventListener('mousemove', currDragMove);
+  document.removeEventListener('mouseup', currDragEnd);
+  currDragEl=null; currDragSubject=null; currDragList=null;
+  toast('✅ Urutan disimpan');
 }
 
 function deleteCurriculumSubject(subject){
@@ -4555,16 +4722,18 @@ function deleteCurriculumTopic(subject, topicId){
   const list=curriculumTemplates[subject]||[];
   const idx=list.findIndex(x=>x.id===topicId);
   if(idx<0) return;
-  if(!confirm('Hapus topik "'+list[idx].label+'"?')) return;
+  const isHeader=list[idx].type==='header';
+  const label=isHeader?'Bab':'topik';
+  if(!confirm('Hapus '+label+' "'+list[idx].label+'"'+(isHeader?' ?\n\n(Topik-topik di bawahnya TIDAK ikut terhapus, cuma jadi tanpa Bab)':'?'))) return;
   list.splice(idx,1);
   save();
   renderCurriculumSubjectPage(subject);
-  toast('🗑️ Topik dihapus');
+  toast('🗑️ '+(isHeader?'Bab':'Topik')+' dihapus');
 }
 
-// Modal sederhana (1 field teks) dipakai bergantian untuk 3 keperluan:
-// tambah mata pelajaran, tambah topik, edit topik.
-let currModalMode=null; // 'subject' | 'addTopic' | 'editTopic'
+// Modal sederhana (1 field teks) dipakai bergantian untuk 4 keperluan:
+// tambah mata pelajaran, tambah Bab (judul), tambah topik, edit topik/Bab.
+let currModalMode=null; // 'subject' | 'addHeader' | 'addTopic' | 'editTopic'
 let currModalSubject=null;
 let currModalTopicId=null;
 
@@ -4574,6 +4743,15 @@ function openAddCurriculumSubjectModal(){
   document.getElementById('currModalLabel').textContent='Nama Mata Pelajaran';
   document.getElementById('f_curr_text').value='';
   document.getElementById('f_curr_text').placeholder='cth: Piano, Vokal, Matematika';
+  history.pushState({tab:currentTab, view:'modal'},'');
+  document.getElementById('curriculumOverlay').classList.add('open');
+}
+function openAddCurriculumHeaderModal(subject){
+  currModalMode='addHeader'; currModalSubject=subject; currModalTopicId=null;
+  document.getElementById('currModalTitle').textContent='📌 Bab / Judul Baru';
+  document.getElementById('currModalLabel').textContent='Nama Bab';
+  document.getElementById('f_curr_text').value='';
+  document.getElementById('f_curr_text').placeholder='cth: Bab I - Dasar, Lagu Nasional';
   history.pushState({tab:currentTab, view:'modal'},'');
   document.getElementById('curriculumOverlay').classList.add('open');
 }
@@ -4590,8 +4768,8 @@ function openEditCurriculumTopicModal(subject, topicId){
   const t=(curriculumTemplates[subject]||[]).find(x=>x.id===topicId);
   if(!t) return;
   currModalMode='editTopic'; currModalSubject=subject; currModalTopicId=topicId;
-  document.getElementById('currModalTitle').textContent='✏️ Edit Topik';
-  document.getElementById('currModalLabel').textContent='Nama Topik';
+  document.getElementById('currModalTitle').textContent=(t.type==='header'?'✏️ Edit Bab':'✏️ Edit Topik');
+  document.getElementById('currModalLabel').textContent=(t.type==='header'?'Nama Bab':'Nama Topik');
   document.getElementById('f_curr_text').value=t.label;
   history.pushState({tab:currentTab, view:'modal'},'');
   document.getElementById('curriculumOverlay').classList.add('open');
@@ -4611,9 +4789,17 @@ function saveCurrModal(){
     toast('✅ Mata pelajaran ditambahkan');
     return;
   }
+  if(currModalMode==='addHeader'){
+    if(!curriculumTemplates[currModalSubject]) curriculumTemplates[currModalSubject]=[];
+    curriculumTemplates[currModalSubject].push({id:'header_'+Date.now(), type:'header', label:val});
+    save(); closeCurrModal();
+    renderCurriculumSubjectPage(currModalSubject);
+    toast('✅ Bab ditambahkan');
+    return;
+  }
   if(currModalMode==='addTopic'){
     if(!curriculumTemplates[currModalSubject]) curriculumTemplates[currModalSubject]=[];
-    curriculumTemplates[currModalSubject].push({id:'topic_'+Date.now(), label:val});
+    curriculumTemplates[currModalSubject].push({id:'topic_'+Date.now(), type:'topic', label:val});
     save(); closeCurrModal();
     renderCurriculumSubjectPage(currModalSubject);
     toast('✅ Topik ditambahkan');
@@ -4624,7 +4810,7 @@ function saveCurrModal(){
     if(t) t.label=val;
     save(); closeCurrModal();
     renderCurriculumSubjectPage(currModalSubject);
-    toast('✅ Topik disimpan');
+    toast('✅ Disimpan');
   }
 }
 
@@ -4634,6 +4820,24 @@ function toggleCurriculumItem(studentIdx, itemId){
   if(!s) return;
   if(!s.curriculumChecked) s.curriculumChecked={};
   s.curriculumChecked[itemId]=!s.curriculumChecked[itemId];
+  save();
+  renderStudentProfile(s.name, window._profilePeriod);
+}
+// Sembunyikan/tampilkan seluruh kartu Kurikulum (biar nggak makan tempat
+// kalau daftarnya panjang).
+function toggleCurriculumCard(studentIdx){
+  const s=students[studentIdx];
+  if(!s) return;
+  s.curriculumCardCollapsed=!s.curriculumCardCollapsed;
+  save();
+  renderStudentProfile(s.name, window._profilePeriod);
+}
+// Sembunyikan/tampilkan topik-topik di bawah 1 judul Bab tertentu.
+function toggleCurriculumSection(studentIdx, headerId){
+  const s=students[studentIdx];
+  if(!s) return;
+  if(!s.curriculumCollapsedSections) s.curriculumCollapsedSections={};
+  s.curriculumCollapsedSections[headerId]=!s.curriculumCollapsedSections[headerId];
   save();
   renderStudentProfile(s.name, window._profilePeriod);
 }
