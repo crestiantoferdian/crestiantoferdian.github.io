@@ -610,6 +610,12 @@ body{
       <div class="mfield"><label>Nama *</label><input id="f_name" type="text" placeholder="cth: Alya Putri"/></div>
       <div class="mfield"><label>Mata Pelajaran</label><input id="f_inst" type="text" placeholder="cth: Piano, Matematika, Bahasa Inggris"/></div>
     </div>
+    <div class="mfield" style="margin-top:2px">
+      <label>📚 Kurikulum</label>
+      <select id="f_curriculum">
+        <option value="">Otomatis (ikut Mata Pelajaran di atas)</option>
+      </select>
+    </div>
     <!-- JADWAL RUTIN 1 - selalu tampil -->
     <div style="padding:12px 0 4px;border-top:1px dashed var(--border);margin-top:6px">
       <button type="button" onclick="toggleJadwal(1)" id="jadwal-header-1"
@@ -3270,7 +3276,12 @@ function renderStudentProfile(name, period){
   // Curriculum card — cuma muncul kalau ada template kurikulum yang cocok
   // dengan mata pelajaran (s.instrument) siswa ini.
   const studentIdx = students.findIndex(x=>x.name===name);
-  const currKey = findCurriculumSubjectKey(s.instrument);
+  // Prioritas: kalau tutor pilih manual di form (s.curriculumSubject), pakai itu.
+  // Kalau nggak dipilih (kosong/"Otomatis"), baru cocokkan otomatis lewat
+  // teks Mata Pelajaran seperti sebelumnya.
+  const currKey = (s.curriculumSubject && curriculumTemplates[s.curriculumSubject])
+    ? s.curriculumSubject
+    : findCurriculumSubjectKey(s.instrument);
   const currList = currKey ? (curriculumTemplates[currKey]||[]) : [];
   const curriculumCard = (!currList.length) ? '' : (function(){
     const checked = s.curriculumChecked||{};
@@ -4521,6 +4532,17 @@ function findCurriculumSubjectKey(instrument){
   return Object.keys(curriculumTemplates).find(k=>k.trim().toLowerCase()===target)||null;
 }
 
+// Isi ulang dropdown "Kurikulum" di form tambah/edit siswa dengan daftar
+// mata pelajaran yang sudah dibuat di tab Materi > Kurikulum.
+function populateCurriculumSelect(selectedValue){
+  const sel=document.getElementById('f_curriculum');
+  if(!sel) return;
+  const subjects=Object.keys(curriculumTemplates).sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML='<option value="">Otomatis (ikut Mata Pelajaran di atas)</option>'
+    +subjects.map(s=>'<option value="'+escapeHtml(s)+'">'+escapeHtml(s)+'</option>').join('');
+  sel.value=selectedValue||'';
+}
+
 function renderMateriKurikulumPage(){
   viewingCurriculumSubject=null;
   const subjects=Object.keys(curriculumTemplates).sort((a,b)=>a.localeCompare(b));
@@ -5569,6 +5591,7 @@ function openAdd(){
   document.getElementById('f_day').value=selectedDay||DAYS[0];
   document.getElementById('f_time').value='09:00';
   document.getElementById('f_time2').value='09:45';
+  populateCurriculumSelect('');
   document.getElementById('overlay').classList.add('open');
   setTimeout(()=>document.getElementById('f_name').focus(),300);
 }
@@ -5598,6 +5621,7 @@ function openEdit(idx){
   }
   document.getElementById('f_name').value=s.name;
   document.getElementById('f_inst').value=s.instrument||'';
+  populateCurriculumSelect(s.curriculumSubject||'');
   document.getElementById('f_day').value=s.day;
   document.getElementById('f_time').value=s.time;
   document.getElementById('f_time2').value=s.time2||'';
@@ -5728,6 +5752,7 @@ function doSave(){
   const s={
     name:document.getElementById('f_name').value.trim(),
     instrument:document.getElementById('f_inst').value.trim(),
+    curriculumSubject:document.getElementById('f_curriculum').value||'',
     day:document.getElementById('f_day').value,
     time:document.getElementById('f_time').value,
     time2:document.getElementById('f_time2').value,
@@ -5752,13 +5777,22 @@ function doSave(){
   if(!s.name){toast('❌ Nama wajib diisi!');return}
   if(!s.day&&!s.extraDates.length){toast('❌ Isi jadwal rutin, atau tambahkan minimal 1 tanggal di "Tambahan Kelas"');return}
   if(editIdx!==null){
+    const old=students[editIdx];
     // Preserve lastPaidAt agar siklus bayar tidak hilang saat edit
-    if(students[editIdx].lastPaidAt) s.lastPaidAt=students[editIdx].lastPaidAt;
+    if(old.lastPaidAt) s.lastPaidAt=old.lastPaidAt;
+    // BUGFIX: field-field ini nggak ada di form edit, jadi kalau nggak
+    // di-preserve manual di sini, bakal ke-reset diam-diam tiap kali tutor
+    // edit info dasar murid (nama/jadwal/dll) — bikin status bayar bulanan
+    // & progress kurikulum yang udah dicentang "hilang" tanpa disadari.
+    if(old.monthlyPaidThru) s.monthlyPaidThru=old.monthlyPaidThru;
+    if(old.curriculumChecked) s.curriculumChecked=old.curriculumChecked;
+    if(old.curriculumCardCollapsed!==undefined) s.curriculumCardCollapsed=old.curriculumCardCollapsed;
+    if(old.curriculumCollapsedSections) s.curriculumCollapsedSections=old.curriculumCollapsedSections;
     // Preserve status nonaktif agar tidak ke-reset saat form disimpan
-    if(students[editIdx].inactive){
+    if(old.inactive){
       s.inactive=true;
       const manualDate=document.getElementById('f_inactiveSince')?document.getElementById('f_inactiveSince').value:'';
-      s.inactiveSince=manualDate||students[editIdx].inactiveSince||todayStr();
+      s.inactiveSince=manualDate||old.inactiveSince||todayStr();
     }
     students[editIdx]=s;
   } else students.push(s);
