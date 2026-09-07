@@ -6623,10 +6623,17 @@ function clearReschedule(){
 </div>
 
 <script>
-// Registrasi sw.js terpisah DIMATIKAN sejak OneSignal aktif — kode sw.js
-// sekarang "dipinjam" oleh OneSignalSDKWorker.js lewat importScripts(),
-// jadi cukup 1 service worker (punya OneSignal) yang mendaftar, supaya
-// tidak rebutan scope dengan push notification. Lihat OneSignalSDKWorker.js.
+// Fallback: daftarkan service worker langsung, TIDAK bergantung ke OneSignal SDK.
+// Jaring pengaman kalau script OneSignal gagal dimuat (misal ke-blok adblocker/CDN
+// down) — app tetap dapat cache offline dari sw.js. Aman didaftarkan dobel; kalau
+// OneSignal JUGA sukses mendaftarkan file yang sama, browser otomatis nge-reuse
+// worker yang sudah ada, jadi tidak ada "rebutan scope".
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./OneSignalSDKWorker.js')
+      .catch(function(err) { console.warn('SW fallback register gagal:', err); });
+  });
+}
 </script>
 
 <script>
