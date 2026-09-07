@@ -1,12 +1,16 @@
 {
+  "id": "/",
   "name": "LesLesanKu",
   "short_name": "LesLesanKu",
   "description": "Aplikasi manajemen absensi dan progress siswa les privat",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f5f5f7",
   "theme_color": "#000000",
   "orientation": "portrait",
+  "lang": "id",
+  "categories": ["education", "productivity"],
   "icons": [
     {
       "src": "icon-192.png",
@@ -19,6 +23,20 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot-1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "screenshot-2.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow"
     }
   ]
 }
