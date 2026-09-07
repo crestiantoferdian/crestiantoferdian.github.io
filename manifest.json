@@ -24,5 +24,28 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/absensi.jpg",
+      "sizes": "1080x1920",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Absensi harian - tandai siswa yang hadir"
+    },
+    {
+      "src": "screenshots/track.jpg",
+      "sizes": "1080x1920",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Track record kehadiran dan proyeksi pendapatan"
+    },
+    {
+      "src": "screenshots/materi.jpg",
+      "sizes": "1080x1920",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Materi, PR guru, dan kurikulum"
+    }
   ]
 }
