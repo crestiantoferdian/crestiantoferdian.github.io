@@ -2274,6 +2274,7 @@ function setPaymentMode(mode){
 const DEFAULT_TPL_SESSION='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nMohon izin mengingatkan bahwa les {nama} telah berjalan {sesi}x pertemuan.\nMohon kesediaan Bapak/Ibu untuk melakukan pembayaran sebesar {biaya}.\n\nTerima kasih atas perhatian dan kerja samanya.\n\nHormat kami';
 const DEFAULT_TPL_MONTHLY='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nMohon izin mengingatkan pembayaran les bulan {bulan}.\nSelama bulan ini telah berlangsung {sesi}x pertemuan, yaitu pada tanggal {tanggal}.\nMohon kesediaan Bapak/Ibu untuk melakukan pembayaran sebesar {biaya}.\n\nTerima kasih atas perhatian dan kerja samanya.\n\nHormat kami';
 const DEFAULT_TPL_ADMIN='Halo Admin\nMohon diingatkan pembayaran:\nNama: {nama}\nMata Pelajaran: {instrumen}\nJadwal: {jadwal}\nTotal: {total}x {keterangan}\nTerima kasih!';
+const DEFAULT_TPL_PROGRESS='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nBerikut kami sampaikan progres les {nama}:\n🗓️ {tanggal}\n📝 Progress: {progress}\n📚 PR: {pr}\n\nTerima kasih atas perhatiannya.';
 function getMonthNameID(d){ return (d||new Date()).toLocaleDateString('id-ID',{month:'long'}); }
 function formatRupiah(n){ return 'Rp '+Math.round(n||0).toLocaleString('id-ID'); }
 // Sapaan formal otomatis mengikuti jam saat pesan dikirim
@@ -4451,21 +4452,48 @@ function renderProgressSettings(){
           ${fieldRow('pr','📚','PR siswa')}
         </div>
       </div>
+      <div class="menu-card" style="padding:16px">
+        <div style="font-size:0.98rem;font-weight:800;color:var(--text);letter-spacing:0.01em;margin-bottom:4px">📨 Template Pesan Progres</div>
+        <div style="font-size:0.72rem;color:var(--muted);margin-bottom:10px">Dipakai saat kirim progres via Sheet maupun WA. Isi variabel dengan tanda kurung kurawal.</div>
+        <textarea id="tplProgressInput" rows="7" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.82rem;border:1.5px solid var(--border);border-radius:10px;padding:10px;background:var(--card2);color:var(--text);resize:vertical">${escapeHtml(getProgressTemplate())}</textarea>
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:6px;line-height:1.5">Variabel: <code>{salam}</code> <code>{nama}</code> <code>{tanggal}</code> <code>{progress}</code> <code>{pr}</code></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button onclick="saveProgressTemplate()" style="flex:1;padding:10px;background:var(--red);color:#fff;border:none;border-radius:10px;font-family:sans-serif;font-size:0.8rem;font-weight:700;cursor:pointer">💾 Simpan</button>
+          <button onclick="resetProgressTemplate()" style="padding:10px 14px;background:#fff;color:var(--muted);border:1.5px solid var(--border);border-radius:10px;font-family:sans-serif;font-size:0.8rem;font-weight:700;cursor:pointer">↩️ Default</button>
+        </div>
+      </div>
       <div style="background:var(--blue-bg);border:1px solid rgba(0,113,227,0.15);border-radius:14px;padding:13px 15px;font-size:0.75rem;color:var(--blue);line-height:1.7">
         💡 Tombol amplop <b>📨</b> di kartu murid (tab Absensi & Track) sekarang memakai pengaturan ini. Teks otomatis tersalin, tinggal klik Buka Sheet / Kirim WA.
       </div>
     </div>`;
 }
 
-// Susun teks progres berdasarkan field yang dicentang di pengaturan
+// Susun teks progres berdasarkan template pesan (bisa diedit) + field yang dicentang
+function getProgressTemplate(){
+  return localStorage.getItem('llk_tpl_progress')||DEFAULT_TPL_PROGRESS;
+}
+function saveProgressTemplate(){
+  const val=document.getElementById('tplProgressInput').value.trim();
+  localStorage.setItem('llk_tpl_progress', val||DEFAULT_TPL_PROGRESS);
+  if(typeof scheduleCloudSync==='function') scheduleCloudSync();
+  toast('✅ Template progres disimpan');
+}
+function resetProgressTemplate(){
+  localStorage.removeItem('llk_tpl_progress');
+  renderProgressSettings();
+  toast('↩️ Template dikembalikan ke default');
+}
 function buildProgressText(attKey, displayName, dateKey){
   const settings=getProgressSettings();
   const note=attNotes[dateKey+'_'+attKey]||{};
-  const lines=[`*${displayName}*`];
-  if(settings.fields.includes('tanggal')) lines.push(`🗓️ ${fmtPretty(dateKey)}`);
-  if(settings.fields.includes('progress')) lines.push(`📝 Progress: ${note.progress||'-'}`);
-  if(settings.fields.includes('pr')) lines.push(`📚 PR: ${note.prSiswa||'-'}`);
-  return lines.join('\n');
+  const vars={
+    salam:getGreetingID(),
+    nama:displayName,
+    tanggal:settings.fields.includes('tanggal')?fmtPretty(dateKey):'',
+    progress:settings.fields.includes('progress')?(note.progress||'-'):'',
+    pr:settings.fields.includes('pr')?(note.prSiswa||'-'):''
+  };
+  return fillTemplate(getProgressTemplate(), vars).trim();
 }
 function fallbackCopyPlain(text){
   const ta=document.createElement('textarea');
@@ -5326,7 +5354,7 @@ const BACKUP_SETTINGS_KEYS=[
   'rms_school_name','rms_school_sub','rms_school_logo','rms_school_logo_img','rms_school_color',
   'llk_notif_sound','llk_notif_volume','llk_notif_custom_mp3','llk_notif_custom_name',
   'llk_notif_sheet_time','llk_notif_kirim_time','llk_income_hidden','llk_payment_mode',
-  'llk_tpl_session','llk_tpl_monthly','llk_progress_dest','llk_progress_fields'
+  'llk_tpl_session','llk_tpl_monthly','llk_progress_dest','llk_progress_fields','llk_tpl_progress'
 ];
 function collectSettingsData(){
   const out={};
