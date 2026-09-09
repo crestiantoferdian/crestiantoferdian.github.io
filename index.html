@@ -1648,6 +1648,10 @@ let _backPressedOnce=false, _backTimer=null;
 window.addEventListener('popstate',function(e){
   const state=e.state||{};
 
+  // 0. Tutup popup "Kirim Progres/Sheet" jika terbuka (dibuat dinamis, bukan overlay tetap)
+  const spop=document.getElementById('sheetPopup');
+  if(spop){ spop.remove(); return; }
+
   // 1. Tutup modal jika terbuka
   const ov=document.getElementById('overlay');
   const nov=document.getElementById('noteOverlay');
@@ -6489,6 +6493,7 @@ function openSheetLink(idx){
     </div>`;
   popup.addEventListener('click',e=>{if(e.target===popup) popup.remove();});
   document.body.appendChild(popup);
+  history.pushState({tab:currentTab, view:'modal'},'');
 }
 
 function goToSheet(link){
