@@ -1938,7 +1938,7 @@ function renderAbsensi(){
             <button class="att-btn a-alpa ${status==='alpa'?'on':''}" onclick="openNoteModal('${attKey}','alpa','${s.name}','${attDateKey}','${s.time||''}','${s.time2||''}')">✗</button>
             <button class="att-btn" onclick="openRescheduleModal('${s.name}','${s.day}',${sidx},${s._isExtra?s._extraIdx:'null'},'${s._isExtra?s._extraDate:''}');event.stopPropagation()" title="Reschedule" style="${(s._hasActiveReschedule||s._isRescheduled)?'background:#fef3c7;border-color:#f59e0b;color:#d97706;font-weight:700':''}">🔄</button>`
             }
-            ${s.sheetLink&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${s.name.replace(/'/g,"\'")}','${attDateKey}')" style="${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:#eafaf1;border-color:rgba(29,158,78,0.4)':'background:var(--blue-bg);border-color:rgba(0,113,227,0.3)'}">
+            ${(getProgressSettings().dest==='wa'?!!(s.phone&&s.phone.replace(/\D/g,'')):!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${s.name.replace(/'/g,"\'")}','${attDateKey}','${attKey.replace(/'/g,"\'")}')" style="${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:#eafaf1;border-color:rgba(29,158,78,0.4)':'background:var(--blue-bg);border-color:rgba(0,113,227,0.3)'}">
               ${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'✅':'📨'}
             </button>`:''}
         </div>
@@ -3706,7 +3706,7 @@ function buildDateDetail(dk){
           <button class="att-btn a-izin ${status==='izin'?'on':''}" onclick="openNoteModal('${safeKey}','izin','${safeName}','${safeDk}','${s.time||''}','${s.time2||''}');setTimeout(renderTrack,300)">✋</button>
           <button class="att-btn a-alpa ${status==='alpa'?'on':''}" onclick="openNoteModal('${safeKey}','alpa','${safeName}','${safeDk}','${s.time||''}','${s.time2||''}');setTimeout(renderTrack,300)">✗</button>
           <button class="att-btn" onclick="openTrackEditModal('${safeKey}','${status||'hadir'}','${safeName}','${safeDk}')">✏️</button>
-          ${s.sheetLink&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${safeName}','${safeDk}')" style="${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:#eafaf1;border-color:rgba(29,158,78,0.4)':'background:var(--blue-bg);border-color:rgba(0,113,227,0.3)'}">${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'✅':'📨'}</button>`:''}
+          ${(getProgressSettings().dest==='wa'?!!(s.phone&&s.phone.replace(/\D/g,'')):!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${safeName}','${safeDk}','${safeKey}')" style="${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:#eafaf1;border-color:rgba(29,158,78,0.4)':'background:var(--blue-bg);border-color:rgba(0,113,227,0.3)'}">${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'✅':'📨'}</button>`:''}
         </div>`;
 
     // Tap kartu untuk expand/collapse tombol aksi (Hadir/Izin/Alpa/Kirim Link),
@@ -4396,6 +4396,84 @@ function fallbackKirimCopy(txt,dk){
   document.body.removeChild(ta);
 }
 
+
+// ── PENGATURAN PROGRES SISWA ──────────────────────────
+// Setting: kemana progres dikirim (sheet / wa) + field apa saja yang dimasukkan ke teks
+function getProgressSettings(){
+  let fields;
+  try{fields=JSON.parse(localStorage.getItem('llk_progress_fields')||'["tanggal","progress","pr"]');}
+  catch(e){fields=['tanggal','progress','pr'];}
+  return {dest:localStorage.getItem('llk_progress_dest')||'sheet', fields:fields};
+}
+function setProgressDest(d){
+  localStorage.setItem('llk_progress_dest',d);
+  if(typeof scheduleCloudSync==='function') scheduleCloudSync();
+  renderProgressSettings();
+}
+function toggleProgressField(f){
+  const s=getProgressSettings();
+  const idx=s.fields.indexOf(f);
+  if(idx>-1) s.fields.splice(idx,1); else s.fields.push(f);
+  localStorage.setItem('llk_progress_fields',JSON.stringify(s.fields));
+  if(typeof scheduleCloudSync==='function') scheduleCloudSync();
+  renderProgressSettings();
+}
+function renderProgressSettings(){
+  const s=getProgressSettings();
+  const optionRow=(dest,icon,label,desc)=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid ${s.dest===dest?'var(--red)':'var(--border)'};border-radius:14px;cursor:pointer;background:${s.dest===dest?'#fef2f2':'var(--card)'}">
+      <input type="radio" name="progdest" ${s.dest===dest?'checked':''} onchange="setProgressDest('${dest}')"/>
+      <div><div style="font-weight:700;font-size:0.88rem">${icon} ${label}</div><div style="font-size:0.75rem;color:var(--muted)">${desc}</div></div>
+    </label>`;
+  const fieldRow=(key,icon,label)=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px;cursor:pointer">
+      <input type="checkbox" ${s.fields.includes(key)?'checked':''} onchange="toggleProgressField('${key}')"/>
+      <div style="font-size:0.88rem;font-weight:600">${icon} ${label}</div>
+    </label>`;
+  document.getElementById('mainContent').innerHTML=`
+    <div class="page-title-area" style="display:flex;align-items:center;gap:10px">
+      <button onclick="renderLainnya()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--red)">‹</button>
+      <div><div class="page-title">Pengaturan Progres Siswa</div><div class="page-sub">Atur tujuan & format pengiriman progres</div></div>
+    </div>
+    <div class="lainnya-wrap">
+      <div class="menu-card" style="padding:16px">
+        <div class="kirim-title">Kirim progres ke</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${optionRow('sheet','🔗','Link Google Sheet','Buka link Sheet murid (dari data murid)')}
+          ${optionRow('wa','💬','WhatsApp Ortu/Siswa','Kirim langsung ke nomor WA murid')}
+        </div>
+      </div>
+      <div class="menu-card" style="padding:16px">
+        <div class="kirim-title">Format teks progres</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${fieldRow('tanggal','🗓️','Tanggal & hari siswa hadir')}
+          ${fieldRow('progress','📝','Progres siswa')}
+          ${fieldRow('pr','📚','PR siswa')}
+        </div>
+      </div>
+      <div style="background:var(--blue-bg);border:1px solid rgba(0,113,227,0.15);border-radius:14px;padding:13px 15px;font-size:0.75rem;color:var(--blue);line-height:1.7">
+        💡 Tombol amplop <b>📨</b> di kartu murid (tab Absensi & Track) sekarang memakai pengaturan ini. Teks otomatis tersalin, tinggal klik Buka Sheet / Kirim WA.
+      </div>
+    </div>`;
+}
+
+// Susun teks progres berdasarkan field yang dicentang di pengaturan
+function buildProgressText(attKey, displayName, dateKey){
+  const settings=getProgressSettings();
+  const note=attNotes[dateKey+'_'+attKey]||{};
+  const lines=[`*${displayName}*`];
+  if(settings.fields.includes('tanggal')) lines.push(`🗓️ ${fmtPretty(dateKey)}`);
+  if(settings.fields.includes('progress')) lines.push(`📝 Progress: ${note.progress||'-'}`);
+  if(settings.fields.includes('pr')) lines.push(`📚 PR: ${note.prSiswa||'-'}`);
+  return lines.join('\n');
+}
+function fallbackCopyPlain(text){
+  const ta=document.createElement('textarea');
+  ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');}catch(e){}
+  document.body.removeChild(ta);
+}
 
 // ── TAB LINK (folder + tombol tautan kustom) ─────────
 let viewingLinkFolder=null; // id folder yang sedang dibuka, null = daftar utama
@@ -5184,6 +5262,11 @@ function renderLainnya(){
           <div class="menu-text"><div class="menu-label">Fitur Pembayaran</div><div class="menu-desc">${paymentMode==='session'?'Ingatkan tiap pertemuan':paymentMode==='monthly'?'Ingatkan akhir bulan':'Semua pengingat mati'}</div></div>
           <div class="menu-arrow">›</div>
         </div>
+        <div class="menu-item" onclick="renderProgressSettings()">
+          <div class="menu-icon" style="background:#ede9fe">📈</div>
+          <div class="menu-text"><div class="menu-label">Pengaturan Progres Siswa</div><div class="menu-desc">Atur tujuan & format kirim progres</div></div>
+          <div class="menu-arrow">›</div>
+        </div>
         <div class="menu-item" onclick="renderPengaturan()">
           <div class="menu-icon" style="background:#f3e8ff">⚙️</div>
           <div class="menu-text"><div class="menu-label">Pengaturan Aplikasi</div><div class="menu-desc">Ubah nama, logo, dan warna tema</div></div>
@@ -5243,7 +5326,7 @@ const BACKUP_SETTINGS_KEYS=[
   'rms_school_name','rms_school_sub','rms_school_logo','rms_school_logo_img','rms_school_color',
   'llk_notif_sound','llk_notif_volume','llk_notif_custom_mp3','llk_notif_custom_name',
   'llk_notif_sheet_time','llk_notif_kirim_time','llk_income_hidden','llk_payment_mode',
-  'llk_tpl_session','llk_tpl_monthly'
+  'llk_tpl_session','llk_tpl_monthly','llk_progress_dest','llk_progress_fields'
 ];
 function collectSettingsData(){
   const out={};
@@ -6308,35 +6391,46 @@ function savePengaturan(){
 }
 
 // ── SHEET LINK ───────────────────────────────────────
-function openSheetLinkByName(name, dateKey){
+function openSheetLinkByName(name, dateKey, attKey){
   const s=students.find(x=>x.name===name);
   if(!s) return;
   const idx=students.indexOf(s);
   window._sheetDateKey=dateKey;
+  window._sheetAttKey=attKey||name;
   openSheetLink(idx);
 }
 
 function openSheetLink(idx){
   const s=students[idx];
-  const link=s&&s.sheetLink?s.sheetLink.trim():'';
-  if(!link){toast('Link belum diisi');return;}
+  if(!s) return;
+  const settings=getProgressSettings();
+  const dest=settings.dest;
+  const link=s.sheetLink?s.sheetLink.trim():'';
+  const phone=(s.phone||'').replace(/\D/g,'');
+  if(dest==='wa'&&!phone){toast('Nomor WA belum diisi di data murid ini');return;}
+  if(dest!=='wa'&&!link){toast('Link Sheet belum diisi di data murid ini');return;}
 
   const dateKey=window._sheetDateKey||window._currentDateKey||todayStr();
+  const attKey=window._sheetAttKey||s.name;
   window._sheetDateKey=null;
+  window._sheetAttKey=null;
   const sentKey='sheet_sent_'+dateKey+'_'+(s.name||idx).replace(/[^a-zA-Z0-9]/g,'_');
   const alreadySent=localStorage.getItem(sentKey);
 
   const old=document.getElementById('sheetPopup');
   if(old){old.remove();return;}
 
-  // BUGFIX: sebelumnya pakai new Date() (= tanggal HP hari ini), padahal
-  // yang seharusnya ditampilkan adalah TANGGAL SESI yang lagi dilaporkan
-  // (dateKey) — supaya kalau lapor telat (misal baru sempat isi laporan
-  // kemarin hari ini), tanggal yang muncul tetap tanggal sesi aslinya.
-  const [yy,mm,dd]=dateKey.split('-').map(Number);
-  const sessionDate=new Date(yy, mm-1, dd);
-  const monthNames=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-  const dateText=`${sessionDate.getDate()} ${monthNames[sessionDate.getMonth()]} ${sessionDate.getFullYear()}`;
+  // Teks disusun sesuai field yang dicentang di Pengaturan Progres Siswa
+  const text=buildProgressText(attKey, s.name, dateKey);
+  window._sheetLastText=text;
+
+  // Otomatis tersalin ke clipboard begitu popup dibuka
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(()=>fallbackCopyPlain(text));
+  else fallbackCopyPlain(text);
+
+  const actionBtn=dest==='wa'
+    ?`<button onclick="goToWAProgress('${phone}')" style="flex:1;padding:15px;border-radius:14px;border:none;background:var(--red);color:#fff;font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer">💬 Kirim ke WA</button>`
+    :`<button onclick="goToSheet('${link.replace(/'/g,"\\'")}')" style="flex:1;padding:15px;border-radius:14px;border:none;background:var(--red);color:#fff;font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer">📤 Buka Sheet</button>`;
 
   const popup=document.createElement('div');
   popup.id='sheetPopup';
@@ -6344,22 +6438,12 @@ function openSheetLink(idx){
   popup.innerHTML=`
     <div style="background:var(--card);border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;max-width:480px">
       <div style="width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 20px"></div>
-      <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted2);margin-bottom:6px">Kirim ke Sheet — ${s.name}</div>
-      <div style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">Salin tanggal ini lalu buka sheet:</div>
-      <div style="
-        font-size:1.6rem;font-weight:800;letter-spacing:-0.02em;
-        background:var(--bg);border:2px dashed var(--border);
-        border-radius:14px;padding:16px;text-align:center;
-        margin-bottom:20px;color:var(--text);
-        user-select:all;-webkit-user-select:all;
-      ">${dateText}</div>
+      <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted2);margin-bottom:6px">Kirim Progres — ${s.name}</div>
+      <div class="kirim-preview" style="margin-bottom:10px">${text.replace(/</g,'&lt;')}</div>
+      <div style="font-size:0.78rem;color:var(--hadir);margin-bottom:14px;font-weight:600;text-align:center">✅ Teks sudah tersalin ke clipboard</div>
       ${alreadySent?`<div style="font-size:0.78rem;color:var(--hadir);margin-bottom:12px;font-weight:600;text-align:center">✅ Sudah dikirim untuk tanggal ini</div>`:''}
       <div style="display:flex;gap:10px;margin-bottom:10px">
-        <button onclick="goToSheet('${link}')" style="
-          flex:1;padding:15px;border-radius:14px;border:none;
-          background:var(--red);color:#fff;
-          font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer;
-        ">📤 Buka Sheet</button>
+        ${actionBtn}
         <button onclick="markSheetSent(${idx},'${sentKey}')" style="
           flex:1;padding:15px;border-radius:14px;border:none;
           background:var(--hadir);color:#fff;
@@ -6371,6 +6455,9 @@ function openSheetLink(idx){
         background:transparent;color:var(--muted);
         font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:600;cursor:pointer;
       ">Batal</button>
+      <div style="margin-top:14px;text-align:center">
+        <button onclick="document.getElementById('sheetPopup').remove();renderProgressSettings()" style="background:none;border:none;color:var(--blue);font-family:'DM Sans',sans-serif;font-size:0.75rem;font-weight:600;cursor:pointer;text-decoration:underline">⚙️ Atur format & tujuan kirim</button>
+      </div>
     </div>`;
   popup.addEventListener('click',e=>{if(e.target===popup) popup.remove();});
   document.body.appendChild(popup);
@@ -6379,6 +6466,12 @@ function openSheetLink(idx){
 function goToSheet(link){
   // Hanya buka link, TIDAK menandai sebagai sudah tercatat
   window.open(link,'_blank');
+}
+
+function goToWAProgress(phone){
+  // Hanya buka WA, TIDAK menandai sebagai sudah tercatat
+  const msg=encodeURIComponent(window._sheetLastText||'');
+  window.open(`https://wa.me/62${phone.replace(/^0/,'')}?text=${msg}`,'_blank');
 }
 
 function markSheetSent(idx,sentKey){
