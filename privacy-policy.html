@@ -77,7 +77,7 @@
   </div>
 
   <main>
-    <p class="updated">Terakhir diperbarui: 4 September 2026</p>
+    <p class="updated">Terakhir diperbarui: 10 September 2026</p>
 
     <div class="card">
       <p style="margin:0">LesLesanKu ("<strong>Aplikasi</strong>") dikembangkan dan dikelola secara independen oleh tutor pemilik aplikasi ini ("<strong>Pengembang</strong>", "<strong>kami</strong>"). Kebijakan ini menjelaskan data apa saja yang dikumpulkan Aplikasi, bagaimana data itu disimpan dan digunakan, serta hak yang kamu miliki atas data tersebut.</p>
@@ -111,6 +111,15 @@
     <p><strong>c. Data teknis notifikasi</strong></p>
     <p>Kalau kamu mengaktifkan notifikasi pengingat jadwal, Aplikasi menyimpan ID langganan notifikasi (subscription ID) dari layanan pihak ketiga OneSignal, untuk mengirim pengingat ke perangkatmu. Aplikasi tidak mengakses kontak, lokasi, kamera, atau data pribadi lain di HP-mu.</p>
 
+    <p><strong>d. Data langganan berbayar Aplikasi (untuk tutor pengguna Aplikasi)</strong></p>
+    <p>Aplikasi ini memiliki masa uji coba gratis 14 hari, dilanjutkan dengan langganan berbayar bulanan/tahunan yang diproses lewat Midtrans. Data yang tersimpan terkait ini:</p>
+    <ul>
+      <li>Status & tanggal berakhir masa uji coba gratis</li>
+      <li>Paket langganan yang dipilih (bulanan/tahunan) dan tanggal berakhirnya</li>
+      <li>ID transaksi dan status pembayaran (berhasil/gagal/kedaluwarsa) dari Midtrans</li>
+    </ul>
+    <p>Data ini tersimpan di server (bukan di perangkat) dan hanya bisa diubah lewat proses pembayaran yang sah, untuk mencegah manipulasi masa aktif langganan.</p>
+
     <h2>3. Bagaimana dan di mana data disimpan</h2>
     <table>
       <tr><th>Kondisi</th><th>Tempat penyimpanan</th></tr>
@@ -123,12 +132,14 @@
     <p>Aplikasi memakai beberapa layanan pihak ketiga untuk menjalankan fiturnya. Kami tidak menjual atau membagikan data ke pihak lain untuk kepentingan iklan atau komersial.</p>
     <table>
       <tr><th>Layanan</th><th>Fungsi</th></tr>
-      <tr><td>Google Firebase</td><td>Login akun (Authentication) dan penyimpanan data cadangan cloud (Firestore)</td></tr>
+      <tr><td>Google Firebase</td><td>Login akun (Authentication), penyimpanan data cadangan cloud (Firestore), dan pemrosesan langganan berbayar (Cloud Functions)</td></tr>
+      <tr><td>Midtrans</td><td>Pemroses pembayaran (payment gateway) untuk langganan berbayar Aplikasi. Saat bertransaksi, email akun Google-mu diteruskan ke Midtrans untuk keperluan pencatatan transaksi. Detail kartu/rekening/e-wallet diproses langsung oleh Midtrans, tidak melalui atau tersimpan di server kami.</td></tr>
       <tr><td>OneSignal</td><td>Pengiriman notifikasi pengingat jadwal</td></tr>
       <tr><td>Cloudflare Workers</td><td>Perantara teknis yang meneruskan permintaan notifikasi ke OneSignal secara aman</td></tr>
       <tr><td>GitHub Pages</td><td>Hosting/penyedia halaman web Aplikasi</td></tr>
     </table>
     <p>Masing-masing layanan di atas punya kebijakan privasinya sendiri sebagai penyedia infrastruktur teknis.</p>
+    <p>Nomor WhatsApp siswa/orang tua yang diisi tutor dipakai untuk membuka aplikasi WhatsApp langsung di perangkat tutor sendiri (lewat tautan wa.me) saat mengirim pengingat pembayaran atau laporan progres. Proses ini berjalan sepenuhnya di perangkat tutor — pesan tidak melewati atau tersimpan di server kami, dan isi pesannya bisa disesuaikan sendiri oleh tutor lewat fitur template pesan di dalam Aplikasi.</p>
 
     <h2>5. Data siswa dan pengguna di bawah umur</h2>
     <p>Aplikasi ini adalah alat bantu administrasi untuk tutor, bukan layanan yang ditujukan langsung untuk digunakan oleh anak-anak. Siswa (termasuk yang berusia di bawah 18 tahun) tidak berinteraksi langsung dengan Aplikasi — data mereka dicatat oleh tutor sebagai bagian dari administrasi kegiatan les. <strong>Tutor bertanggung jawab</strong> untuk memastikan pencatatan data siswa (termasuk siswa di bawah umur) dilakukan sesuai persetujuan yang relevan dari siswa/orang tua atau wali, sesuai konteks les privat masing-masing.</p>
