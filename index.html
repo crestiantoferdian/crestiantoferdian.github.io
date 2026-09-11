@@ -6902,12 +6902,35 @@ function listenSubscriptionStatus(uid){
         tb.textContent='⏳ Masa trial: '+daysLeft+' hari lagi';
         tb.style.display='block';
       }
+      scheduleTrialReminder(trialEndsMs); // jadwalkan push H-3, aman dipanggil berkali-kali (ada dedupe)
     } else {
       if(tb) tb.style.display='none';
       showPaywall();
     }
   }, function(err){
     console.error('Gagal memantau status langganan:', err);
+  });
+}
+
+/* Reminder H-3 sebelum trial habis — dijadwalkan lewat sistem push yang sama
+   dengan reminder jadwal les (OneSignal + Cloudflare Worker), jadi tetap
+   muncul di hari-H walau tutor tidak buka aplikasi lagi sampai saat itu. */
+function scheduleTrialReminder(trialEndsMs){
+  const flagKey='llk_trial_reminder_scheduled_'+trialEndsMs;
+  if(localStorage.getItem(flagKey)) return; // sudah pernah dijadwalkan untuk trial (tanggal habis) ini
+  const H3ms=trialEndsMs-3*24*60*60*1000;
+  const now=Date.now();
+  // Kalau H-3 sudah lewat (tutor baru buka app di hari-hari akhir trial),
+  // kirim sesegera mungkin alih-alih menjadwalkan ke tanggal yang sudah lewat.
+  const sendAtMs=H3ms>now?H3ms:(now+30*1000);
+  const iso=new Date(sendAtMs).toISOString();
+  scheduleReminderPush(
+    '⏳ Trial LesLesanKu akan berakhir',
+    'Masa uji coba gratis kamu tersisa 3 hari lagi. Yuk berlangganan supaya data & fitur tetap bisa dipakai tanpa jeda.',
+    iso,
+    'trialReminder_'+trialEndsMs
+  ).then(function(ok){
+    if(ok) localStorage.setItem(flagKey,'1');
   });
 }
 
