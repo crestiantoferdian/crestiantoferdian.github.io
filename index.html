@@ -576,16 +576,16 @@ body{
 <!-- ═══ PAYWALL ═══ tampil di atas segalanya kalau trial habis & belum berlangganan.
      Beda dengan loginGate: ini muncul SETELAH user login, bukan sebelum. -->
 <div id="paywallOverlay" style="display:none;position:fixed;inset:0;z-index:9998;background:#fff;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif">
-  <div style="font-size:2.4rem;margin-bottom:4px">🔒</div>
-  <div style="font-size:1.3rem;font-weight:800;color:#1c1c1e;margin-bottom:6px">Masa Trial Berakhir</div>
+  <div style="font-size:2.4rem;margin-bottom:4px">🎓</div>
+  <div style="font-size:1.3rem;font-weight:800;color:#1c1c1e;margin-bottom:6px">Trial 31 Hari Kamu Sudah Selesai</div>
   <div style="font-size:0.85rem;color:#6b7280;margin-bottom:28px;max-width:320px;line-height:1.6">
-    Untuk terus memakai LesLesanKu, silakan pilih paket langganan di bawah ini.
+    Semoga sebulan ini bantu kelola les kamu lebih rapi! Lanjutkan supaya semua data absensi, progres, dan jadwal murid tetap aman & bisa terus dipakai.
   </div>
   <button onclick="mulaiLangganan('monthly')" style="width:100%;max-width:320px;padding:14px;background:#1c1c1e;color:#fff;border:none;border-radius:12px;font-size:0.9rem;font-weight:700;cursor:pointer;margin-bottom:10px">
     Langganan Bulanan — Rp40.000/bulan
   </button>
   <button onclick="mulaiLangganan('yearly')" style="width:100%;max-width:320px;padding:14px;background:#fff;color:#1c1c1e;border:2px solid #1c1c1e;border-radius:12px;font-size:0.9rem;font-weight:700;cursor:pointer">
-    Langganan Tahunan — Rp400.000/tahun
+    Langganan Tahunan — Rp400.000/tahun <span style="font-weight:800">(Hemat 2 bulan)</span>
   </button>
   <div id="paywallStatus" style="margin-top:18px;font-size:0.78rem;color:#9ca3af"></div>
   <button onclick="logoutFirebase()" style="margin-top:24px;background:none;border:none;color:#9ca3af;font-size:0.78rem;cursor:pointer;text-decoration:underline">
@@ -6883,7 +6883,13 @@ let _subUnsub=null;
 function listenSubscriptionStatus(uid){
   if(_subUnsub) _subUnsub();
   _subUnsub=fbDb.collection('subscriptions').doc(uid).onSnapshot(function(doc){
-    if(!doc.exists){ showPaywall(); return; }
+    if(!doc.exists){
+      // Akun baru — data trial sedang dibuatkan server (onUserCreate), biasanya
+      // cuma butuh 1-2 detik. JANGAN langsung kunci dengan paywall di sini,
+      // supaya tidak ada jeda "disuruh bayar" yang keliru sebelum trial aktif.
+      hidePaywall();
+      return;
+    }
     const d=doc.data();
     if(d.isTester===true){ hidePaywall(); return; }
     const now=Date.now();
@@ -6903,6 +6909,7 @@ function listenSubscriptionStatus(uid){
         tb.style.display='block';
       }
       scheduleTrialReminder(trialEndsMs); // jadwalkan push H-3, aman dipanggil berkali-kali (ada dedupe)
+      maybeShowWelcomePricing(); // tampilkan pilihan paket sekali saja untuk akun baru
     } else {
       if(tb) tb.style.display='none';
       showPaywall();
@@ -6941,6 +6948,61 @@ function showPaywall(){
 function hidePaywall(){
   const el=document.getElementById('paywallOverlay');
   if(el) el.style.display='none';
+}
+
+/* Layar "Selamat Datang" berisi 3 pilihan paket — tampil SEKALI SAJA
+   untuk akun baru begitu trial aktif. Trial-nya sendiri sudah otomatis
+   jalan di server (onUserCreate), jadi kartu "Trial Gratis" di sini cuma
+   menutup layar ini (bukan benar-benar "mengaktifkan" apa-apa) — sementara
+   2 kartu Pro memberi opsi buat yang mau langsung bayar & lewati trial. */
+function maybeShowWelcomePricing(){
+  if(localStorage.getItem('llk_welcome_shown')) return;
+  showWelcomePricing();
+}
+function closeWelcomePricing(){
+  localStorage.setItem('llk_welcome_shown','1');
+  const el=document.getElementById('welcomePricingOverlay');
+  if(el) el.remove();
+}
+function showWelcomePricing(){
+  if(document.getElementById('welcomePricingOverlay')) return;
+  const el=document.createElement('div');
+  el.id='welcomePricingOverlay';
+  el.style.cssText='position:fixed;inset:0;z-index:9997;background:#fff;overflow-y:auto;padding:32px 20px 40px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center';
+  el.innerHTML=`
+    <div style="font-size:2.2rem;margin-bottom:6px">🎵</div>
+    <div style="font-size:1.25rem;font-weight:800;color:#1c1c1e;margin-bottom:6px">Selamat Datang di LesLesanKu!</div>
+    <div style="font-size:0.85rem;color:#6b7280;margin-bottom:26px;max-width:340px;margin-left:auto;margin-right:auto;line-height:1.6">
+      Absensi, jadwal, progres murid, sampai pengingat pembayaran — semua beres dalam satu aplikasi. Pilih cara mulainya:
+    </div>
+
+    <div style="border:2px solid #1c9e4e;border-radius:16px;padding:18px;max-width:340px;margin:0 auto 14px;text-align:left;position:relative;background:#f0fdf4">
+      <div style="position:absolute;top:-11px;right:14px;background:#1c9e4e;color:#fff;font-size:0.64rem;font-weight:800;padding:3px 10px;border-radius:99px;letter-spacing:0.02em">DIREKOMENDASIKAN</div>
+      <div style="font-size:1rem;font-weight:800;color:#1c1c1e;margin-bottom:4px">🎁 Coba Gratis 31 Hari</div>
+      <div style="font-size:0.78rem;color:#4b5563;line-height:1.65;margin-bottom:14px">
+        Rasakan satu siklus bulan penuh — catat absensi harian, kirim progres ke orang tua murid, sampai lihat sendiri laporan pendapatan bulan pertamamu. Tanpa kartu, tanpa risiko.
+      </div>
+      <button onclick="closeWelcomePricing()" style="width:100%;padding:13px;background:#1c9e4e;color:#fff;border:none;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer">Mulai Gratis Sekarang</button>
+    </div>
+
+    <div style="border:1.5px solid #e5e7eb;border-radius:16px;padding:18px;max-width:340px;margin:0 auto 14px;text-align:left">
+      <div style="font-size:1rem;font-weight:800;color:#1c1c1e;margin-bottom:4px">⭐ Pro Bulanan</div>
+      <div style="font-size:1.35rem;font-weight:800;color:#1c1c1e;margin-bottom:8px">Rp40.000<span style="font-size:0.68rem;font-weight:600;color:#9ca3af">/bulan</span></div>
+      <div style="font-size:0.78rem;color:#4b5563;line-height:1.65;margin-bottom:14px">Sudah yakin dan mau langsung tenang tanpa hitung mundur trial? Aktif seketika, batal kapan saja.</div>
+      <button onclick="mulaiLangganan('monthly');closeWelcomePricing()" style="width:100%;padding:13px;background:#fff;color:#1c1c1e;border:2px solid #1c1c1e;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer">Langganan Bulanan</button>
+    </div>
+
+    <div style="border:1.5px solid #1c1c1e;border-radius:16px;padding:18px;max-width:340px;margin:0 auto 22px;text-align:left;position:relative">
+      <div style="position:absolute;top:-11px;right:14px;background:#1c1c1e;color:#fff;font-size:0.64rem;font-weight:800;padding:3px 10px;border-radius:99px;letter-spacing:0.02em">HEMAT 2 BULAN</div>
+      <div style="font-size:1rem;font-weight:800;color:#1c1c1e;margin-bottom:4px">👑 Pro Tahunan</div>
+      <div style="font-size:1.35rem;font-weight:800;color:#1c1c1e;margin-bottom:8px">Rp400.000<span style="font-size:0.68rem;font-weight:600;color:#9ca3af">/tahun</span></div>
+      <div style="font-size:0.78rem;color:#4b5563;line-height:1.65;margin-bottom:14px">Setara ±Rp33.300/bulan. Paling hemat buat kamu yang serius jadikan les privat sebagai bisnis jangka panjang.</div>
+      <button onclick="mulaiLangganan('yearly');closeWelcomePricing()" style="width:100%;padding:13px;background:#1c1c1e;color:#fff;border:none;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer">Langganan Tahunan</button>
+    </div>
+
+    <div style="font-size:0.72rem;color:#9ca3af;max-width:320px;margin:0 auto">Trial gratis 31 hari kamu sudah otomatis aktif — pilihan Pro di atas cuma buat yang mau lewati trial & langsung berlangganan.</div>
+  `;
+  document.body.appendChild(el);
 }
 
 function setPaywallStatus(msg){
