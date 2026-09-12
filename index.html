@@ -571,6 +571,7 @@ body{
         Login dengan Google
       </button>
       <div id="loginGateStatus" style="margin-top:16px;font-size:0.78rem;color:#9ca3af"></div>
+      <button id="loginGateSkipBtn" onclick="skipLoginForNow()" style="margin-top:14px;background:none;border:none;color:#9ca3af;font-size:0.8rem;cursor:pointer;text-decoration:underline">Lihat-lihat dulu, login nanti</button>
     </div>
   </div>
 </div>
@@ -4577,6 +4578,7 @@ function renderLinks(){
 }
 
 function openMateriSection(section){
+  if(!requireLoginOrBlock()) return;
   materiSection=section;
   history.pushState({tab:'links', view:'sub', section:section},'');
   renderLinks();
@@ -5714,6 +5716,7 @@ function openJadwalIfFilled(n, dayVal){
 }
 
 function openAdd(){
+  if(!requireLoginOrBlock()) return;
   editIdx=null;
   history.pushState({tab:currentTab, view:'modal'},'');
   document.getElementById('modalTitle').textContent='＋ Tambah Murid';
@@ -6830,6 +6833,35 @@ function showLoginForm(){
   const form=document.getElementById('loginGateFormWrap');
   if(checking) checking.style.display='none';
   if(form) form.style.display='block';
+}
+
+/* Mode "lihat-lihat dulu" — user boleh masuk & lihat tampilan tanpa login,
+   tapi TIDAK bisa menyimpan apapun (lihat requireLoginOrBlock di bawah). */
+let _llkGuestMode=false;
+function skipLoginForNow(){
+  _llkGuestMode=true;
+  hideLoginGate();
+}
+
+/* Dipanggil di titik-titik aksi yang butuh penyimpanan (Tambah Murid,
+   semua fitur tab Materi). Kalau belum login, tampilkan lagi gate-nya
+   dengan pesan yang lebih mendesak, dan BATALKAN aksi yang tadi diklik. */
+function requireLoginOrBlock(){
+  if(currentUser) return true;
+  const gate=document.getElementById('loginGate');
+  const checking=document.getElementById('loginGateChecking');
+  const form=document.getElementById('loginGateFormWrap');
+  const msgEl=document.getElementById('loginGateMsg');
+  const skipBtn=document.getElementById('loginGateSkipBtn');
+  if(checking) checking.style.display='none';
+  if(form) form.style.display='block';
+  if(msgEl) msgEl.innerHTML='<strong style="color:#b31217">Login dulu ya</strong>, supaya data yang kamu buat tidak hilang begitu saja & tersimpan aman di akunmu.';
+  if(skipBtn) skipBtn.textContent='Batal, kembali lihat-lihat';
+  if(gate){
+    gate.style.display='flex';
+    gate.classList.remove('llk-hide');
+  }
+  return false;
 }
 
 function initFirebase(){
