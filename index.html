@@ -639,11 +639,11 @@ body{
 <div class="overlay" id="overlay">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title" id="modalTitle">Tambah Murid</div>
-    <div class="modal-sub" id="modalSub" style="display:none"></div>
-    <div style="text-align:right;margin:-4px 0 6px">
-      <button type="button" onclick="restartAddStudentTutorial()" style="background:none;border:none;color:var(--blue);font-size:0.72rem;font-weight:700;cursor:pointer;text-decoration:underline">🎓 Lihat tutorial cara isi form ini</button>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;position:relative">
+      <div class="modal-title" id="modalTitle">Tambah Murid</div>
+      <button type="button" onclick="restartAddStudentTutorial()" title="Lihat tutorial cara isi form ini" style="position:absolute;right:0;width:28px;height:28px;border-radius:50%;background:var(--blue-bg);border:1.5px solid rgba(0,113,227,0.3);color:var(--blue);font-size:0.85rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">?</button>
     </div>
+    <div class="modal-sub" id="modalSub" style="display:none"></div>
     <div class="mrow" id="tut-step-name">
       <div class="mfield"><label>Nama *</label><input id="f_name" type="text" placeholder="cth: Alya Putri"/></div>
       <div class="mfield"><label>Mata Pelajaran</label><input id="f_inst" type="text" placeholder="cth: Piano, Matematika, Bahasa Inggris"/></div>
