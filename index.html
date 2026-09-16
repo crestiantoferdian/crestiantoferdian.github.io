@@ -471,6 +471,15 @@ body{
 .mbtn:active{transform:scale(0.95)}
 .mbtn-cancel{background:var(--bg);color:var(--muted);border:1.5px solid var(--border)!important}
 .mbtn-save{background:var(--red);color:#fff;box-shadow:var(--shadow-red)}
+@keyframes llkTutPulse{0%,100%{box-shadow:0 0 0 3px rgba(179,18,23,0.35),0 0 0 7px rgba(179,18,23,0.12)}50%{box-shadow:0 0 0 3px rgba(179,18,23,0.55),0 0 0 11px rgba(179,18,23,0.18)}}
+.llk-tut-highlight{position:relative;z-index:10001;border-radius:14px!important;animation:llkTutPulse 1.4s ease-in-out infinite;background:#fff!important}
+#llkTutCard{position:fixed;left:0;right:0;bottom:0;z-index:10002;background:#1c1c1e;color:#fff;padding:16px 18px calc(18px + env(safe-area-inset-bottom));border-radius:20px 20px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,0.35);font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+#llkTutCard .tut-progress{font-size:0.68rem;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px}
+#llkTutCard .tut-title{font-size:1rem;font-weight:800;margin-bottom:5px}
+#llkTutCard .tut-desc{font-size:0.82rem;color:#d1d5db;line-height:1.55;margin-bottom:14px}
+#llkTutCard .tut-btns{display:flex;gap:10px}
+#llkTutCard .tut-skip{background:none;border:none;color:#9ca3af;font-size:0.82rem;font-weight:600;cursor:pointer;padding:12px 6px}
+#llkTutCard .tut-next{flex:1;background:#fff;color:#1c1c1e;border:none;border-radius:12px;padding:13px;font-size:0.88rem;font-weight:800;cursor:pointer}
 .mbtn-del{background:var(--alpa-bg);color:var(--alpa-text);border:1.5px solid rgba(220,38,38,0.2)!important}
 
 /* ── RESCUE SECTION ── */
@@ -632,18 +641,21 @@ body{
     <div class="modal-handle"></div>
     <div class="modal-title" id="modalTitle">Tambah Murid</div>
     <div class="modal-sub" id="modalSub" style="display:none"></div>
-    <div class="mrow">
+    <div style="text-align:right;margin:-4px 0 6px">
+      <button type="button" onclick="restartAddStudentTutorial()" style="background:none;border:none;color:var(--blue);font-size:0.72rem;font-weight:700;cursor:pointer;text-decoration:underline">🎓 Lihat tutorial cara isi form ini</button>
+    </div>
+    <div class="mrow" id="tut-step-name">
       <div class="mfield"><label>Nama *</label><input id="f_name" type="text" placeholder="cth: Alya Putri"/></div>
       <div class="mfield"><label>Mata Pelajaran</label><input id="f_inst" type="text" placeholder="cth: Piano, Matematika, Bahasa Inggris"/></div>
     </div>
-    <div class="mfield" style="margin-top:2px">
+    <div class="mfield" style="margin-top:2px" id="tut-step-curriculum">
       <label>📚 Kurikulum</label>
       <select id="f_curriculum">
         <option value="">Otomatis (ikut Mata Pelajaran di atas)</option>
       </select>
     </div>
     <!-- JADWAL RUTIN 1 - selalu tampil -->
-    <div style="padding:12px 0 4px;border-top:1px dashed var(--border);margin-top:6px">
+    <div style="padding:12px 0 4px;border-top:1px dashed var(--border);margin-top:6px" id="tut-step-jadwal">
       <button type="button" onclick="toggleJadwal(1)" id="jadwal-header-1"
         style="width:100%;display:flex;align-items:center;justify-content:space-between;background:var(--blue-bg);border:1.5px solid rgba(0,113,227,0.2);border-radius:10px;padding:10px 13px;cursor:pointer;margin-bottom:0">
         <span style="font-size:0.72rem;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em">📅 Jadwal Rutin Harian 1 <span style="font-size:0.65rem;font-weight:500;opacity:0.7">(opsional)</span></span>
@@ -726,11 +738,11 @@ body{
         </div>
       </div>
     </div>
-    <div class="mrow">
+    <div class="mrow" id="tut-step-phone">
       <div class="mfield"><label>No. HP / WA Siswa/Ortu</label><input id="f_phone" type="tel" placeholder="cth: 08123456789"/></div>
       <div class="mfield"><label>Catatan</label><input id="f_notes" type="text" placeholder="Opsional"/></div>
     </div>
-    <div class="mrow">
+    <div class="mrow" id="tut-step-tarif">
       <div class="mfield"><label>Tarif per Sesi (Rp)</label><input id="f_rate" type="number" min="0" step="1000" placeholder="Default: 40.000"/></div>
       <div class="mfield"><label>Siklus Bayar</label>
         <select id="f_pay_cycle">
@@ -741,21 +753,21 @@ body{
         </select>
       </div>
     </div>
-    <div class="mrow">
+    <div class="mrow" id="tut-step-initial">
       <div class="mfield">
         <label>Pertemuan Awal</label>
         <input id="f_initial_sessions" type="number" min="0" placeholder="cth: 3"/>
         <div style="font-size:0.65rem;color:var(--muted);margin-top:3px">Sesi sebelum pakai app (opsional)</div>
       </div>
     </div>
-    <div class="mfield">
+    <div class="mfield" id="tut-step-sheet">
       <label>🔗 Link Google Sheet Siswa</label>
       <input id="f_sheet_link" type="url" placeholder="https://docs.google.com/spreadsheets/..."/>
       <div style="font-size:0.65rem;color:var(--muted);margin-top:3px">Link untuk orang tua monitor progress (opsional)</div>
     </div>
 
     <!-- TAMBAHAN KELAS -->
-    <div style="border-top:1px dashed var(--border);margin-top:14px;padding-top:14px">
+    <div style="border-top:1px dashed var(--border);margin-top:14px;padding-top:14px" id="tut-step-extra">
       <div id="extra-header-form" onclick="toggleFormSection('extra-body-form','extra-arrow-form')"
         style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:10px 14px;border-radius:12px;border:1.5px solid var(--border);background:var(--bg);user-select:none">
         <span id="extra-header-label" style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">➕ Tambahan Kelas (opsional)</span>
@@ -789,7 +801,7 @@ body{
     <div class="mactions">
       <button class="mbtn mbtn-cancel" onclick="closeModal()">Batal</button>
       <button class="mbtn mbtn-del" id="inactiveToggleBtn" onclick="toggleInactiveFromModal()" style="display:none"></button>
-      <button class="mbtn mbtn-save" onclick="doSave()">💾 Simpan</button>
+      <button class="mbtn mbtn-save" onclick="doSave()" id="tut-step-savebtn">💾 Simpan</button>
     </div>
     <div id="inactiveHint" style="display:none;font-size:0.72rem;color:var(--muted);text-align:center;margin-top:6px;line-height:1.4">Nonaktifkan kalau siswa berhenti sementara/permanen — riwayat absensi & pembayaran tetap tersimpan aman. Hapus permanen akan menghilangkan semua riwayatnya.</div>
     <button id="delBtn" onclick="doDelete()" style="display:none;width:100%;margin-top:10px;padding:10px;background:#fff5f5;border:1.5px solid rgba(220,38,38,0.25);color:var(--alpa);border-radius:10px;font-family:sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer">🗑 Hapus</button>
@@ -5827,6 +5839,73 @@ function openAdd(){
   populateCurriculumSelect('');
   document.getElementById('overlay').classList.add('open');
   setTimeout(()=>document.getElementById('f_name').focus(),300);
+  // Tutorial coachmark — hanya untuk pengguna yang BELUM PERNAH punya murid & belum pernah lihat tutorial ini
+  if(students.length===0 && !localStorage.getItem('llk_tutorial_add_student_done')){
+    setTimeout(startAddStudentTutorial,400);
+  }
+}
+
+/* ═══ TUTORIAL "BUAT JADWAL MURID PERTAMA" — coachmark step-by-step ═══
+   Menyorot tiap bagian form satu-satu dan menjelaskan fungsinya, khusus
+   untuk pengguna yang baru pertama kali buka form Tambah Murid. */
+const TUTORIAL_ADD_STUDENT_STEPS=[
+  {id:'tut-step-name', title:'1. Nama & Mata Pelajaran', desc:'Isi nama muridnya, dan apa yang diajarkan — bisa musik (Piano, Vokal), pelajaran sekolah (Matematika), atau apa saja sesuai les yang kamu ajar.'},
+  {id:'tut-step-curriculum', title:'2. Kurikulum (opsional)', desc:'Kalau kamu sudah bikin kurikulum/silabus di tab Materi, pilih di sini supaya materi & PR otomatis tersambung ke murid ini. Kalau belum ada, biarkan "Otomatis" saja.'},
+  {id:'tut-step-jadwal', title:'3. Jadwal Rutin Mingguan', desc:'Ini jadwal les tetapnya — pilih hari & jam mulai/selesai. Jadwal ini yang bikin muridnya muncul otomatis di tab Absensi tiap hari itu. Kalau les-nya lebih dari 1x seminggu, buka "Jadwal Rutin Harian 2/3/4" untuk tambah jadwal lain.'},
+  {id:'tut-step-phone', title:'4. No. HP/WA & Catatan', desc:'Nomor ini dipakai buat kirim pengingat pembayaran & laporan progres langsung ke WhatsApp orang tua/murid. Catatan bisa diisi hal-hal tambahan, misal alamat atau kondisi khusus.'},
+  {id:'tut-step-tarif', title:'5. Tarif & Siklus Bayar', desc:'Tarif per sesi buat itungan pendapatan kamu di tab Track. Siklus Bayar menentukan setelah berapa kali pertemuan, tombol pengingat pembayaran akan muncul (misal tiap 4x pertemuan).'},
+  {id:'tut-step-initial', title:'6. Pertemuan Awal (opsional)', desc:'Kalau muridnya sudah les sama kamu SEBELUM pakai aplikasi ini, isi jumlah sesi yang sudah berjalan di sini — supaya hitungan siklus pembayarannya nyambung, tidak mulai dari nol lagi.'},
+  {id:'tut-step-sheet', title:'7. Link Google Sheet (opsional)', desc:'Kalau kamu punya catatan progress terpisah di Google Sheet, tempel linknya di sini. Nanti bisa dibuka cepat lewat tombol 📨 di kartu absensi murid ini.'},
+  {id:'tut-step-extra', title:'8. Tambahan Kelas (opsional)', desc:'Buat jadwal TIDAK rutin, misal les tambahan sebelum ujian/lomba di tanggal-tanggal tertentu — beda dari jadwal mingguan biasa di atas.'},
+  {id:'tut-step-savebtn', title:'9. Selesai!', desc:'Setelah semua terisi, tinggal tekan tombol ini untuk menyimpan. Murid pertamamu akan langsung muncul di jadwal absensi hari ini (kalau hari ini sesuai jadwalnya).'},
+];
+let _tutStepIdx=0;
+function startAddStudentTutorial(){
+  _tutStepIdx=0;
+  tutorialShowStep(0);
+}
+function restartAddStudentTutorial(){
+  localStorage.removeItem('llk_tutorial_add_student_done');
+  startAddStudentTutorial();
+}
+function tutorialClearHighlight(){
+  document.querySelectorAll('.llk-tut-highlight').forEach(function(el){ el.classList.remove('llk-tut-highlight'); });
+}
+function tutorialShowStep(i){
+  tutorialClearHighlight();
+  const step=TUTORIAL_ADD_STUDENT_STEPS[i];
+  if(!step){ tutorialFinish(); return; }
+  const target=document.getElementById(step.id);
+  if(target){
+    target.classList.add('llk-tut-highlight');
+    target.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+  const isLast=(i===TUTORIAL_ADD_STUDENT_STEPS.length-1);
+  let card=document.getElementById('llkTutCard');
+  if(!card){
+    card=document.createElement('div');
+    card.id='llkTutCard';
+    document.body.appendChild(card);
+  }
+  card.innerHTML=`
+    <div class="tut-progress">Langkah ${i+1} dari ${TUTORIAL_ADD_STUDENT_STEPS.length}</div>
+    <div class="tut-title">${step.title}</div>
+    <div class="tut-desc">${step.desc}</div>
+    <div class="tut-btns">
+      <button class="tut-skip" onclick="tutorialFinish()">Lewati tutorial</button>
+      <button class="tut-next" onclick="tutorialNext()">${isLast?'Mengerti, mulai isi! 🎉':'Lanjut →'}</button>
+    </div>`;
+}
+function tutorialNext(){
+  _tutStepIdx++;
+  if(_tutStepIdx>=TUTORIAL_ADD_STUDENT_STEPS.length){ tutorialFinish(); return; }
+  tutorialShowStep(_tutStepIdx);
+}
+function tutorialFinish(){
+  tutorialClearHighlight();
+  const card=document.getElementById('llkTutCard');
+  if(card) card.remove();
+  localStorage.setItem('llk_tutorial_add_student_done','1');
 }
 
 function openEdit(idx){
