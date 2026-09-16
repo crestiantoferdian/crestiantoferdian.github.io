@@ -986,6 +986,88 @@ let editIdx=null;
 let noteStudent=null;
 let notePhotosData=[]; // array base64 foto progress (sudah dikompres) untuk modal catatan yang sedang dibuka
 const NOTE_PHOTO_MAX=6;
+
+/* ═══ PENYIMPANAN FOTO PROGRESS — pakai IndexedDB, BUKAN localStorage ═══
+   localStorage cuma dijatah ~5-10MB oleh browser dan dipakai bareng untuk
+   SEMUA data aplikasi (murid, absensi, jadwal, dst) — begitu banyak foto
+   menumpuk, jatah itu penuh dan aplikasi gagal menyimpan APAPUN (termasuk
+   data teks yang jauh lebih penting). IndexedDB jatahnya jauh lebih besar
+   (biasanya ratusan MB) dan foto ditaruh di situ sendiri, terpisah dari
+   data teks, supaya tidak lagi bikin penuh. */
+let notePhotoCache={}; // { noteKey: [base64,...] } — hasil load dari IndexedDB, dipakai render secara sinkron
+const LLK_PHOTO_DB='llk_photos_db', LLK_PHOTO_STORE='notePhotos';
+function idbOpenPhotoDb(){
+  return new Promise(function(resolve,reject){
+    const req=indexedDB.open(LLK_PHOTO_DB,1);
+    req.onupgradeneeded=function(e){
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains(LLK_PHOTO_STORE)) db.createObjectStore(LLK_PHOTO_STORE);
+    };
+    req.onsuccess=function(e){ resolve(e.target.result); };
+    req.onerror=function(e){ reject(e.target.error); };
+  });
+}
+function idbGetAllPhotos(){
+  return idbOpenPhotoDb().then(function(db){
+    return new Promise(function(resolve,reject){
+      const tx=db.transaction(LLK_PHOTO_STORE,'readonly');
+      const store=tx.objectStore(LLK_PHOTO_STORE);
+      const out={};
+      const cur=store.openCursor();
+      cur.onsuccess=function(e){
+        const c=e.target.result;
+        if(c){ out[c.key]=c.value; c.continue(); } else resolve(out);
+      };
+      cur.onerror=function(e){ reject(e.target.error); };
+    });
+  }).catch(function(err){ console.error('Gagal baca foto dari IndexedDB:',err); return {}; });
+}
+function idbSetPhotos(key, photosArr){
+  return idbOpenPhotoDb().then(function(db){
+    return new Promise(function(resolve,reject){
+      const tx=db.transaction(LLK_PHOTO_STORE,'readwrite');
+      const store=tx.objectStore(LLK_PHOTO_STORE);
+      if(photosArr && photosArr.length) store.put(photosArr, key);
+      else store.delete(key);
+      tx.oncomplete=function(){ resolve(); };
+      tx.onerror=function(e){ reject(e.target.error); };
+    });
+  }).catch(function(err){ console.error('Gagal simpan foto ke IndexedDB:',err); });
+}
+/* Dipanggil sekali di awal (dan sesudah pulih dari cloud) — pindahkan foto
+   yang masih "nyangkut" di localStorage (format lama) ke IndexedDB, supaya
+   localStorage jadi ringan lagi. Aman dipanggil berkali-kali (tidak merusak
+   apapun kalau memang sudah tidak ada foto yang perlu dipindah). */
+function migratePhotosFromLocalStorage(){
+  let movedAny=false;
+  const puts=[];
+  Object.keys(attNotes).forEach(function(key){
+    const note=attNotes[key];
+    if(note && note.photos && note.photos.length){
+      notePhotoCache[key]=note.photos;
+      puts.push(idbSetPhotos(key, note.photos));
+      delete note.photos;
+      movedAny=true;
+    }
+  });
+  return Promise.all(puts).then(function(){
+    if(movedAny){
+      localStorage.setItem('rms4_n',JSON.stringify(attNotes));
+      console.log('✅ Foto progress dipindah ke IndexedDB, localStorage jadi ringan lagi.');
+    }
+  });
+}
+/* Muat semua foto dari IndexedDB ke cache di memori, lalu render ulang
+   supaya foto yang tadinya belum sempat tampil (karena masih dimuat
+   secara async) langsung muncul. */
+function loadPhotoCacheAndRerender(){
+  return migratePhotosFromLocalStorage().then(function(){
+    return idbGetAllPhotos();
+  }).then(function(allPhotos){
+    notePhotoCache=Object.assign({}, notePhotoCache, allPhotos);
+    if(typeof render==='function') render();
+  }).catch(function(err){ console.error('loadPhotoCacheAndRerender error:',err); });
+}
 let trackPeriod='bulan';
 let incomeHidden=localStorage.getItem('llk_income_hidden')==='1';
 let incomeProjection=false;
@@ -1586,6 +1668,7 @@ function checkAutoBackup(){
 
 // ── INIT ──────────────────────────────────────────────
 loadStorage();
+loadPhotoCacheAndRerender(); // pindahkan foto lama (kalau ada) ke IndexedDB & muat cache-nya, di background
 selectedDay=todayDayName();
 checkAutoBackup();
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target===document.getElementById('overlay'))closeModal()});
@@ -1935,7 +2018,7 @@ function renderAbsensi(){
           ${isRescued?`<span class="s-pill rescue-pill">🔄 Reschedule</span>`:''}
           ${s._isExtra?`<span class="s-pill" style="background:#eef2ff;color:var(--blue);border-color:rgba(37,99,235,0.3)">➕ ${s._extraNote||'Tambahan Kelas'}</span>`:''}
         </div>
-        ${note.progress?`<div class="s-note-preview">📝 ${note.progress}${notePhotosArr(note).length?' 📷'+(notePhotosArr(note).length>1?'×'+notePhotosArr(note).length:''):''}</div>`:(notePhotosArr(note).length?`<div class="s-note-preview">📷 ${notePhotosArr(note).length>1?notePhotosArr(note).length+' foto progress':'Ada foto progress'}</div>`:'')}
+        ${note.progress?`<div class="s-note-preview">📝 ${note.progress}${notePhotosArr(note,noteKey).length?' 📷'+(notePhotosArr(note,noteKey).length>1?'×'+notePhotosArr(note,noteKey).length:''):''}</div>`:(notePhotosArr(note,noteKey).length?`<div class="s-note-preview">📷 ${notePhotosArr(note,noteKey).length>1?notePhotosArr(note,noteKey).length+' foto progress':'Ada foto progress'}</div>`:'')}
         ${note.prSiswa?`<div class="s-note-preview" style="color:var(--blue)">📚 PR: ${note.prSiswa}</div>`:''}
         ${showPayWarn?`<div class="pay-warn" onclick="sendPaymentWA('${s.name}')">${payWarnLabel}</div>`:''}
         <div class="att-btns" onclick="event.stopPropagation()">
@@ -2404,7 +2487,7 @@ function openNoteModal(attKey, status, displayName, dateOverride, timeOverride, 
     document.getElementById('noteProgress').value=existing.progress||'';
     document.getElementById('notePrSiswa').value=existing.prSiswa||'';
     document.getElementById('notePrGuru').value=existing.prGuru||'';
-    notePhotosData=existing.photos?existing.photos.slice():(existing.photo?[existing.photo]:[]);
+    notePhotosData=notePhotosArr(existing,noteKey).slice();
     renderNotePhotoPreview();
     onNoteStatusChange();
     document.getElementById('noteOverlay').classList.add('open');
@@ -2500,7 +2583,8 @@ function renderNotePhotoPreview(){
   if(camBtn){ camBtn.disabled=full; camBtn.style.opacity=full?'0.5':'1'; camBtn.style.cursor=full?'not-allowed':'pointer'; }
   if(galBtn){ galBtn.disabled=full; galBtn.style.opacity=full?'0.5':'1'; galBtn.style.cursor=full?'not-allowed':'pointer'; }
 }
-function notePhotosArr(note){
+function notePhotosArr(note, key){
+  if(key && notePhotoCache[key] && notePhotoCache[key].length) return notePhotoCache[key];
   if(!note) return [];
   if(note.photos&&note.photos.length) return note.photos;
   if(note.photo) return [note.photo];
@@ -2615,6 +2699,8 @@ function confirmResetAttendance(){
   const {attKey, dateKey, name}=pending;
   if(attendance[dateKey]) delete attendance[dateKey][attKey];
   delete attNotes[dateKey+'_'+name];
+  delete notePhotoCache[dateKey+'_'+name];
+  idbSetPhotos(dateKey+'_'+name, []);
   window._pendingReset=null;
   save();render();
   toast('↩️ '+name+' direset');
@@ -2641,7 +2727,7 @@ function openTrackEditModal(attKey, status, displayName, dateKey){
     document.getElementById('noteProgress').value=existing.progress||'';
     document.getElementById('notePrSiswa').value=existing.prSiswa||'';
     document.getElementById('notePrGuru').value=existing.prGuru||'';
-    notePhotosData=existing.photos?existing.photos.slice():(existing.photo?[existing.photo]:[]);
+    notePhotosData=notePhotosArr(existing,noteKey).slice();
     renderNotePhotoPreview();
     onNoteStatusChange();
     document.getElementById('noteOverlay').classList.add('open');
@@ -2680,8 +2766,12 @@ function saveNote(){
     const editedTime=(document.getElementById('noteTimeInput').value)||noteStudent.time||'';
     const editedTime2=(document.getElementById('noteTime2Input').value)||noteStudent.time2||'';
     if(editedTime) attMeta[noteKey]={time:editedTime,time2:editedTime2};
-    if(reason||progress||prSiswa||prGuru||notePhotosData.length) attNotes[noteKey]={reason:reason,progress:progress,prSiswa:prSiswa,prGuru:prGuru,photos:notePhotosData.slice()};
+    if(reason||progress||prSiswa||prGuru||notePhotosData.length) attNotes[noteKey]={reason:reason,progress:progress,prSiswa:prSiswa,prGuru:prGuru};
     else delete attNotes[noteKey];
+    // Foto DISIMPAN TERPISAH di IndexedDB (bukan ikut masuk attNotes/localStorage) —
+    // supaya tidak lagi bikin localStorage penuh walau foto menumpuk banyak.
+    notePhotoCache[noteKey]=notePhotosData.slice();
+    idbSetPhotos(noteKey, notePhotosData.slice());
     syncPrGuruTask(noteKey, prGuru, displayName, dateKey, editedTime);
     save();closeNoteModal();
     if(noteStudent&&noteStudent.fromTrack){
@@ -3255,7 +3345,7 @@ function renderStudentProfile(name, period){
             }
           }
         }
-        if(!st&&!note.progress&&!note.reason&&!note.prSiswa&&!notePhotosArr(note).length) return '';
+        if(!st&&!note.progress&&!note.reason&&!note.prSiswa&&!notePhotosArr(note,dk+'_'+attKey).length) return '';
         const stLabel = st==='hadir'?'✅ Hadir':st==='izin'?'✋ Izin':st==='alpa'?'✗ Alpa':'';
         const stColor = st==='hadir'?'var(--hadir)':st==='izin'?'var(--izin)':'var(--alpa)';
         const safeName2=name.replace(/'/g,"\\'");
@@ -3276,7 +3366,7 @@ function renderStudentProfile(name, period){
           +(note.reason?'<div style="font-size:0.82rem;color:var(--text);background:#fffbeb;border-radius:9px;padding:8px 11px;margin-top:5px;border-left:3px solid var(--izin);white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto">📋 '+note.reason+'</div>':'')
           +(note.progress?'<div style="font-size:0.82rem;color:var(--text);background:var(--blue-bg);border-radius:9px;padding:8px 11px;margin-top:6px;border-left:3px solid var(--blue);white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto">📝 '+note.progress+'</div>':'')
           +(note.prSiswa?'<div style="font-size:0.82rem;color:var(--text);background:#eef2ff;border-radius:9px;padding:8px 11px;margin-top:6px;border-left:3px solid var(--blue);white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto">📚 PR: '+note.prSiswa+'</div>':'')
-          +photoGridHtml(notePhotosArr(note))
+          +photoGridHtml(notePhotosArr(note,dk+'_'+attKey))
           +'</div>';
       }).filter(Boolean).join('')
     : '<div class="empty"><div class="empty-icon">📋</div><div class="empty-t">Tidak ada data</div><div class="empty-d">Tidak ada catatan di periode ini</div></div>';
@@ -4218,8 +4308,8 @@ function renderHistoryDetail(){
       ${note.reason?`<div class="hist-note">📋 ${note.reason}</div>`:''}
       ${note.progress?`<div class="hist-note" style="margin-top:6px;border-left:3px solid var(--blue);padding-left:10px">📝 ${note.progress}</div>`:''}
       ${note.prSiswa?`<div class="hist-note" style="margin-top:6px;border-left:3px solid var(--blue);padding-left:10px">📚 PR: ${note.prSiswa}</div>`:''}
-      ${photoGridHtml(notePhotosArr(note))}
-      ${!note.reason&&!note.progress&&!note.prSiswa&&!notePhotosArr(note).length?`<div class="hist-no-note">Tidak ada catatan</div>`:''}
+      ${photoGridHtml(notePhotosArr(note,dk+'_'+name))}
+      ${!note.reason&&!note.progress&&!note.prSiswa&&!notePhotosArr(note,dk+'_'+name).length?`<div class="hist-no-note">Tidak ada catatan</div>`:''}
     </div>`;
   }).join(''):`<div class="empty"><div class="empty-icon">📋</div><div class="empty-t">Belum ada histori</div><div class="empty-d">Mulai absen murid ini untuk melihat histori</div></div>`;
 
@@ -6592,6 +6682,8 @@ function confirmDeleteAttendance(){
   if(Object.keys(attendance[dk]).length===0) delete attendance[dk];
   const noteKey=dk+'_'+name;
   if(attNotes[noteKey]) delete attNotes[noteKey];
+  delete notePhotoCache[noteKey];
+  idbSetPhotos(noteKey, []);
   save();
   toast('🗑 Laporan dihapus');
   if(window._profileName) renderStudentProfile(window._profileName, window._profilePeriod||'week');
@@ -7343,6 +7435,7 @@ function pullFromCloud(){
           if(parts.sound&&parts.sound.data!==undefined) settingsData['llk_notif_custom_mp3']=parts.sound.data;
           restoreSettingsData(settingsData);
           loadStorage();
+          loadPhotoCacheAndRerender(); // migrasikan foto dari hasil pemulihan cloud juga (kalau formatnya masih lama)
           applySettings();
           render();
           renderAccountSection();
