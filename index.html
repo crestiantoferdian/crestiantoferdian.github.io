@@ -7085,6 +7085,10 @@ function initFirebase(){
 // firestore.rules) — jadi tidak bisa diakali lewat DevTools/localStorage.
 // ══════════════════════════════════════════════════════════════════════
 let _subUnsub=null;
+// Ringkasan status langganan terakhir (diisi tiap snapshot Firestore berubah),
+// dipakai renderAccountSection() untuk nampilin badge PRO/TRIAL di sebelah email
+// tanpa perlu query ulang ke Firestore.
+let _subBadgeInfo=null; // {label:'PRO'|'TRIAL', daysLeft?:number} atau null kalau tidak ada badge
 
 function listenSubscriptionStatus(uid){
   if(_subUnsub) _subUnsub();
@@ -7094,10 +7098,15 @@ function listenSubscriptionStatus(uid){
       // cuma butuh 1-2 detik. JANGAN langsung kunci dengan paywall di sini,
       // supaya tidak ada jeda "disuruh bayar" yang keliru sebelum trial aktif.
       hidePaywall();
+      _subBadgeInfo=null; renderAccountSection();
       return;
     }
     const d=doc.data();
-    if(d.isTester===true){ hidePaywall(); return; }
+    if(d.isTester===true){
+      hidePaywall();
+      _subBadgeInfo={label:'PRO'}; renderAccountSection();
+      return;
+    }
     const now=Date.now();
     const trialEndsMs=d.trialEndsAt?d.trialEndsAt.toMillis():0;
     const subEndsMs=d.subscriptionEndsAt?d.subscriptionEndsAt.toMillis():0;
@@ -7107,19 +7116,23 @@ function listenSubscriptionStatus(uid){
     if(subActive){
       hidePaywall();
       if(tb) tb.style.display='none';
+      _subBadgeInfo={label:'PRO'};
     } else if(trialActive){
       hidePaywall();
+      const daysLeft=Math.ceil((trialEndsMs-now)/(24*60*60*1000));
       if(tb){
-        const daysLeft=Math.ceil((trialEndsMs-now)/(24*60*60*1000));
         tb.textContent='⏳ Masa trial: '+daysLeft+' hari lagi';
         tb.style.display='block';
       }
       scheduleTrialReminder(trialEndsMs); // jadwalkan push H-3, aman dipanggil berkali-kali (ada dedupe)
       maybeShowWelcomePricing(); // tampilkan pilihan paket sekali saja untuk akun baru
+      _subBadgeInfo={label:'TRIAL',daysLeft:daysLeft};
     } else {
       if(tb) tb.style.display='none';
       showPaywall();
+      _subBadgeInfo=null;
     }
+    renderAccountSection();
   }, function(err){
     console.error('Gagal memantau status langganan:', err);
   });
@@ -7610,11 +7623,21 @@ function renderAccountSection(){
   const el=document.getElementById('accountSectionSlot');
   if(!el) return;
   if(currentUser){
+    // Badge kecil di sebelah email: PRO (merah, solid) kalau langganan aktif,
+    // TRIAL (kuning, sisa hari) kalau masih masa coba. Kosong kalau belum ada status.
+    let badgeHtml='';
+    if(_subBadgeInfo){
+      if(_subBadgeInfo.label==='PRO'){
+        badgeHtml='<span style="flex-shrink:0;background:#b31217;color:#fff;font-size:0.6rem;font-weight:800;letter-spacing:0.03em;padding:2px 6px;border-radius:6px;line-height:1.4">PRO</span>';
+      } else {
+        badgeHtml='<span style="flex-shrink:0;background:#fff3cd;color:#7a5c00;font-size:0.6rem;font-weight:800;letter-spacing:0.03em;padding:2px 6px;border-radius:6px;line-height:1.4">TRIAL · '+_subBadgeInfo.daysLeft+'H</span>';
+      }
+    }
     el.innerHTML=
       '<div style="display:flex;align-items:center;gap:10px;padding:12px;background:#f2f2f7;border-radius:12px;margin-bottom:10px">'+
         (currentUser.photoURL?'<img src="'+currentUser.photoURL+'" style="width:36px;height:36px;border-radius:50%">':'<div style="width:36px;height:36px;border-radius:50%;background:#1c1c1e;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">'+(currentUser.displayName||'U').charAt(0)+'</div>')+
         '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(currentUser.displayName||'')+'</div>'+
-        '<div style="font-size:0.72rem;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(currentUser.email||'')+'</div>'+
+        '<div style="display:flex;align-items:center;gap:6px;min-width:0"><span style="font-size:0.72rem;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">'+(currentUser.email||'')+'</span>'+badgeHtml+'</div>'+
         '<div id="cloudSyncStatus" style="font-size:0.68rem;color:#9ca3af;margin-top:2px">Tersinkron otomatis</div></div>'+
         '<button onclick="logoutFirebase()" style="background:none;border:1px solid #e5e5ea;border-radius:8px;padding:6px 10px;font-size:0.72rem;color:#dc2626;cursor:pointer">Logout</button>'+
       '</div>';
