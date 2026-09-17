@@ -5869,17 +5869,15 @@ function restartAddStudentTutorial(){
   startAddStudentTutorial();
 }
 function tutorialClearHighlight(){
-  document.querySelectorAll('.llk-tut-highlight').forEach(function(el){ el.classList.remove('llk-tut-highlight'); });
+  document.querySelectorAll('.llk-tut-highlight').forEach(function(el){
+    el.classList.remove('llk-tut-highlight');
+    el.style.scrollMarginTop='';
+  });
 }
 function tutorialShowStep(i){
   tutorialClearHighlight();
   const step=TUTORIAL_ADD_STUDENT_STEPS[i];
   if(!step){ tutorialFinish(); return; }
-  const target=document.getElementById(step.id);
-  if(target){
-    target.classList.add('llk-tut-highlight');
-    target.scrollIntoView({behavior:'smooth', block:'center'});
-  }
   const isLast=(i===TUTORIAL_ADD_STUDENT_STEPS.length-1);
   let card=document.getElementById('llkTutCard');
   if(!card){
@@ -5887,6 +5885,9 @@ function tutorialShowStep(i){
     card.id='llkTutCard';
     document.body.appendChild(card);
   }
+  // Render kartu DULU supaya tingginya bisa diukur, baru sorot & scroll ke field-nya —
+  // supaya field yang disorot selalu digeser turun sampai berada DI BAWAH kartu ini,
+  // tidak peduli field-nya paling atas form sekalipun (spt langkah 1 & 2).
   card.innerHTML=`
     <div class="tut-progress">Langkah ${i+1} dari ${TUTORIAL_ADD_STUDENT_STEPS.length}</div>
     <div class="tut-title">${step.title}</div>
@@ -5895,6 +5896,13 @@ function tutorialShowStep(i){
       <button class="tut-skip" onclick="tutorialFinish()">Lewati tutorial</button>
       <button class="tut-next" onclick="tutorialNext()">${isLast?'Mengerti, mulai isi! 🎉':'Lanjut →'}</button>
     </div>`;
+  const target=document.getElementById(step.id);
+  if(target){
+    const cardH=card.offsetHeight||220;
+    target.style.scrollMarginTop=(cardH+16)+'px';
+    target.classList.add('llk-tut-highlight');
+    target.scrollIntoView({behavior:'smooth', block:'start'});
+  }
 }
 function tutorialNext(){
   _tutStepIdx++;
