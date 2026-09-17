@@ -637,7 +637,7 @@ body{
 
 <!-- STUDENT MODAL -->
 <div class="overlay" id="overlay">
-  <div class="modal">
+  <div class="modal" id="studentModal">
     <div class="modal-handle"></div>
     <div style="display:flex;align-items:center;justify-content:center;gap:8px;position:relative">
       <div class="modal-title" id="modalTitle">Tambah Murid</div>
@@ -5862,6 +5862,11 @@ const TUTORIAL_ADD_STUDENT_STEPS=[
 let _tutStepIdx=0;
 function startAddStudentTutorial(){
   _tutStepIdx=0;
+  // Paksa modal punya ruang scroll ekstra di atas — supaya field yang letaknya
+  // paling atas (langkah 1 & 2) tetap bisa "digeser turun" keluar dari bawah
+  // kartu tutorial, walau isi form-nya sendiri belum cukup panjang buat di-scroll.
+  const modalEl=document.getElementById('studentModal');
+  if(modalEl) modalEl.style.paddingTop='280px';
   tutorialShowStep(0);
 }
 function restartAddStudentTutorial(){
@@ -5913,6 +5918,8 @@ function tutorialFinish(){
   tutorialClearHighlight();
   const card=document.getElementById('llkTutCard');
   if(card) card.remove();
+  const modalEl=document.getElementById('studentModal');
+  if(modalEl) modalEl.style.paddingTop=''; // kembalikan padding normal
   localStorage.setItem('llk_tutorial_add_student_done','1');
 }
 
@@ -5985,6 +5992,15 @@ function closeModal(){
   document.getElementById('overlay').classList.remove('open');
   const inactiveBtn=document.getElementById('inactiveToggleBtn');
   if(inactiveBtn) inactiveBtn.dataset.confirm='';
+  // Kalau modal ditutup (Batal/backdrop) di tengah-tengah tutorial, bersihkan
+  // sisa kartu & padding-nya juga — supaya tidak "nyangkut" di kunjungan berikutnya.
+  const tutCard=document.getElementById('llkTutCard');
+  if(tutCard){
+    tutCard.remove();
+    tutorialClearHighlight();
+    const modalEl=document.getElementById('studentModal');
+    if(modalEl) modalEl.style.paddingTop='';
+  }
 }
 
 // Extra dates management
