@@ -557,33 +557,13 @@ body{
   0%,100%{ transform:scale(1); }
   50%{ transform:scale(1.15); }
 }
-@keyframes llkBadgeGlow{
-  0%,100%{ opacity:0.65; filter:brightness(1); }
-  50%{ opacity:1; filter:brightness(1.35); }
-}
 @keyframes llkBadgeFrameGlow{
   0%,100%{ box-shadow:0 0 6px rgba(255,215,0,0.45), 0 2px 6px rgba(0,0,0,0.3); }
   50%{ box-shadow:0 0 18px rgba(255,215,0,0.95), 0 2px 8px rgba(0,0,0,0.3); }
 }
-@keyframes llkBadgeSunSpin{
-  from{ transform:translate(-50%,-50%) rotate(0deg); }
-  to{ transform:translate(-50%,-50%) rotate(360deg); }
-}
 .llk-badge-star{
   position:relative; z-index:1; isolation:isolate;
   animation:llkBadgePulse 1.5s ease-in-out infinite, llkBadgeFrameGlow 1.5s ease-in-out infinite;
-}
-.llk-badge-star::before{
-  content:'';
-  position:absolute; z-index:-1;
-  left:50%; top:50%;
-  width:42px; height:42px;
-  transform:translate(-50%,-50%) rotate(0deg);
-  border-radius:50%;
-  background:repeating-conic-gradient(#ffd700 0deg 9deg, #fff6c8 9deg 18deg);
-  box-shadow:0 0 14px rgba(255,215,0,0.65);
-  animation:llkBadgeSunSpin 3.5s linear infinite, llkBadgeGlow 1.5s ease-in-out infinite;
-  pointer-events:none;
 }
 </style>
 </head>
@@ -7322,7 +7302,7 @@ function showWelcomePricing(){
         <div style="display:flex;align-items:flex-start;gap:8px;font-size:0.8rem;color:#1c1c1e"><span style="color:#1c1c1e;font-weight:800">✓</span><span>📊 Laporan pendapatan bulan pertama</span></div>
         <div style="display:flex;align-items:flex-start;gap:8px;font-size:0.8rem;color:#1c1c1e"><span style="color:#1c1c1e;font-weight:800">✓</span><span>📚 Kurikulum & bank PR tersusun rapi</span></div>
         <div style="position:relative;display:flex;align-items:flex-start;gap:8px;font-size:0.8rem;color:#1c1c1e"><span style="color:#1c1c1e;font-weight:800">✓</span><span>☁️ Data aman, tersinkron ke cloud</span>
-          <div class="llk-badge-star" style="position:absolute;top:calc(100% - 8px);right:-6px;background:#1c1c1e;color:#fff;font-size:0.64rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.03em;white-space:nowrap">HEMAT 2 BULAN</div>
+          <div class="llk-badge-star" style="position:absolute;top:calc(100% - 8px);right:-6px;background:#1c1c1e;color:#fff;font-size:0.85rem;font-weight:800;padding:7px 18px;border-radius:99px;letter-spacing:0.03em;white-space:nowrap">HEMAT 2 BULAN</div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:8px;font-size:0.8rem;color:#1c1c1e"><span style="color:#1c1c1e;font-weight:800">✓</span><span>Paling hemat untuk jangka panjang</span></div>
         <div style="font-size:0.75rem;color:#9ca3af;font-style:italic;margin-top:2px">Dan masih banyak lagi</div>
