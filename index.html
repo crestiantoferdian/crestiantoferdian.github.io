@@ -551,6 +551,34 @@ body{
   pointer-events:none;
 }
 .llk-pro-btn.dark{ animation-name:llkProGlowDark; border-color:transparent !important; }
+
+/* ── BADGE HEMAT — bingkai bintang berputar & berkelip ── */
+@keyframes llkBadgePulse{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.15); }
+}
+@keyframes llkBadgeSpin{
+  from{ transform:translate(-50%,-50%) rotate(0deg); }
+  to{ transform:translate(-50%,-50%) rotate(360deg); }
+}
+@keyframes llkBadgeGlow{
+  0%,100%{ opacity:0.55; filter:brightness(1); }
+  50%{ opacity:1; filter:brightness(1.4); }
+}
+.llk-badge-star{
+  position:relative; z-index:1;
+  animation:llkBadgePulse 1.5s ease-in-out infinite;
+}
+.llk-badge-star::before{
+  content:'';
+  position:absolute; z-index:-1;
+  left:50%; top:50%;
+  width:280%; height:460%;
+  background:radial-gradient(circle, #fff6c8 0%, #ffd700 40%, rgba(255,215,0,0) 72%);
+  clip-path:polygon(98% 50%,75.87% 60.72%,83.94% 83.94%,60.72% 75.87%,50% 98%,39.28% 75.87%,16.06% 83.94%,24.13% 60.72%,2% 50%,24.13% 39.28%,16.06% 16.06%,39.28% 24.13%,50% 2%,60.72% 24.13%,83.94% 16.06%,75.87% 39.28%);
+  animation:llkBadgeSpin 5s linear infinite, llkBadgeGlow 1.5s ease-in-out infinite;
+  pointer-events:none;
+}
 </style>
 </head>
 <body>
@@ -7275,7 +7303,6 @@ function showWelcomePricing(){
     </div>
 
     <div style="border:1.5px solid #1c1c1e;border-radius:20px;padding:22px 20px;max-width:360px;margin:0 auto 24px;text-align:left;position:relative;background:linear-gradient(160deg,#fafafa 0%,#ffffff 100%);box-shadow:0 8px 24px rgba(0,0,0,0.08)">
-      <div style="position:absolute;top:-11px;right:16px;background:#1c1c1e;color:#fff;font-size:0.64rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.03em">HEMAT 2 BULAN</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <span style="font-size:1.3rem">👑</span>
         <span style="font-size:1.05rem;font-weight:800;color:#1c1c1e">Pro Tahunan</span>
@@ -7288,7 +7315,9 @@ function showWelcomePricing(){
         <div style="display:flex;align-items:flex-start;gap:8px;font-size:0.8rem;color:#1c1c1e"><span style="color:#1c1c1e;font-weight:800">✓</span><span>💰 Reminder tagihan otomatis tiap siklus bayar</span></div>
         <div style="display:flex;align-items:flex-start;gap:8px;font-size:0.8rem;color:#1c1c1e"><span style="color:#1c1c1e;font-weight:800">✓</span><span>📊 Laporan pendapatan bulan pertama</span></div>
         <div style="display:flex;align-items:flex-start;gap:8px;font-size:0.8rem;color:#1c1c1e"><span style="color:#1c1c1e;font-weight:800">✓</span><span>📚 Kurikulum & bank PR tersusun rapi</span></div>
-        <div style="display:flex;align-items:flex-start;gap:8px;font-size:0.8rem;color:#1c1c1e"><span style="color:#1c1c1e;font-weight:800">✓</span><span>☁️ Data aman, tersinkron ke cloud</span></div>
+        <div style="position:relative;display:flex;align-items:flex-start;gap:8px;font-size:0.8rem;color:#1c1c1e"><span style="color:#1c1c1e;font-weight:800">✓</span><span>☁️ Data aman, tersinkron ke cloud</span>
+          <div class="llk-badge-star" style="position:absolute;top:calc(100% - 8px);right:-6px;background:#1c1c1e;color:#fff;font-size:0.64rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.03em;white-space:nowrap">HEMAT 2 BULAN</div>
+        </div>
         <div style="display:flex;align-items:flex-start;gap:8px;font-size:0.8rem;color:#1c1c1e"><span style="color:#1c1c1e;font-weight:800">✓</span><span>Paling hemat untuk jangka panjang</span></div>
         <div style="font-size:0.75rem;color:#9ca3af;font-style:italic;margin-top:2px">Dan masih banyak lagi</div>
       </div>
