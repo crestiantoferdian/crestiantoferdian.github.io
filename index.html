@@ -565,9 +565,13 @@ body{
   0%,100%{ opacity:0.55; filter:brightness(1); }
   50%{ opacity:1; filter:brightness(1.4); }
 }
+@keyframes llkBadgeFrameGlow{
+  0%,100%{ box-shadow:0 0 6px rgba(255,215,0,0.45), 0 2px 6px rgba(0,0,0,0.3); }
+  50%{ box-shadow:0 0 18px rgba(255,215,0,0.95), 0 2px 8px rgba(0,0,0,0.3); }
+}
 .llk-badge-star{
-  position:relative; z-index:1;
-  animation:llkBadgePulse 1.5s ease-in-out infinite;
+  position:relative; z-index:1; isolation:isolate;
+  animation:llkBadgePulse 1.5s ease-in-out infinite, llkBadgeFrameGlow 1.5s ease-in-out infinite;
 }
 .llk-badge-star::before{
   content:'';
