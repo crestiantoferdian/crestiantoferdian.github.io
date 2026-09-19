@@ -7699,6 +7699,13 @@ function renderAccountSection(){
     if(_subBadgeInfo){
       if(_subBadgeInfo.label==='PRO'){
         badgeHtml='<span style="flex-shrink:0;background:#b31217;color:#fff;font-size:0.6rem;font-weight:800;letter-spacing:0.03em;padding:2px 6px;border-radius:6px;line-height:1.4">PRO</span>';
+        // SEMENTARA: 2 akun khusus ini tetap dikasih tombol "Jadi Pro" walau statusnya
+        // sudah PRO (tester), supaya gampang buka lagi layar Selamat Datang buat preview.
+        // Hapus pengecualian email ini kalau sudah tidak diperlukan lagi.
+        const emailNow=(currentUser.email||'').toLowerCase();
+        if(emailNow==='crestiantoferdian@gmail.com' || emailNow==='betharani.w@gmail.com'){
+          upgradeBtnHtml='<button onclick="showWelcomePricing()" style="flex-shrink:0;background:#1c1c1e;color:#fff;font-size:0.62rem;font-weight:800;letter-spacing:0.02em;padding:3px 8px;border:none;border-radius:6px;cursor:pointer">⭐ Jadi Pro</button>';
+        }
       } else {
         badgeHtml='<span style="flex-shrink:0;background:#fff3cd;color:#7a5c00;font-size:0.6rem;font-weight:800;letter-spacing:0.03em;padding:2px 6px;border-radius:6px;line-height:1.4">TRIAL · '+_subBadgeInfo.daysLeft+'H</span>';
         upgradeBtnHtml='<button onclick="showWelcomePricing()" style="flex-shrink:0;background:#1c1c1e;color:#fff;font-size:0.62rem;font-weight:800;letter-spacing:0.02em;padding:3px 8px;border:none;border-radius:6px;cursor:pointer">⭐ Jadi Pro</button>';
