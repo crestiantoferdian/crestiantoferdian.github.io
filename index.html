@@ -557,13 +557,9 @@ body{
   0%,100%{ transform:scale(1); }
   50%{ transform:scale(1.15); }
 }
-@keyframes llkBadgeSpin{
-  from{ transform:translate(-50%,-50%) rotate(0deg); }
-  to{ transform:translate(-50%,-50%) rotate(360deg); }
-}
 @keyframes llkBadgeGlow{
-  0%,100%{ opacity:0.55; filter:brightness(1); }
-  50%{ opacity:1; filter:brightness(1.4); }
+  0%,100%{ opacity:0.5; filter:brightness(1); }
+  50%{ opacity:0.9; filter:brightness(1.4); }
 }
 @keyframes llkBadgeFrameGlow{
   0%,100%{ box-shadow:0 0 6px rgba(255,215,0,0.45), 0 2px 6px rgba(0,0,0,0.3); }
@@ -577,10 +573,11 @@ body{
   content:'';
   position:absolute; z-index:-1;
   left:50%; top:50%;
-  width:150%; height:230%;
-  background:radial-gradient(circle, #fff6c8 0%, #ffd700 40%, rgba(255,215,0,0) 72%);
+  width:120%; height:150%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle, #fff6c8 0%, #ffd700 40%, rgba(255,215,0,0) 70%);
   clip-path:polygon(98% 50%,75.87% 60.72%,83.94% 83.94%,60.72% 75.87%,50% 98%,39.28% 75.87%,16.06% 83.94%,24.13% 60.72%,2% 50%,24.13% 39.28%,16.06% 16.06%,39.28% 24.13%,50% 2%,60.72% 24.13%,83.94% 16.06%,75.87% 39.28%);
-  animation:llkBadgeSpin 5s linear infinite, llkBadgeGlow 1.5s ease-in-out infinite;
+  animation:llkBadgeGlow 1.5s ease-in-out infinite;
   pointer-events:none;
 }
 </style>
