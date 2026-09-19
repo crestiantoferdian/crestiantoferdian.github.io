@@ -6724,11 +6724,11 @@ function markSheetSent(idx,sentKey){
 
 // ── TOAST ─────────────────────────────────────────────
 let toastT;
-function toast(msg){
+function toast(msg,duration){
   const el=document.getElementById('toast');
   el.textContent=msg;el.classList.add('show');
   clearTimeout(toastT);
-  toastT=setTimeout(()=>el.classList.remove('show'),2800);
+  toastT=setTimeout(()=>el.classList.remove('show'),duration||2800);
 }
 
 
@@ -7092,6 +7092,10 @@ function initFirebase(){
       hideLoginGate();
       pullFromCloud();
       listenSubscriptionStatus(user.uid);
+      const firstName=(user.displayName||'').split(' ')[0];
+      setTimeout(function(){
+        toast(getGreetingID()+(firstName?', '+firstName+'! 👋':'! 👋'));
+      },600);
     } else {
       showLoginForm();
       hidePaywall();
@@ -7280,7 +7284,10 @@ async function mulaiLangganan(plan){
     const fn=firebase.functions().httpsCallable('createMidtransTransaction');
     const result=await fn({ plan:plan });
     window.snap.pay(result.data.token, {
-      onSuccess:function(){ setPaywallStatus('✅ Pembayaran berhasil! Mengaktifkan langganan…'); },
+      onSuccess:function(){
+        setPaywallStatus('✅ Pembayaran berhasil! Mengaktifkan langganan…');
+        toast('✅ Pembayaran berhasil! Invoice sudah dikirim ke email — cek folder Spam kalau belum kelihatan.',5000);
+      },
       onPending:function(){ setPaywallStatus('⏳ Menunggu konfirmasi pembayaran…'); },
       onError:function(){ setPaywallStatus('❌ Pembayaran gagal, silakan coba lagi.'); },
       onClose:function(){ setPaywallStatus(''); }
