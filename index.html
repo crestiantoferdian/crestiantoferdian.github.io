@@ -7321,11 +7321,35 @@ function setPaywallStatus(msg){
   if(el) el.textContent=msg||'';
 }
 
+// Loading fullscreen universal — dipakai antara klik tombol langganan dan
+// terbukanya jendela Midtrans Snap, supaya jeda beberapa detik itu tidak
+// terlihat seperti aplikasi macet/nyasar balik ke halaman lain.
+function showGlobalLoading(msg){
+  let el=document.getElementById('llkGlobalLoading');
+  if(!el){
+    el=document.createElement('div');
+    el.id='llkGlobalLoading';
+    el.style.cssText='position:fixed;inset:0;z-index:10005;background:rgba(255,255,255,0.94);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif';
+    el.innerHTML=`
+      <div style="width:44px;height:44px;border-radius:50%;border:4px solid #f3e1e1;border-top-color:#b31217;animation:llkRingSpin 0.8s linear infinite;margin-bottom:16px"></div>
+      <div id="llkGlobalLoadingMsg" style="font-size:0.85rem;color:#1c1c1e;font-weight:600"></div>`;
+    document.body.appendChild(el);
+  }
+  document.getElementById('llkGlobalLoadingMsg').textContent=msg||'Memproses…';
+  el.style.display='flex';
+}
+function hideGlobalLoading(){
+  const el=document.getElementById('llkGlobalLoading');
+  if(el) el.style.display='none';
+}
+
 async function mulaiLangganan(plan){
+  showGlobalLoading('Menyiapkan pembayaran…');
   setPaywallStatus('Menyiapkan pembayaran…');
   try{
     const fn=firebase.functions().httpsCallable('createMidtransTransaction');
     const result=await fn({ plan:plan });
+    hideGlobalLoading(); // begitu Snap dipanggil, tampilannya sendiri yang ambil alih layar
     window.snap.pay(result.data.token, {
       onSuccess:function(){
         setPaywallStatus('✅ Pembayaran berhasil! Mengaktifkan langganan…');
@@ -7336,8 +7360,10 @@ async function mulaiLangganan(plan){
       onClose:function(){ setPaywallStatus(''); }
     });
   }catch(err){
+    hideGlobalLoading();
     console.error('Gagal membuat transaksi:', err);
     setPaywallStatus('⚠️ Gagal memulai pembayaran, coba lagi.');
+    toast('⚠️ Gagal memulai pembayaran, coba lagi.');
   }
 }
 
