@@ -7343,13 +7343,37 @@ function hideGlobalLoading(){
   if(el) el.style.display='none';
 }
 
+// Midtrans Snap tidak punya event resmi "sudah tampil di layar" — jadi begitu
+// snap.pay() dipanggil, kita pantau body untuk elemen baru yang disuntikkan
+// Snap, dan BARU sembunyikan loading kita begitu elemen itu benar-benar muncul.
+// Ini menutup celah waktu di mana loading sudah hilang tapi Snap belum tampil
+// (yang sebelumnya bikin menu di belakang masih bisa dipencet).
+function waitForSnapThenHideLoading(){
+  const loadingEl=document.getElementById('llkGlobalLoading');
+  const observer=new MutationObserver(function(mutations){
+    for(const m of mutations){
+      for(const node of m.addedNodes){
+        if(node.nodeType===1 && node!==loadingEl && !(loadingEl&&loadingEl.contains(node))){
+          hideGlobalLoading();
+          observer.disconnect();
+          return;
+        }
+      }
+    }
+  });
+  observer.observe(document.body,{childList:true});
+  // Jaga-jaga: kalau lebih dari 6 detik tidak ada apa-apa terdeteksi (misal koneksi
+  // lambat), tetap sembunyikan supaya loading tidak nyangkut selamanya di layar.
+  setTimeout(function(){ observer.disconnect(); hideGlobalLoading(); },6000);
+}
+
 async function mulaiLangganan(plan){
   showGlobalLoading('Menyiapkan pembayaran…');
   setPaywallStatus('Menyiapkan pembayaran…');
   try{
     const fn=firebase.functions().httpsCallable('createMidtransTransaction');
     const result=await fn({ plan:plan });
-    hideGlobalLoading(); // begitu Snap dipanggil, tampilannya sendiri yang ambil alih layar
+    waitForSnapThenHideLoading(); // loading TETAP tampil sampai Snap benar-benar muncul
     window.snap.pay(result.data.token, {
       onSuccess:function(){
         setPaywallStatus('✅ Pembayaran berhasil! Mengaktifkan langganan…');
