@@ -6118,6 +6118,51 @@ function renderExtraDates(){
   }).join('');
 }
 
+// Dipanggil saat nama murid diganti — pindahkan SEMUA data historis yang masih
+// terindeks pakai nama lama (absensi harian, sesi tambahan, catatan progres/PR,
+// dan foto) ke key nama baru. Tanpa ini, data lama jadi "nyasar" — bukan hilang
+// beneran, tapi tidak ketemu lagi karena dicari pakai nama baru.
+function migrateStudentDataOnRename(oldName, newName){
+  if(!oldName || oldName===newName) return;
+  const oldPrefix=oldName+'_extra_';
+  // 1) Absensi harian & sesi tambahan (attendance[dateKey][key])
+  Object.keys(attendance).forEach(function(dateKey){
+    const dayRec=attendance[dateKey];
+    if(!dayRec) return;
+    Object.keys(dayRec).forEach(function(key){
+      if(key===oldName){
+        dayRec[newName]=dayRec[key];
+        delete dayRec[key];
+      } else if(key.startsWith(oldPrefix)){
+        const suffix=key.slice(oldPrefix.length);
+        dayRec[newName+'_extra_'+suffix]=dayRec[key];
+        delete dayRec[key];
+      }
+    });
+  });
+  // 2) Catatan progres/PR + foto (attNotes[dateKey_attKey], notePhotoCache, IndexedDB)
+  Object.keys(attNotes).forEach(function(noteKey){
+    const us=noteKey.indexOf('_');
+    if(us<0) return;
+    const dateKey=noteKey.slice(0,us);
+    const attKey=noteKey.slice(us+1);
+    let newAttKey=null;
+    if(attKey===oldName) newAttKey=newName;
+    else if(attKey.startsWith(oldPrefix)) newAttKey=newName+'_extra_'+attKey.slice(oldPrefix.length);
+    if(newAttKey){
+      const newKey=dateKey+'_'+newAttKey;
+      attNotes[newKey]=attNotes[noteKey];
+      delete attNotes[noteKey];
+      if(notePhotoCache[noteKey]){
+        notePhotoCache[newKey]=notePhotoCache[noteKey];
+        delete notePhotoCache[noteKey];
+        idbSetPhotos(newKey, notePhotoCache[newKey]);
+        idbSetPhotos(noteKey, []);
+      }
+    }
+  });
+}
+
 function doSave(){
   const s={
     name:document.getElementById('f_name').value.trim(),
@@ -6163,6 +6208,11 @@ function doSave(){
       s.inactive=true;
       const manualDate=document.getElementById('f_inactiveSince')?document.getElementById('f_inactiveSince').value:'';
       s.inactiveSince=manualDate||old.inactiveSince||todayStr();
+    }
+    // Kalau nama murid diganti, migrasikan dulu semua data historis yang masih
+    // terindeks pakai nama lama (lihat penjelasan di migrateStudentDataOnRename)
+    if(old.name && old.name!==s.name){
+      migrateStudentDataOnRename(old.name, s.name);
     }
     students[editIdx]=s;
   } else students.push(s);
