@@ -1,0 +1,181 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ═══════════════════════════════════════════════════════════════
+    // LLK V1 (Guru Lepas) — TIDAK DIUBAH
+    // ═══════════════════════════════════════════════════════════════
+
+    // Status langganan: user cuma boleh BACA datanya sendiri.
+    // Menulis HANYA boleh dari Cloud Function (Admin SDK, bypass rules ini).
+    match /subscriptions/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Data order/transaksi: tidak diakses langsung oleh client sama sekali.
+    match /orders/{orderId} {
+      allow read, write: if false;
+    }
+
+    // Backup data Guru Lepas (murid/absensi dll)
+    match /backups/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // LLK V2 (Lembaga: Guru Admin + Guru Mitra)
+    // ═══════════════════════════════════════════════════════════════
+
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function orgPath(orgId) { return /databases/$(database)/documents/orgs/$(orgId); }
+    function memberPath(orgId, u) { return /databases/$(database)/documents/orgs/$(orgId)/members/$(u); }
+    function invitePath(code) { return /databases/$(database)/documents/invites/$(code); }
+    function userPath(u) { return /databases/$(database)/documents/users/$(u); }
+    function isMember(orgId) { return signedIn() && exists(memberPath(orgId, uid())); }
+    function isAdmin(orgId) {
+      return signedIn() && exists(memberPath(orgId, uid()))
+        && get(memberPath(orgId, uid())).data.role == 'admin';
+    }
+    // Satu akun hanya boleh tergabung di SATU lembaga
+    function notInOtherOrg(orgId) {
+      return !exists(userPath(uid()))
+        || !('orgId' in get(userPath(uid())).data)
+        || get(userPath(uid())).data.orgId == null
+        || get(userPath(uid())).data.orgId == orgId;
+    }
+
+    // ── Profil pengguna: peran aktif & lembaga ──
+    match /users/{u} {
+      allow read: if signedIn() && uid() == u;
+      allow create, update: if signedIn() && uid() == u
+        && request.resource.data.keys().hasOnly(['orgId', 'orgRole', 'mode', 'name', 'email', 'updatedAt'])
+        // orgId hanya boleh diisi kalau memang sudah jadi anggota lembaga itu
+        && (!('orgId' in request.resource.data) || request.resource.data.orgId == null
+            || existsAfter(memberPath(request.resource.data.orgId, u)));
+      allow delete: if signedIn() && uid() == u;
+    }
+
+    // ── Kode undangan (top-level, supaya Mitra bisa mencari lembaganya dari kode) ──
+    match /invites/{code} {
+      // Siapa pun yang login boleh membaca 1 kode yang ia ketik (kode acak, tidak bisa ditebak).
+      // Admin boleh melihat daftar undangan lembaganya.
+      allow get: if signedIn();
+      allow list: if signedIn() && isAdmin(resource.data.orgId);
+
+      // Admin membuat undangan + menempati 1 kursi (slot) dalam batch yang sama
+      allow create: if isAdmin(request.resource.data.orgId)
+        && request.resource.data.keys().hasOnly(['orgId', 'orgName', 'name', 'honor', 'emailLock', 'slot', 'status', 'createdBy', 'createdAt', 'expiresAt'])
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdBy == uid()
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
+        && request.resource.data.honor is int && request.resource.data.honor >= 0
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt <= request.time + duration.value(8, 'd')
+        && request.resource.data.slot is int
+        && getAfter(/databases/$(database)/documents/orgs/$(request.resource.data.orgId)/slots/$(string(request.resource.data.slot))).data.code == code;
+
+      allow update: if
+        // (a) Admin mencabut undangan yang belum dipakai
+        (isAdmin(resource.data.orgId)
+          && resource.data.status == 'open'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status == 'revoked')
+        ||
+        // (b) Guru Mitra memakai undangan: sekali pakai, belum kedaluwarsa, cocok Gmail (kalau dikunci)
+        (signedIn()
+          && resource.data.status == 'open'
+          && resource.data.expiresAt > request.time
+          && (resource.data.emailLock == null || resource.data.emailLock == request.auth.token.email)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'usedBy', 'usedAt'])
+          && request.resource.data.status == 'used'
+          && request.resource.data.usedBy == uid()
+          && existsAfter(memberPath(resource.data.orgId, uid())));
+      allow delete: if false;
+    }
+
+    // ── Lembaga ──
+    match /orgs/{orgId} {
+      allow read: if isMember(orgId);
+      // Membuat lembaga: pembuat jadi pemilik; kursi awal (masa uji coba) = 5
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == uid()
+        && request.resource.data.keys().hasOnly(['name', 'logo', 'ownerUid', 'seats', 'plan', 'createdAt', 'updatedAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+        && request.resource.data.seats == 5
+        && request.resource.data.plan == 'trial'
+        && existsAfter(memberPath(orgId, uid()));
+      // Admin hanya boleh mengubah nama & logo. Kursi/paket diatur server (pembayaran).
+      allow update: if isAdmin(orgId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'logo', 'updatedAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80;
+      allow delete: if false;
+
+      // ── Anggota ──
+      match /members/{u} {
+        // Admin melihat semua anggota; Mitra hanya melihat datanya sendiri (termasuk honor)
+        allow read: if isAdmin(orgId) || (signedIn() && uid() == u);
+
+        allow create: if signedIn() && uid() == u && notInOtherOrg(orgId) && (
+          // (a) Pemilik lembaga menjadi Admin saat membuat lembaga
+          (request.resource.data.role == 'admin'
+            && getAfter(orgPath(orgId)).data.ownerUid == uid()
+            && request.resource.data.keys().hasOnly(['role', 'name', 'email', 'joinedAt']))
+          ||
+          // (b) Mitra bergabung lewat kode undangan (data diambil persis dari undangan)
+          (request.resource.data.role == 'mitra'
+            && request.resource.data.keys().hasOnly(['role', 'name', 'email', 'honor', 'inviteCode', 'slot', 'sheetLink', 'joinedAt'])
+            && request.resource.data.email == request.auth.token.email
+            && request.resource.data.slot == get(invitePath(request.resource.data.inviteCode)).data.slot
+            && getAfter(invitePath(request.resource.data.inviteCode)).data.orgId == orgId
+            && getAfter(invitePath(request.resource.data.inviteCode)).data.status == 'used'
+            && getAfter(invitePath(request.resource.data.inviteCode)).data.usedBy == uid()
+            && get(invitePath(request.resource.data.inviteCode)).data.status == 'open'
+            && request.resource.data.name == get(invitePath(request.resource.data.inviteCode)).data.name
+            && request.resource.data.honor == get(invitePath(request.resource.data.inviteCode)).data.honor)
+        );
+
+        allow update: if
+          // Admin: ubah nama tampilan & honor Mitra
+          (isAdmin(orgId) && resource.data.role == 'mitra'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'honor'])
+            && request.resource.data.honor is int && request.resource.data.honor >= 0)
+          ||
+          // Mitra: hanya link spreadsheet absensi gurunya sendiri
+          (signedIn() && uid() == u && resource.data.role == 'mitra'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sheetLink']));
+
+        // Admin mengeluarkan Mitra, atau Mitra keluar sendiri (Admin tidak bisa menghapus dirinya)
+        allow delete: if resource.data.role == 'mitra' && (isAdmin(orgId) || (signedIn() && uid() == u));
+      }
+
+      // ── Kursi (slot) Guru Mitra: id "1".."seats" — mencegah melebihi kuota paket ──
+      match /slots/{n} {
+        allow read: if isAdmin(orgId);
+        allow create: if isAdmin(orgId)
+          && int(n) >= 1 && int(n) <= get(orgPath(orgId)).data.seats
+          && request.resource.data.keys().hasOnly(['kind', 'code'])
+          && request.resource.data.kind == 'invite'
+          && getAfter(invitePath(request.resource.data.code)).data.orgId == orgId
+          && getAfter(invitePath(request.resource.data.code)).data.slot == int(n);
+        // Mitra yang memakai undangan mengubah kursi dari "undangan" jadi "anggota"
+        allow update: if signedIn()
+          && resource.data.kind == 'invite'
+          && request.resource.data.keys().hasOnly(['kind', 'code', 'uid'])
+          && request.resource.data.kind == 'member'
+          && request.resource.data.code == resource.data.code
+          && request.resource.data.uid == uid()
+          && getAfter(invitePath(resource.data.code)).data.usedBy == uid();
+        // Kursi dikosongkan hanya kalau penghuninya memang sudah tidak ada
+        allow delete: if (isAdmin(orgId) || (signedIn() && resource.data.kind == 'member' && resource.data.uid == uid())) && (
+          (resource.data.kind == 'invite'
+            && (getAfter(invitePath(resource.data.code)).data.status == 'revoked'
+                || get(invitePath(resource.data.code)).data.expiresAt < request.time))
+          ||
+          (resource.data.kind == 'member' && !existsAfter(memberPath(orgId, resource.data.uid)))
+        );
+      }
+    }
+  }
+}
