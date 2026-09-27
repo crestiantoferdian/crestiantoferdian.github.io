@@ -1186,7 +1186,8 @@ function save(){
   localStorage.setItem('rms4_links',JSON.stringify(quickLinks));
   localStorage.setItem('rms4_tasks',JSON.stringify(teacherTasks));
   localStorage.setItem('rms4_curriculum',JSON.stringify(curriculumTemplates));
-  // Tiap kali data lokal berubah, jadwalkan sync ke cloud (lihat blok FIREBASE di akhir file)
+  // Tiap kali data lokal berubah, tandai "belum tersinkron" & jadwalkan sync ke cloud (lihat blok FIREBASE di akhir file)
+  if(typeof markLocalDirty==='function') markLocalDirty();
   if(typeof scheduleCloudSync==='function') scheduleCloudSync();
 }
 function loadStorage(){
@@ -1282,7 +1283,7 @@ function applySettings(){
     if(logoImg){
       elLogo.innerHTML=`<img src="${logoImg}" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" alt="logo">`;
     } else {
-      elLogo.innerHTML=logo;
+      elLogo.textContent=logo;
     }
   }
   // Apply color (--red2 = darker shade for gradients/shadows)
@@ -2043,9 +2044,9 @@ function renderAbsensi(){
       :hasActiveReschedule
       ?`<div style="font-size:0.72rem;color:#d97706;font-weight:700;margin-top:3px;display:flex;align-items:center;gap:4px">🔄 Pindah ke <b>${rescueDateFmt}</b>${rsInfo&&rsInfo.time?' · '+rsInfo.time+(rsInfo.time2?'–'+rsInfo.time2:''):''}</div>`
       :isIzin
-      ?`<div style="font-size:0.72rem;color:#ea580c;font-weight:700;margin-top:3px;display:flex;align-items:center;gap:4px">✋ Izin${izinReason?' · <span style="font-weight:400">'+izinReason+'</span>':''}</div>`
+      ?`<div style="font-size:0.72rem;color:#ea580c;font-weight:700;margin-top:3px;display:flex;align-items:center;gap:4px">✋ Izin${izinReason?' · <span style="font-weight:400">'+escapeHtml(izinReason)+'</span>':''}</div>`
       :isAlpa
-      ?`<div style="font-size:0.72rem;color:#dc2626;font-weight:700;margin-top:3px;display:flex;align-items:center;gap:4px">✗ Alpa${alpaReason?' · <span style="font-weight:400">'+alpaReason+'</span>':''}</div>`
+      ?`<div style="font-size:0.72rem;color:#dc2626;font-weight:700;margin-top:3px;display:flex;align-items:center;gap:4px">✗ Alpa${alpaReason?' · <span style="font-weight:400">'+escapeHtml(alpaReason)+'</span>':''}</div>`
       :'';
     return `<div class="s-item status-${status}" id="sitem-${attKey.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="${samedayRs?'':'toggleSItem(this)'}" style="cursor:${samedayRs?'default':'pointer'};${borderLeft}">
       <div class="s-avatar ${isVokal?'vocal':''}" style="${avatarOpacity}">
@@ -2054,28 +2055,28 @@ function renderAbsensi(){
       </div>
       <div class="s-body">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
-          <div class="s-name" onclick="openStudentReport('${s.name}','absensi');event.stopPropagation()" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(0,0,0,0.15);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${nameColor}">
-            ${s.name}
+          <div class="s-name" onclick="openStudentReport('${jsAttr(s.name)}','absensi');event.stopPropagation()" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(0,0,0,0.15);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${nameColor}">
+            ${escapeHtml(s.name)}
           </div>
           <div class="s-time-row" style="margin-top:0;flex-shrink:0;text-align:right"><span style="color:${timeColor}${timeDecor};font-size:${timeFontSize};font-weight:${timeFontWeight}">${timeRange}</span></div>
         </div>
         ${infoRow}
         <div class="s-pills" style="margin-top:${hasActiveReschedule||isIzin||isAlpa?2:5}px">
           ${isRescued?`<span class="s-pill rescue-pill">🔄 Reschedule</span>`:''}
-          ${s._isExtra?`<span class="s-pill" style="background:#eef2ff;color:var(--blue);border-color:rgba(37,99,235,0.3)">➕ ${s._extraNote||'Tambahan Kelas'}</span>`:''}
+          ${s._isExtra?`<span class="s-pill" style="background:#eef2ff;color:var(--blue);border-color:rgba(37,99,235,0.3)">➕ ${escapeHtml(s._extraNote||'Tambahan Kelas')}</span>`:''}
         </div>
-        ${note.progress?`<div class="s-note-preview">📝 ${note.progress}${notePhotosArr(note,noteKey).length?' 📷'+(notePhotosArr(note,noteKey).length>1?'×'+notePhotosArr(note,noteKey).length:''):''}</div>`:(notePhotosArr(note,noteKey).length?`<div class="s-note-preview">📷 ${notePhotosArr(note,noteKey).length>1?notePhotosArr(note,noteKey).length+' foto progress':'Ada foto progress'}</div>`:'')}
-        ${note.prSiswa?`<div class="s-note-preview" style="color:var(--blue)">📚 PR: ${note.prSiswa}</div>`:''}
-        ${showPayWarn?`<div class="pay-warn" onclick="sendPaymentWA('${s.name}')">${payWarnLabel}</div>`:''}
+        ${note.progress?`<div class="s-note-preview">📝 ${escapeHtml(note.progress)}${notePhotosArr(note,noteKey).length?' 📷'+(notePhotosArr(note,noteKey).length>1?'×'+notePhotosArr(note,noteKey).length:''):''}</div>`:(notePhotosArr(note,noteKey).length?`<div class="s-note-preview">📷 ${notePhotosArr(note,noteKey).length>1?notePhotosArr(note,noteKey).length+' foto progress':'Ada foto progress'}</div>`:'')}
+        ${note.prSiswa?`<div class="s-note-preview" style="color:var(--blue)">📚 PR: ${escapeHtml(note.prSiswa)}</div>`:''}
+        ${showPayWarn?`<div class="pay-warn" onclick="sendPaymentWA('${jsAttr(s.name)}')">${payWarnLabel}</div>`:''}
         <div class="att-btns" onclick="event.stopPropagation()">
             ${samedayRs
               ? `<div style="font-size:0.75rem;color:#7c3aed;font-weight:600;padding:6px 8px;background:#f5f3ff;border-radius:8px;border:1.5px solid #ddd6fe">🔒 Jadwal dipindah ke jam ${samedayRs.time}${samedayRs.time2?'–'+samedayRs.time2:''}</div>`
-              : `<button class="att-btn a-hadir ${status==='hadir'?'on':''}" onclick="openNoteModal('${attKey}','hadir','${s.name}','${attDateKey}','${s.time||''}','${s.time2||''}')">✅</button>
-            <button class="att-btn a-izin ${status==='izin'?'on':''}" onclick="openNoteModal('${attKey}','izin','${s.name}','${attDateKey}','${s.time||''}','${s.time2||''}')">✋</button>
-            <button class="att-btn a-alpa ${status==='alpa'?'on':''}" onclick="openNoteModal('${attKey}','alpa','${s.name}','${attDateKey}','${s.time||''}','${s.time2||''}')">✗</button>
-            <button class="att-btn" onclick="openRescheduleModal('${s.name}','${s.day}',${sidx},${s._isExtra?s._extraIdx:'null'},'${s._isExtra?s._extraDate:''}');event.stopPropagation()" title="Reschedule" style="${(s._hasActiveReschedule||s._isRescheduled)?'background:#fef3c7;border-color:#f59e0b;color:#d97706;font-weight:700':''}">🔄</button>`
+              : `<button class="att-btn a-hadir ${status==='hadir'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','hadir','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')">✅</button>
+            <button class="att-btn a-izin ${status==='izin'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','izin','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')">✋</button>
+            <button class="att-btn a-alpa ${status==='alpa'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','alpa','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')">✗</button>
+            <button class="att-btn" onclick="openRescheduleModal('${jsAttr(s.name)}','${s.day}',${sidx},${s._isExtra?s._extraIdx:'null'},'${s._isExtra?s._extraDate:''}');event.stopPropagation()" title="Reschedule" style="${(s._hasActiveReschedule||s._isRescheduled)?'background:#fef3c7;border-color:#f59e0b;color:#d97706;font-weight:700':''}">🔄</button>`
             }
-            ${(getProgressSettings().dest==='wa'?!!(s.phone&&s.phone.replace(/\D/g,'')):!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${s.name.replace(/'/g,"\'")}','${attDateKey}','${attKey.replace(/'/g,"\'")}')" style="${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:#eafaf1;border-color:rgba(29,158,78,0.4)':'background:var(--blue-bg);border-color:rgba(0,113,227,0.3)'}">
+            ${(getProgressSettings().dest==='wa'?!!(s.phone&&s.phone.replace(/\D/g,'')):!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${jsAttr(s.name)}','${attDateKey}','${jsAttr(attKey)}')" style="${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:#eafaf1;border-color:rgba(29,158,78,0.4)':'background:var(--blue-bg);border-color:rgba(0,113,227,0.3)'}">
               ${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'✅':'📨'}
             </button>`:''}
         </div>
@@ -2331,7 +2332,7 @@ function countSessionsForBilling(name){
   const total=countSessions(name);
   const s=students.find(x=>x.name===name);
   const lastPaid=s&&s.lastPaidAt?s.lastPaidAt:0;
-  return total-lastPaid;
+  return Math.max(0,total-lastPaid);
 }
 
 function countSessionsThisMonth(name, monthKey){
@@ -2392,7 +2393,11 @@ function computeIsDue(s){
   const cycle=s.payCycle||4;
   let isDue=false;
   if(paymentMode==='session'){
-    isDue=total>0&&total%cycle===0;
+    // BUGFIX: sebelumnya pakai total%cycle===0, jadi tagihan cuma muncul PAS
+    // di sesi ke-4/8/12 — begitu lewat 1 sesi tanpa ditandai "Sudah Bayar",
+    // peringatannya hilang (dianggap baru 1/4x). Sekarang tetap muncul terus
+    // selama sesi sejak terakhir bayar sudah mencapai/melewati siklus.
+    isDue=total>=cycle;
   }else if(paymentMode==='monthly'){
     // isDue TETAP true selama monthlyPaidThru belum menyamai bulan yang
     // sedang ditagih — nggak peduli sekarang tanggal berapa, bulan apa.
@@ -2497,6 +2502,7 @@ function sendPaymentWA(name){
 
 // ── ATTENDANCE NOTE MODAL ─────────────────────────────
 function openNoteModal(attKey, status, displayName, dateOverride, timeOverride, time2Override){
+  if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
   try{
     const name=displayName||attKey;
     const dateKey=dateOverride||todayStr();
@@ -2511,8 +2517,8 @@ function openNoteModal(attKey, status, displayName, dateOverride, timeOverride, 
       const hasNote=!!(existingChk.reason||existingChk.progress||existingChk.prSiswa||existingChk.prGuru);
       window._pendingReset={attKey, dateKey, name, hasNote, noteKey: noteKeyChk, noteKey2: noteKeyChk2};
       const msg=hasNote
-        ? '⚠️ Catatan progress <b>'+name+'</b> akan ikut terhapus jika direset!<br><br>Yakin ingin mereset kehadiran siswa ini?'
-        : 'Yakin ingin mereset kehadiran <b>'+name+'</b> menjadi Belum?';
+        ? '⚠️ Catatan progress <b>'+escapeHtml(name)+'</b> akan ikut terhapus jika direset!<br><br>Yakin ingin mereset kehadiran siswa ini?'
+        : 'Yakin ingin mereset kehadiran <b>'+escapeHtml(name)+'</b> menjadi Belum?';
       showConfirmReset(msg);
       return;
     }
@@ -2754,6 +2760,7 @@ function confirmResetAttendance(){
 
 // Edit progress/catatan dari tab Track (tanpa toggle-off status)
 function openTrackEditModal(attKey, status, displayName, dateKey){
+  if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
   try{
     const s=students.find(x=>x.name===displayName)||{};
     const noteKey=dateKey+'_'+attKey;
@@ -2938,15 +2945,15 @@ function confirmMarkPaid(btn, studentName){
 function siswaCardHtml(s,total,cycle,isDue){
     const icon=getInstrumentIcon(s.instrument);
     const isVokal=(s.instrument||'').toLowerCase().includes('vok');
-    const safeName=s.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const safeName=jsAttr(s.name);
 
     if(s.inactive){
       let ih='<div style="background:#f7f7f8;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:8px;opacity:0.75">';
       ih+='<div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openStudentReport(\''+safeName+'\')">';
       ih+='<div class="track-avatar'+(isVokal?' vocal':'')+'" style="width:42px;height:42px;font-size:1.2rem;filter:grayscale(1)">'+icon+'</div>';
       ih+='<div style="flex:1;min-width:0">';
-      ih+='<div style="font-weight:800;font-size:0.95rem;color:var(--muted)">'+s.name+' <span style="font-size:0.65rem;font-weight:700;background:#e5e5ea;color:var(--muted);border-radius:20px;padding:2px 8px;vertical-align:middle">NONAKTIF</span></div>';
-      ih+='<div style="font-size:0.75rem;color:var(--muted);margin-top:1px">'+s.day+' '+s.time+(s.instrument?' · '+s.instrument:'')+'</div>';
+      ih+='<div style="font-weight:800;font-size:0.95rem;color:var(--muted)">'+escapeHtml(s.name)+' <span style="font-size:0.65rem;font-weight:700;background:#e5e5ea;color:var(--muted);border-radius:20px;padding:2px 8px;vertical-align:middle">NONAKTIF</span></div>';
+      ih+='<div style="font-size:0.75rem;color:var(--muted);margin-top:1px">'+s.day+' '+s.time+(s.instrument?' · '+escapeHtml(s.instrument):'')+'</div>';
       ih+='</div>';
       ih+='<span style="color:var(--muted)">›</span>';
       ih+='</div>';
@@ -2973,8 +2980,8 @@ function siswaCardHtml(s,total,cycle,isDue){
     html+='<div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openStudentReport(\''+safeName+'\')">';
     html+='<div class="track-avatar'+(isVokal?' vocal':'')+'" style="width:42px;height:42px;font-size:1.2rem">'+icon+'</div>';
     html+='<div style="flex:1;min-width:0">';
-    html+='<div style="font-weight:800;font-size:0.95rem">'+s.name+'</div>';
-    html+='<div style="font-size:0.75rem;color:var(--muted);margin-top:1px">'+s.day+' '+s.time+(s.time2?'–'+s.time2:'')+(s.day2?' & '+s.day2+' '+s.time2a+(s.time2b?'–'+s.time2b:''):'')+(s.day3?' & '+s.day3+' '+s.time3a+(s.time3b?'–'+s.time3b:''):'')+(s.day4?' & '+s.day4+' '+s.time4a+(s.time4b?'–'+s.time4b:''):'')+(s.instrument?' · '+s.instrument:'')+'</div>';
+    html+='<div style="font-weight:800;font-size:0.95rem">'+escapeHtml(s.name)+'</div>';
+    html+='<div style="font-size:0.75rem;color:var(--muted);margin-top:1px">'+s.day+' '+s.time+(s.time2?'–'+s.time2:'')+(s.day2?' & '+s.day2+' '+s.time2a+(s.time2b?'–'+s.time2b:''):'')+(s.day3?' & '+s.day3+' '+s.time3a+(s.time3b?'–'+s.time3b:''):'')+(s.day4?' & '+s.day4+' '+s.time4a+(s.time4b?'–'+s.time4b:''):'')+(s.instrument?' · '+escapeHtml(s.instrument):'')+'</div>';
     if(!paymentOff){
       html+='<div style="margin-top:5px"><span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.68rem;font-weight:700;background:'+pillBg+';color:'+pillColor+';border:1px solid '+pillBorder+'">'+pillText+'</span></div>';
     }
@@ -3017,7 +3024,7 @@ function renderSiswa(){
   }).length;
 
   const instOptions=['<option value="">Semua Mata Pelajaran</option>',
-    ...instruments.map(i=>`<option value="${i}" ${filterInst===i?'selected':''}>${i}</option>`)
+    ...instruments.map(i=>`<option value="${escapeHtml(i)}" ${filterInst===i?'selected':''}>${escapeHtml(i)}</option>`)
   ].join('');
 
   function cardHtml(s,total,cycle,isDue){ return siswaCardHtml(s,total,cycle,isDue); }
@@ -3029,7 +3036,7 @@ function renderSiswa(){
   html+='<div style="padding:0 16px">';
   html+='<div style="background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:8px">';
   html+='<span style="color:var(--muted)">🔍</span>';
-  html+='<input type="text" placeholder="Cari nama siswa..." value="'+(window.siswaSearch||'')+'" id="siswaSearchInput" oninput="window.siswaSearch=this.value;renderSiswaList()" style="background:none;border:none;outline:none;font-family:\'DM Sans\',sans-serif;font-size:0.88rem;color:var(--text);width:100%"/>';
+  html+='<input type="text" placeholder="Cari nama siswa..." value="'+escapeHtml(window.siswaSearch||'')+'" id="siswaSearchInput" oninput="window.siswaSearch=this.value;renderSiswaList()" style="background:none;border:none;outline:none;font-family:\'DM Sans\',sans-serif;font-size:0.88rem;color:var(--text);width:100%"/>';
   html+='</div>';
   html+='<div style="margin-bottom:12px">';
   html+='<select onchange="window.siswaFilter=this.value;renderSiswaList()" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:0.82rem;padding:9px 12px;border-radius:10px;outline:none">'+instOptions+'</select>';
@@ -3358,7 +3365,7 @@ function renderStudentProfile(name, period){
   // Billing info
   const billing    = paymentMode==='monthly'?countSessionsThisMonth(name):countSessionsForBilling(name);
   const cycle      = s.payCycle||4;
-  const remaining  = cycle-(billing%cycle===0&&billing>0?cycle:billing%cycle);
+  const remaining  = Math.max(0,cycle-billing);
   const isDue      = computeIsDue(s).isDue;
 
   // Period buttons
@@ -3370,7 +3377,7 @@ function renderStudentProfile(name, period){
     {k:'all',  l:'Semua'},
   ];
   const periodBar = '<div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 4px;scrollbar-width:none">'
-    + periods.map(p=>`<button onclick="renderStudentProfile('${name}','${p.k}')" style="flex-shrink:0;padding:7px 14px;border-radius:20px;border:1.5px solid ${period===p.k?'var(--red)':'var(--border)'};background:${period===p.k?'var(--red)':'var(--card)'};color:${period===p.k?'#fff':'var(--muted)'};font-family:'DM Sans',sans-serif;font-size:0.78rem;font-weight:600;cursor:pointer">${p.l}</button>`).join('')
+    + periods.map(p=>`<button onclick="renderStudentProfile('${jsAttr(name)}','${p.k}')" style="flex-shrink:0;padding:7px 14px;border-radius:20px;border:1.5px solid ${period===p.k?'var(--red)':'var(--border)'};background:${period===p.k?'var(--red)':'var(--card)'};color:${period===p.k?'#fff':'var(--muted)'};font-family:'DM Sans',sans-serif;font-size:0.78rem;font-weight:600;cursor:pointer">${p.l}</button>`).join('')
     +'</div>';
 
   // Progress entries
@@ -3394,9 +3401,9 @@ function renderStudentProfile(name, period){
         if(!st&&!note.progress&&!note.reason&&!note.prSiswa&&!notePhotosArr(note,dk+'_'+attKey).length) return '';
         const stLabel = st==='hadir'?'✅ Hadir':st==='izin'?'✋ Izin':st==='alpa'?'✗ Alpa':'';
         const stColor = st==='hadir'?'var(--hadir)':st==='izin'?'var(--izin)':'var(--alpa)';
-        const safeName2=name.replace(/'/g,"\\'");
-        const safeAttKey=attKey.replace(/'/g,"\\'");
-        const safeDk=dk.replace(/'/g,"\\'");
+        const safeName2=jsAttr(name);
+        const safeAttKey=jsAttr(attKey);
+        const safeDk=jsAttr(dk);
         return '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 15px;margin-bottom:8px">'
           +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
             +'<div style="display:flex;align-items:center;gap:6px;font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">'
@@ -3409,9 +3416,9 @@ function renderStudentProfile(name, period){
               +'style="width:28px;height:28px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);font-size:0.75rem;cursor:pointer;display:flex;align-items:center;justify-content:center">✏️</button>'
             +'</div>'
           +'</div>'
-          +(note.reason?'<div style="font-size:0.82rem;color:var(--text);background:#fffbeb;border-radius:9px;padding:8px 11px;margin-top:5px;border-left:3px solid var(--izin);white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto">📋 '+note.reason+'</div>':'')
-          +(note.progress?'<div style="font-size:0.82rem;color:var(--text);background:var(--blue-bg);border-radius:9px;padding:8px 11px;margin-top:6px;border-left:3px solid var(--blue);white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto">📝 '+note.progress+'</div>':'')
-          +(note.prSiswa?'<div style="font-size:0.82rem;color:var(--text);background:#eef2ff;border-radius:9px;padding:8px 11px;margin-top:6px;border-left:3px solid var(--blue);white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto">📚 PR: '+note.prSiswa+'</div>':'')
+          +(note.reason?'<div style="font-size:0.82rem;color:var(--text);background:#fffbeb;border-radius:9px;padding:8px 11px;margin-top:5px;border-left:3px solid var(--izin);white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto">📋 '+escapeHtml(note.reason)+'</div>':'')
+          +(note.progress?'<div style="font-size:0.82rem;color:var(--text);background:var(--blue-bg);border-radius:9px;padding:8px 11px;margin-top:6px;border-left:3px solid var(--blue);white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto">📝 '+escapeHtml(note.progress)+'</div>':'')
+          +(note.prSiswa?'<div style="font-size:0.82rem;color:var(--text);background:#eef2ff;border-radius:9px;padding:8px 11px;margin-top:6px;border-left:3px solid var(--blue);white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto">📚 PR: '+escapeHtml(note.prSiswa)+'</div>':'')
           +photoGridHtml(notePhotosArr(note,dk+'_'+attKey))
           +'</div>';
       }).filter(Boolean).join('')
@@ -3473,7 +3480,7 @@ function renderStudentProfile(name, period){
     const bodyHtml = sections.map(sec=>{
       const rows=sec.topics.map(t=>{
         const isChecked=!!checked[t.id];
-        const safeId=t.id.replace(/'/g,"\\'");
+        const safeId=jsAttr(t.id);
         return '<div onclick="toggleCurriculumItem('+studentIdx+',\''+safeId+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 2px;cursor:pointer;border-bottom:1px solid var(--border)">'
           +'<span style="width:22px;height:22px;border-radius:7px;border:2px solid '+(isChecked?'var(--hadir)':'var(--border)')+';background:'+(isChecked?'var(--hadir)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:0.75rem">'+(isChecked?'✓':'')+'</span>'
           +'<span style="font-size:0.85rem;color:'+(isChecked?'var(--muted)':'var(--text)')+';text-decoration:'+(isChecked?'line-through':'none')+';flex:1">'+escapeHtml(t.label)+'</span>'
@@ -3484,7 +3491,7 @@ function renderStudentProfile(name, period){
         return rows;
       }
       const hId=sec.header.id;
-      const safeHId=hId.replace(/'/g,"\\'");
+      const safeHId=jsAttr(hId);
       const isSecCollapsed=!!collapsedSections[hId];
       const secDone=sec.topics.filter(t=>checked[t.id]).length;
       return '<div style="margin-top:6px">'
@@ -3518,8 +3525,8 @@ function renderStudentProfile(name, period){
       +'<div style="display:flex;align-items:center;gap:13px;margin-top:12px">'
         +'<div class="track-avatar '+(isVokal?'vocal':'')+'" style="width:54px;height:54px;font-size:1.55rem;flex-shrink:0">'+icon+'</div>'
         +'<div>'
-          +'<div style="font-size:1.2rem;font-weight:800;letter-spacing:-0.02em">'+name+'</div>'
-          +'<div style="font-size:0.78rem;color:var(--muted);margin-top:2px">'+(s.instrument||'')+'</div>'
+          +'<div style="font-size:1.2rem;font-weight:800;letter-spacing:-0.02em">'+escapeHtml(name)+'</div>'
+          +'<div style="font-size:0.78rem;color:var(--muted);margin-top:2px">'+escapeHtml(s.instrument||'')+'</div>'
           +'<div style="font-size:0.76rem;color:var(--muted);margin-top:1px">'+jadwalLine+'</div>'
         +'</div>'
       +'</div>'
@@ -3645,7 +3652,7 @@ function renderTrack(){
         ${['hari','minggu','bulan','tahun','semua'].map(p=>`<button class="period-btn ${trackPeriod===p?'active':''}" onclick="setPeriod('${p}')">${p==='hari'?'Hari Ini':p.charAt(0).toUpperCase()+p.slice(1)}</button>`).join('')}
       </div>
       <div class="track-controls">
-        <div class="track-search"><span style="color:var(--muted)">🔍</span><input type="text" placeholder="Cari nama..." value="${trackSearch}" oninput="trackSearch=this.value;refreshTrackCards()"/></div>
+        <div class="track-search"><span style="color:var(--muted)">🔍</span><input type="text" placeholder="Cari nama..." value="${escapeHtml(trackSearch)}" oninput="trackSearch=this.value;refreshTrackCards()"/></div>
         <select class="sort-select" onchange="trackSort=this.value;refreshTrackCards()">
           <option value="terbaru" ${trackSort==='terbaru'?'selected':''}>Terbaru</option>
           <option value="izin" ${trackSort==='izin'?'selected':''}>Izin Terbanyak</option>
@@ -3804,9 +3811,9 @@ function buildDateDetail(dk){
     const note=attNotes[attDateKey+'_'+attKey]||{};
     const icon=getInstrumentIcon(s.instrument);
     const isVokal=(s.instrument||'').toLowerCase().includes('vok');
-    const safeKey=attKey.replace(/'/g,"\\'");
-    const safeDk=attDateKey.replace(/'/g,"\\'");
-    const safeName=s.name.replace(/'/g,"\\'");
+    const safeKey=jsAttr(attKey);
+    const safeDk=jsAttr(attDateKey);
+    const safeName=jsAttr(s.name);
 
     // Skip sameday_reschedule dari hitungan
     if(!isSamedayRs){
@@ -3823,7 +3830,7 @@ function buildDateDetail(dk){
         <div class="s-avatar ${isVokal?'vocal':''}" style="opacity:0.4;position:relative">${icon}</div>
         <div class="s-body">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
-            <div class="s-name" style="color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name}</div>
+            <div class="s-name" style="color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.name)}</div>
             <div style="flex-shrink:0"><span style="color:#7c3aed;text-decoration:line-through">${s.time}${s.time2?'–'+s.time2:''}</span></div>
           </div>
           <div style="font-size:0.72rem;color:#7c3aed;font-weight:600;margin-top:2px">🔄 Diganti ke jam ${rs.time}${rs.time2?'–'+rs.time2:''}</div>
@@ -3839,10 +3846,10 @@ function buildDateDetail(dk){
     const timeStyle=isIzin?'color:#f59e0b;text-decoration:line-through;':isAlpa?'color:#dc2626;text-decoration:line-through;':'color:var(--blue);';
 
     let noteHtml='';
-    if(status==='hadir'&&note.progress) noteHtml=`<div style="font-size:0.7rem;color:var(--hadir);margin-top:3px">📝 ${note.progress}</div>`;
-    if(status==='hadir'&&note.prSiswa) noteHtml+=`<div style="font-size:0.7rem;color:var(--blue);margin-top:3px">📚 PR: ${note.prSiswa}</div>`;
-    if(status==='alpa'&&note.reason) noteHtml=`<div style="font-size:0.7rem;color:var(--alpa);margin-top:3px">✗ ${note.reason}</div>`;
-    if(status==='izin') noteHtml=`<div style="font-size:0.72rem;color:#d97706;font-weight:600;margin-top:3px">✋ Izin${note.reason?' · '+note.reason:''}</div>`;
+    if(status==='hadir'&&note.progress) noteHtml=`<div style="font-size:0.7rem;color:var(--hadir);margin-top:3px">📝 ${escapeHtml(note.progress)}</div>`;
+    if(status==='hadir'&&note.prSiswa) noteHtml+=`<div style="font-size:0.7rem;color:var(--blue);margin-top:3px">📚 PR: ${escapeHtml(note.prSiswa)}</div>`;
+    if(status==='alpa'&&note.reason) noteHtml=`<div style="font-size:0.7rem;color:var(--alpa);margin-top:3px">✗ ${escapeHtml(note.reason)}</div>`;
+    if(status==='izin') noteHtml=`<div style="font-size:0.72rem;color:#d97706;font-weight:600;margin-top:3px">✋ Izin${note.reason?' · '+escapeHtml(note.reason):''}</div>`;
     if(s._isOrphaned) noteHtml+=`<div style="font-size:0.68rem;color:var(--muted);margin-top:3px">📌 Jadwal sesi ini sudah diubah/dihapus — riwayatnya tetap dijaga di sini</div>`;
 
     const attBtns=`
@@ -3861,11 +3868,11 @@ function buildDateDetail(dk){
       <div class="s-avatar ${isVokal?'vocal':''}" style="${avatarStyle}position:relative">${icon}</div>
       <div class="s-body">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
-          <div class="s-name" onclick="event.stopPropagation();openHistoryDetail('${safeName}','track')" style="${nameStyle}flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(0,0,0,0.15)">${s.name}</div>
+          <div class="s-name" onclick="event.stopPropagation();openHistoryDetail('${safeName}','track')" style="${nameStyle}flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(0,0,0,0.15)">${escapeHtml(s.name)}</div>
           <div style="flex-shrink:0"><span style="${timeStyle}">${s.time}${s.time2?'–'+s.time2:''}</span></div>
         </div>
         ${s._isRescheduled?'<div style="font-size:0.72rem;color:var(--blue);font-weight:600;margin-top:2px">🔄 Reschedule</div>':''}
-        ${s._isExtra?`<div style="margin-top:4px"><span class="s-pill" style="background:#eef2ff;color:var(--blue);border-color:rgba(37,99,235,0.3)">➕ ${s._extraNote||'Tambahan Kelas'}</span></div>`:''}
+        ${s._isExtra?`<div style="margin-top:4px"><span class="s-pill" style="background:#eef2ff;color:var(--blue);border-color:rgba(37,99,235,0.3)">➕ ${escapeHtml(s._extraNote||'Tambahan Kelas')}</span></div>`:''}
         ${noteHtml}
         ${attBtns}
       </div>
@@ -4292,10 +4299,10 @@ function buildTrackCards(){
     const {h,i,a}=allTotals(s.name);
     const total=countSessions(s.name);
     const showPay=computeIsDue(s).isDue;
-    return `<div class="track-card" onclick="openHistoryDetail('${s.name}')">
+    return `<div class="track-card" onclick="openHistoryDetail('${jsAttr(s.name)}')">
       <div class="track-top">
         <div class="track-avatar ${isVokal?'vocal':''}">${icon}</div>
-        <div><div class="track-name">${s.name}${s.inactive?' <span style="font-size:0.65rem;font-weight:700;background:#f0f0f0;color:var(--muted);border-radius:20px;padding:2px 8px;vertical-align:middle">NONAKTIF</span>':''}</div><div class="track-inst">${s.instrument||'—'} · ${s.day} ${s.time}${(s.reschedules&&s.reschedules.some(r=>r.date>=todayStr()))?' · 🔄 Ada Reschedule':''}</div></div>
+        <div><div class="track-name">${escapeHtml(s.name)}${s.inactive?' <span style="font-size:0.65rem;font-weight:700;background:#f0f0f0;color:var(--muted);border-radius:20px;padding:2px 8px;vertical-align:middle">NONAKTIF</span>':''}</div><div class="track-inst">${s.instrument||'—'} · ${s.day} ${s.time}${(s.reschedules&&s.reschedules.some(r=>r.date>=todayStr()))?' · 🔄 Ada Reschedule':''}</div></div>
         <div class="track-nums">
           <div class="track-num-col"><div class="track-num h">${h}</div><div class="track-num-label">Hadir</div></div>
           <div class="track-num-col"><div class="track-num i">${i}</div><div class="track-num-label">Izin</div></div>
@@ -4338,8 +4345,8 @@ function renderHistoryDetail(){
     const att=attendance[dk]||{};
     const status=att[name]||'hadir';
     const note=attNotes[dk+'_'+name]||{};
-    const safeDk=dk.replace(/'/g,"\'");
-    const safeName2=name.replace(/'/g,"\'");
+    const safeDk=jsAttr(dk);
+    const safeName2=jsAttr(name);
     return `<div class="hist-entry">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div class="hist-entry-date" style="margin-bottom:0">${fmtPretty(dk)}</div>
@@ -4351,9 +4358,9 @@ function renderHistoryDetail(){
       <div class="hist-entry-status">
         <span class="hist-status-pill ${status==='hadir'?'h':status==='izin'?'i':'a'}">${status==='hadir'?'✅ Hadir':status==='izin'?'✋ Izin':'✗ Alpa'}</span>
       </div>
-      ${note.reason?`<div class="hist-note">📋 ${note.reason}</div>`:''}
-      ${note.progress?`<div class="hist-note" style="margin-top:6px;border-left:3px solid var(--blue);padding-left:10px">📝 ${note.progress}</div>`:''}
-      ${note.prSiswa?`<div class="hist-note" style="margin-top:6px;border-left:3px solid var(--blue);padding-left:10px">📚 PR: ${note.prSiswa}</div>`:''}
+      ${note.reason?`<div class="hist-note">📋 ${escapeHtml(note.reason)}</div>`:''}
+      ${note.progress?`<div class="hist-note" style="margin-top:6px;border-left:3px solid var(--blue);padding-left:10px">📝 ${escapeHtml(note.progress)}</div>`:''}
+      ${note.prSiswa?`<div class="hist-note" style="margin-top:6px;border-left:3px solid var(--blue);padding-left:10px">📚 PR: ${escapeHtml(note.prSiswa)}</div>`:''}
       ${photoGridHtml(notePhotosArr(note,dk+'_'+name))}
       ${!note.reason&&!note.progress&&!note.prSiswa&&!notePhotosArr(note,dk+'_'+name).length?`<div class="hist-no-note">Tidak ada catatan</div>`:''}
     </div>`;
@@ -4368,8 +4375,8 @@ function renderHistoryDetail(){
       <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
         <div class="track-avatar" style="width:48px;height:48px;font-size:1.4rem">${icon}</div>
         <div>
-          <div style="font-size:1.1rem;font-weight:800">${name}</div>
-          <div style="font-size:0.78rem;color:var(--muted)">${s.instrument||''} · ${s.day} ${s.time||''} · Total ${total}x pertemuan</div>
+          <div style="font-size:1.1rem;font-weight:800">${escapeHtml(name)}</div>
+          <div style="font-size:0.78rem;color:var(--muted)">${escapeHtml(s.instrument||'')} · ${s.day} ${s.time||''} · Total ${total}x pertemuan</div>
         </div>
       </div>
     </div>
@@ -4437,8 +4444,8 @@ function renderKirim(){
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:10px 12px;font-size:0.82rem;color:var(--muted);white-space:nowrap">${hariName}</td>
       <td style="padding:10px 12px;font-size:0.82rem;color:var(--muted);white-space:nowrap">${tgl}</td>
-      <td style="padding:10px 12px;font-size:0.88rem;font-weight:600;color:var(--text)">${s.name}</td>
-      <td style="padding:10px 12px;font-size:0.82rem;color:var(--muted)">${s.instrument||'—'}</td>
+      <td style="padding:10px 12px;font-size:0.88rem;font-weight:600;color:var(--text)">${escapeHtml(s.name)}</td>
+      <td style="padding:10px 12px;font-size:0.82rem;color:var(--muted)">${escapeHtml(s.instrument||'—')}</td>
       <td style="padding:10px 8px;text-align:center">
         <span style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:20px;
           background:${st==='hadir'?'var(--hadir-bg)':'var(--alpa-bg)'};
@@ -4821,7 +4828,7 @@ function renderMateriKurikulumPage(){
   const subjects=Object.keys(curriculumTemplates).sort((a,b)=>a.localeCompare(b));
   const items=subjects.map(sub=>{
     const count=(curriculumTemplates[sub]||[]).filter(t=>t.type!=='header').length;
-    const safe=sub.replace(/'/g,"\\'");
+    const safe=jsAttr(sub);
     return `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-xs)">
       <button onclick="renderCurriculumSubjectPage('${safe}')" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:none;text-align:left;cursor:pointer;padding:0">
@@ -4853,9 +4860,9 @@ function renderCurriculumSubjectPage(subject){
   viewingCurriculumSubject=subject;
   const list=curriculumTemplates[subject]||[];
   const topicCount=list.filter(t=>t.type!=='header').length;
-  const safe=subject.replace(/'/g,"\\'");
+  const safe=jsAttr(subject);
   const items=list.map(t=>{
-    const safeId=t.id.replace(/'/g,"\\'");
+    const safeId=jsAttr(t.id);
     const isHeader=t.type==='header';
     return `
     <div id="curr-row-${t.id}" data-topic-id="${t.id}" class="curr-topic-row"
@@ -5384,7 +5391,13 @@ function openImageViewer(src,title){
 }
 
 function escapeHtml(str){
-  return String(str||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return String(str==null?'':str).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// Untuk teks yang disisipkan sebagai argumen string '...' di dalam atribut onclick="...".
+// Escape JS dulu (\ dan ') lalu escape HTML — supaya nama seperti Nur'aini atau
+// yang mengandung tanda kutip/ampersand tidak bikin tombol error.
+function jsAttr(str){
+  return escapeHtml(String(str==null?'':str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r?\n/g,'\\n'));
 }
 
 // ── LAINNYA ───────────────────────────────────────────
@@ -5460,8 +5473,8 @@ function showAllStudents(){
     return `<div class="menu-item" onclick="openEdit(${idx})">
       <div class="s-avatar" style="width:36px;height:36px;font-size:1rem">${icon}</div>
       <div class="menu-text">
-        <div class="menu-label">${s.name}</div>
-        <div class="menu-desc">${s.day} ${s.time}${s.time2?'–'+s.time2:''} · ${s.instrument||''} · ${total}x pertemuan</div>
+        <div class="menu-label">${escapeHtml(s.name)}</div>
+        <div class="menu-desc">${s.day} ${s.time}${s.time2?'–'+s.time2:''} · ${escapeHtml(s.instrument||'')} · ${total}x pertemuan</div>
       </div><span class="menu-arrow">›</span>
     </div>`;
   }).join(''):`<div class="empty"><div class="empty-icon">🎵</div><div class="empty-t">Belum ada murid</div></div>`;
@@ -5531,6 +5544,7 @@ function restoreEmergencyBackup(){
   attMeta=bak.attMeta||{};
   quickLinks=bak.quickLinks||quickLinks;
   teacherTasks=bak.teacherTasks||teacherTasks;
+  if(bak.curriculumTemplates) curriculumTemplates=bak.curriculumTemplates;
   save();
   render();
   renderLainnya();
@@ -5698,7 +5712,26 @@ function backupToWA(){
   }, 1500);
 }
 
+// Konfirmasi sebelum import menimpa data — plus bikin cadangan darurat dulu,
+// supaya salah pilih file tidak bikin data asli hilang permanen (sebelumnya
+// langsung menimpa tanpa tanya & ikut tersinkron ke cloud).
+function confirmImportOverwrite(data){
+  const newCount=(data.students||[]).length;
+  const curCount=students.length;
+  let msg='Pulihkan data dari backup ini?\n\n'+
+    '📱 Data di HP sekarang: '+curCount+' murid\n'+
+    '📂 Data di file backup: '+newCount+' murid'+(data.exportedAt?' (dibuat '+new Date(data.exportedAt).toLocaleString('id-ID')+')':'')+'\n\n'+
+    'Data di HP sekarang akan DITIMPA (dan ikut tersinkron ke cloud kalau sedang login). '+
+    'Data lama dicadangkan otomatis & bisa dikembalikan lewat "Pulihkan Cadangan Darurat" di tab Lainnya.';
+  if(newCount<curCount) msg+='\n\n⚠️ PERHATIAN: jumlah murid di file LEBIH SEDIKIT dari data sekarang.';
+  if(!confirm(msg)) return false;
+  const bakOk=(typeof saveEmergencyBackup==='function')?saveEmergencyBackup():false;
+  if(!bakOk && !confirm('⚠️ Cadangan darurat GAGAL dibuat (memori HP penuh).\n\nSangat disarankan Batal dulu, lalu lakukan "Backup Data Manual". Tetap lanjut menimpa data?')) return false;
+  return true;
+}
+
 function importData(){
+  if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
   history.pushState({tab:'lainnya', view:'sub'},'');
   // Show file picker page instead of file input (more reliable on Android)
   document.getElementById('mainContent').innerHTML=
@@ -5734,13 +5767,18 @@ function readImportFile(input){
         document.getElementById('importStatus').textContent='❌ File tidak valid';
         return;
       }
+      if(!confirmImportOverwrite(data)){
+        document.getElementById('importStatus').textContent='Dibatalkan — data tidak diubah.';
+        input.value='';
+        return;
+      }
       students=data.students||[];
       attendance=data.attendance||{};
       attNotes=data.attNotes||data.attendanceNotes||{};
       attMeta=data.attMeta||{};
       quickLinks=data.quickLinks||[];
       teacherTasks=data.teacherTasks||[];
-      curriculumTemplates=data.curriculumTemplates||{};
+      if(data.curriculumTemplates) curriculumTemplates=data.curriculumTemplates; // backup lama tanpa kurikulum: kurikulum yang ada tetap dipakai
       restorePrefixedData(data.misc||data.sheetSent||{}); // dukung format backup lama juga
       restoreSettingsData(data.settings);
       save();applySettings();render();
@@ -5756,6 +5794,7 @@ function readImportFile(input){
 }
 
 function importFromText(){
+  if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
   document.getElementById('mainContent').innerHTML=
     '<div class="page-title-area">'+
       '<div class="hist-back" onclick="renderLainnya()"><span>‹</span><div class="hist-back-label">Kembali</div></div>'+
@@ -5776,12 +5815,14 @@ function doImportFromText(){
     if(jsonStart>0) txt=txt.slice(jsonStart);
     const data=JSON.parse(txt);
     if(!data.students){toast('❌ Teks tidak valid');return;}
+    if(!confirmImportOverwrite(data)){toast('Dibatalkan — data tidak diubah.');return;}
     students=data.students||[];
     attendance=data.attendance||{};
     attNotes=data.attNotes||data.attendanceNotes||{};
     attMeta=data.attMeta||{};
     quickLinks=data.quickLinks||[];
     teacherTasks=data.teacherTasks||[];
+    if(data.curriculumTemplates) curriculumTemplates=data.curriculumTemplates; // sebelumnya kurikulum tidak ikut dipulihkan lewat teks
     restorePrefixedData(data.misc||data.sheetSent||{}); // dukung format backup lama juga
     restoreSettingsData(data.settings);
     save();applySettings();renderLainnya();render();
@@ -5958,6 +5999,7 @@ function tutorialFinish(){
 }
 
 function openEdit(idx){
+  if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
   editIdx=idx;
   history.pushState({tab:currentTab, view:'modal'},'');
   const s=students[idx];
@@ -6161,6 +6203,54 @@ function migrateStudentDataOnRename(oldName, newName){
       }
     }
   });
+  // 3) Snapshot jam sesi (attMeta[dateKey_attKey]) — sebelumnya tidak ikut
+  //    dipindah, jadi jam di riwayat lama "kembali" ke jadwal terbaru.
+  Object.keys(attMeta).forEach(function(metaKey){
+    const us=metaKey.indexOf('_');
+    if(us<0) return;
+    const dateKey=metaKey.slice(0,us);
+    const attKey=metaKey.slice(us+1);
+    let newAttKey=null;
+    if(attKey===oldName) newAttKey=newName;
+    else if(attKey.startsWith(oldPrefix)) newAttKey=newName+'_extra_'+attKey.slice(oldPrefix.length);
+    if(newAttKey){
+      attMeta[dateKey+'_'+newAttKey]=attMeta[metaKey];
+      delete attMeta[metaKey];
+    }
+  });
+  // 4) PR Guru yang tertaut ke sesi murid ini (nama & kunci catatannya)
+  teacherTasks.forEach(function(t){
+    if(!t.fromAttendance) return;
+    if(t.studentName===oldName) t.studentName=newName;
+    if(t.noteKey){
+      const us=t.noteKey.indexOf('_');
+      if(us<0) return;
+      const dateKey=t.noteKey.slice(0,us);
+      const attKey=t.noteKey.slice(us+1);
+      if(attKey===oldName) t.noteKey=dateKey+'_'+newName;
+      else if(attKey.startsWith(oldPrefix)) t.noteKey=dateKey+'_'+newName+'_extra_'+attKey.slice(oldPrefix.length);
+    }
+  });
+  // 5) Penanda "sudah dikirim" (sheet_sent_TANGGAL_nama) & waktu absen (llk_ts_TANGGAL_attKey)
+  const oldSan=oldName.replace(/[^a-zA-Z0-9]/g,'_');
+  const newSan=newName.replace(/[^a-zA-Z0-9]/g,'_');
+  const lsKeys=[];
+  for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k) lsKeys.push(k); }
+  lsKeys.forEach(function(k){
+    let nk=null;
+    if(k.startsWith('sheet_sent_') && oldSan!==newSan){
+      const rest=k.slice('sheet_sent_'.length); // YYYY-MM-DD_nama
+      if(rest.length>11 && rest.charAt(10)==='_' && rest.slice(11)===oldSan) nk='sheet_sent_'+rest.slice(0,11)+newSan;
+    } else if(k.startsWith('llk_ts_')){
+      const rest=k.slice('llk_ts_'.length); // YYYY-MM-DD_attKey
+      if(rest.length>11 && rest.charAt(10)==='_'){
+        const attKey=rest.slice(11);
+        if(attKey===oldName) nk='llk_ts_'+rest.slice(0,11)+newName;
+        else if(attKey.startsWith(oldPrefix)) nk='llk_ts_'+rest.slice(0,11)+newName+'_extra_'+attKey.slice(oldPrefix.length);
+      }
+    }
+    if(nk&&nk!==k){ localStorage.setItem(nk, localStorage.getItem(k)); localStorage.removeItem(k); }
+  });
 }
 
 function doSave(){
@@ -6190,6 +6280,16 @@ function doSave(){
     sheetLink:document.getElementById('f_sheet_link').value.trim(),
   };
   if(!s.name){toast('❌ Nama wajib diisi!');return}
+  // Semua riwayat absensi/catatan/tagihan disimpan pakai NAMA murid sebagai
+  // kunci — jadi 2 murid dengan nama sama akan riwayatnya tercampur. Tolak
+  // nama kembar (tidak peduli huruf besar/kecil). Murid lama yang kebetulan
+  // sudah kembar tetap bisa diedit selama namanya tidak diubah.
+  const oldNameForDup=editIdx!==null&&students[editIdx]?students[editIdx].name:null;
+  if(s.name!==oldNameForDup){
+    const lower=s.name.toLowerCase();
+    const dup=students.some((x,i)=>i!==editIdx&&(x.name||'').trim().toLowerCase()===lower);
+    if(dup){toast('❌ Sudah ada murid bernama "'+s.name+'" — pakai nama yang beda (mis. tambah inisial)',4000);return}
+  }
   if(!s.day&&!s.extraDates.length){toast('❌ Isi jadwal rutin, atau tambahkan minimal 1 tanggal di "Tambahan Kelas"');return}
   if(editIdx!==null){
     const old=students[editIdx];
@@ -6282,7 +6382,7 @@ function doDelete(){
   const btn=document.getElementById('delBtn');
   if(btn.dataset.confirm!=='yes'){
     btn.dataset.confirm='yes';
-    btn.textContent='⚠️ Riwayat ikut hilang, yakin?';
+    btn.textContent='⚠️ Yakin hapus murid ini?';
     btn.style.background='var(--red)';
     btn.style.color='#fff';
     setTimeout(()=>{
@@ -6520,8 +6620,8 @@ function renderPengaturan(){
       <div id="settingPreview" style="background:${color};border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:16px">
         <div style="width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;color:#fff;text-align:center;line-height:1.2" id="prevLogo">${logo}</div>
         <div>
-          <div style="font-size:1rem;font-weight:800;color:#fff" id="prevName">${name}</div>
-          <div style="font-size:0.72rem;color:rgba(255,255,255,0.8)" id="prevSub">${sub}</div>
+          <div style="font-size:1rem;font-weight:800;color:#fff" id="prevName">${escapeHtml(name)}</div>
+          <div style="font-size:0.72rem;color:rgba(255,255,255,0.8)" id="prevSub">${escapeHtml(sub)}</div>
         </div>
       </div>
 
@@ -6530,7 +6630,7 @@ function renderPengaturan(){
 
         <div style="padding:14px 16px;border-bottom:1px solid var(--border)">
           <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Nama singkatan Kursus/Sekolah yang kamu dirikan</div>
-          <input id="set_name" type="text" value="${name}" maxlength="30"
+          <input id="set_name" type="text" value="${escapeHtml(name)}" maxlength="30"
             oninput="document.getElementById('prevName').textContent=this.value"
             style="width:100%;background:var(--bg);border:1.5px solid var(--border);color:var(--text);font-family:sans-serif;font-size:0.9rem;padding:10px 12px;border-radius:10px;outline:none"/>
         </div>
@@ -6745,7 +6845,7 @@ function openSheetLink(idx){
 
   const actionBtn=dest==='wa'
     ?`<button onclick="goToWAProgress('${phone}')" style="flex:1;padding:15px;border-radius:14px;border:none;background:var(--red);color:#fff;font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer">💬 Kirim ke WA</button>`
-    :`<button onclick="goToSheet('${link.replace(/'/g,"\\'")}')" style="flex:1;padding:15px;border-radius:14px;border:none;background:var(--red);color:#fff;font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer">📤 Buka Sheet</button>`;
+    :`<button onclick="goToSheet('${jsAttr(link)}')" style="flex:1;padding:15px;border-radius:14px;border:none;background:var(--red);color:#fff;font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer">📤 Buka Sheet</button>`;
 
   const popup=document.createElement('div');
   popup.id='sheetPopup';
@@ -6753,7 +6853,7 @@ function openSheetLink(idx){
   popup.innerHTML=`
     <div style="background:var(--card);border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;max-width:480px">
       <div style="width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 20px"></div>
-      <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted2);margin-bottom:6px">Kirim Progres — ${s.name}</div>
+      <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted2);margin-bottom:6px">Kirim Progres — ${escapeHtml(s.name)}</div>
       <div class="kirim-preview" style="margin-bottom:10px">${text.replace(/</g,'&lt;')}</div>
       <div style="font-size:0.78rem;color:var(--hadir);margin-bottom:14px;font-weight:600;text-align:center">✅ Teks sudah tersalin ke clipboard</div>
       ${alreadySent?`<div style="font-size:0.78rem;color:var(--hadir);margin-bottom:12px;font-weight:600;text-align:center">✅ Sudah dikirim untuk tanggal ini</div>`:''}
@@ -6888,6 +6988,7 @@ function closeDeleteConfirm(){
 let _rsName=null, _rsDay=null, _rsIdx=null, _rsExtraIdx=null;
 
 function openRescheduleModal(name, day, idx, extraIdx, extraDate){
+  if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
   if(!name||name==='null'||name==='undefined'||idx===null||idx===undefined||!students[idx]){
     toast('❌ Data siswa tidak ditemukan, coba refresh halaman dulu');
     return;
@@ -7118,6 +7219,11 @@ function showLoginForm(){
 /* Mode "lihat-lihat dulu" — user boleh masuk & lihat tampilan tanpa login,
    tapi TIDAK bisa menyimpan apapun (lihat requireLoginOrBlock di bawah). */
 let _llkGuestMode=false;
+// true kalau skrip Firebase gagal dimuat (internet mati saat pertama buka,
+// CDN diblokir, dll). Di kondisi ini app tetap boleh dipakai secara lokal
+// supaya tutor tidak terkunci di tengah jam mengajar — sinkron cloud
+// otomatis jalan lagi begitu app dibuka ulang dengan internet normal.
+let _llkFirebaseUnavailable=false;
 function skipLoginForNow(){
   _llkGuestMode=true;
   hideLoginGate();
@@ -7128,6 +7234,7 @@ function skipLoginForNow(){
    dengan pesan yang lebih mendesak, dan BATALKAN aksi yang tadi diklik. */
 function requireLoginOrBlock(){
   if(currentUser) return true;
+  if(_llkFirebaseUnavailable) return true;
   const gate=document.getElementById('loginGate');
   const checking=document.getElementById('loginGateChecking');
   const form=document.getElementById('loginGateFormWrap');
@@ -7150,9 +7257,23 @@ function initFirebase(){
     hideLoginGate();
     return;
   }
-  fbApp=firebase.initializeApp(FIREBASE_CONFIG);
-  fbAuth=firebase.auth();
-  fbDb=firebase.firestore();
+  // BUGFIX: kalau skrip Firebase gagal dimuat, dulu app error dan layar
+  // "Memeriksa sesi…" muter selamanya tanpa jalan keluar.
+  try{
+    if(typeof firebase==='undefined') throw new Error('firebase SDK tidak termuat');
+    fbApp=firebase.initializeApp(FIREBASE_CONFIG);
+    fbAuth=firebase.auth();
+    fbDb=firebase.firestore();
+  }catch(e){
+    console.error('Firebase gagal dimuat:', e);
+    _llkFirebaseUnavailable=true;
+    fbApp=null; fbAuth=null; fbDb=null;
+    hideLoginGate();
+    setTimeout(function(){
+      toast('⚠️ Layanan login/cloud gagal dimuat (cek internet). Data tetap tersimpan di HP ini — buka ulang aplikasi saat internet normal untuk sinkron.',6000);
+    },500);
+    return;
+  }
 
   // Selesaikan proses login kalau baru saja kembali dari redirect Google
   fbAuth.getRedirectResult().catch(function(err){
@@ -7216,7 +7337,7 @@ function listenSubscriptionStatus(uid){
     const d=doc.data();
     if(d.isTester===true){
       hidePaywall();
-      _subBadgeInfo={label:'PRO'}; renderAccountSection();
+      _subBadgeInfo={label:'PRO',isTester:true}; renderAccountSection();
       return;
     }
     const now=Date.now();
@@ -7474,7 +7595,14 @@ function isProbablyBareWebView(){
 }
 
 function loginWithGoogle(){
-  if(!fbAuth){ setLoginGateStatus('⚠️ Firebase belum di-setup.'); return; }
+  if(!fbAuth){
+    if(_llkFirebaseUnavailable){
+      if(navigator.onLine){ setLoginGateStatus('Memuat ulang…'); location.reload(); }
+      else setLoginGateStatus('⚠️ Perlu internet untuk login. Sambungkan internet lalu coba lagi.');
+      return;
+    }
+    setLoginGateStatus('⚠️ Firebase belum di-setup.'); return;
+  }
   if(!navigator.onLine){ setLoginGateStatus('⚠️ Perlu internet buat login pertama kali.'); return; }
   if(isProbablyBareWebView()){
     setLoginGateStatus('⚠️ Login Google tidak didukung di tampilan aplikasi ini (WebView). Coba buka lewat Chrome langsung, atau kalau ini APK Play Store, perlu dibungkus ulang sebagai TWA.');
@@ -7519,8 +7647,16 @@ function loginWithGoogle(){
   });
 }
 
-function logoutFirebase(){
+function logoutFirebase(skipDirtyCheck){
   if(!fbAuth) return;
+  // Data di HP TIDAK dihapus saat logout (sengaja — kalau sync terakhir belum
+  // sempat masuk cloud, menghapusnya berarti kehilangan data). Cukup
+  // peringatkan kalau masih ada perubahan yang belum tersinkron.
+  if(skipDirtyCheck!==true && typeof isLocalDirty==='function' && isLocalDirty() && _cloudReadyToPush){
+    if(!confirm('⚠️ Ada perubahan terbaru yang BELUM tersimpan ke cloud (mungkin karena internet).\n\nKalau logout sekarang, perubahan itu tetap ada di HP ini tapi belum ada di cloud. Tetap logout?')) return;
+  }
+  clearTimeout(_cloudSyncTimer);
+  _cloudReadyToPush=false;
   fbAuth.signOut().then(function(){
     currentUser=null;
     if(_subUnsub){ _subUnsub(); _subUnsub=null; }
@@ -7579,74 +7715,306 @@ function scheduleCloudSync(){
 let _cloudRetryCount=0;
 let _cloudRetryTimer=null;
 
-function pushToCloud(){
-  if(!fbDb||!currentUser||!_cloudReadyToPush) return;
-  const baseRef=fbDb.collection('backups').doc(currentUser.uid);
-  const parts=buildCloudParts();
-  const nowIso=new Date().toISOString();
+// ── STATUS SINKRON PER PERANGKAT ─────────────────────────────────────────
+// BUGFIX PENTING (2 HP / 2 perangkat pakai 1 akun): dulu tiap perangkat
+// langsung MENIMPA seluruh data cloud dengan data lokalnya. Kalau HP A sudah
+// absen hari ini lalu HP B (yang datanya lebih lama) dibuka, absensi dari HP A
+// di cloud ketimpa & hilang. Sekarang tiap perangkat mencatat "versi cloud
+// terakhir yang dia kenal" (marker). Sebelum menulis ke cloud, perangkat cek
+// dulu: kalau ternyata cloud sudah diubah perangkat lain, data cloud DIGABUNG
+// dulu ke data lokal (tidak ada yang dihapus), baru hasil gabungannya dikirim.
+const LLK_SYNC_MARKER_KEY='llk_cloud_marker';   // {uid, marker} versi cloud terakhir yg dikenal perangkat ini
+const LLK_DIRTY_KEY='llk_dirty_at';             // waktu perubahan lokal terakhir yg BELUM terkirim ke cloud
+const LLK_OWNER_KEY='llk_data_owner';           // {uid, email} pemilik data yang sedang ada di HP ini
+let _cloudPushing=false, _cloudPushAgain=false, _cloudConflictCount=0;
+const CRITICAL_PART_KEYS=['students','attendance','attNotes','attMeta','links'];
 
-  // Tulis dokumen "penanda" utama (kecil, cuma metadata) + tiap bagian data
-  // sebagai dokumen TERPISAH di sub-collection 'parts' — masing-masing
-  // ditulis independen (Promise.allSettled), bukan digabung jadi 1 batch,
-  // supaya kegagalan di 1 bagian (misal 'sound' kegedean) TIDAK ikut
-  // menggagalkan bagian lain yang lebih penting (misal 'core').
-  const writes=[
-    baseRef.set({ updatedAt:firebase.firestore.FieldValue.serverTimestamp(), updatedAtLocal:nowIso, version:'7' })
-      .then(()=>({key:'meta',ok:true})).catch(err=>({key:'meta',ok:false,err}))
-  ];
-  Object.keys(parts).forEach(function(key){
-    if(parts[key]===null) return; // field nggak ada (misal belum pernah upload logo/suara custom) — skip aja
-    writes.push(
-      baseRef.collection('parts').doc(key).set(parts[key])
-        .then(()=>({key,ok:true}))
-        .catch(err=>({key,ok:false,err}))
-    );
+function getSyncMarker(uid){
+  try{ const m=JSON.parse(localStorage.getItem(LLK_SYNC_MARKER_KEY)||'null'); return (m&&m.uid===uid)?m.marker:null; }catch(e){ return null; }
+}
+function setSyncMarker(uid, marker){
+  try{ localStorage.setItem(LLK_SYNC_MARKER_KEY, JSON.stringify({uid:uid, marker:marker})); }catch(e){}
+}
+function isLocalDirty(){ return !!localStorage.getItem(LLK_DIRTY_KEY); }
+// Dipanggil dari save() setiap ada perubahan data lokal
+function markLocalDirty(){
+  if(_cloudPulling) return; // perubahan hasil tarik dari cloud bukan perubahan lokal
+  try{ localStorage.setItem(LLK_DIRTY_KEY, String(Date.now())); }catch(e){}
+}
+function clearLocalDirtyIfUnchangedSince(ts){
+  const cur=Number(localStorage.getItem(LLK_DIRTY_KEY)||0);
+  if(cur<=ts) localStorage.removeItem(LLK_DIRTY_KEY);
+}
+function getDataOwner(){
+  try{ return JSON.parse(localStorage.getItem(LLK_OWNER_KEY)||'null'); }catch(e){ return null; }
+}
+function setDataOwner(user){
+  try{ localStorage.setItem(LLK_OWNER_KEY, JSON.stringify({uid:user.uid, email:user.email||''})); }catch(e){}
+}
+function cloudMarkerOf(metaData){
+  metaData=metaData||{};
+  return metaData.syncId||metaData.updatedAtLocal||null; // dokumen versi lama belum punya syncId
+}
+function hasAnyLocalData(){
+  return (students&&students.length>0) || Object.keys(attendance||{}).length>0;
+}
+
+// Ambil semua bagian data dari cloud. Kegagalan BACA dibedakan dari "memang
+// kosong" — kalau bagian penting gagal dibaca, pemanggil wajib membatalkan
+// proses supaya data lokal tidak pernah ditimpa kekosongan.
+const CLOUD_PART_KEYS=['students','attendance','attNotes','attMeta','links','settings','misc','logo','sound'];
+const CLOUD_CRITICAL_READ_KEYS=['students','attendance','attNotes','attMeta'];
+function fetchCloudParts(baseRef){
+  return Promise.all(CLOUD_PART_KEYS.map(function(key){
+    return baseRef.collection('parts').doc(key).get()
+      .then(function(d){ return {key,data:d.exists?d.data():null,error:false}; })
+      .catch(function(err){ return {key,data:null,error:true,errMsg:err&&err.message}; });
+  })).then(function(results){
+    const erroredCritical=results.filter(function(r){ return r.error && CLOUD_CRITICAL_READ_KEYS.includes(r.key); });
+    const parts={};
+    results.forEach(function(r){ parts[r.key]=r.data; });
+    return {parts, erroredCritical};
   });
+}
+function cloudPartsToBundle(parts){
+  const linksData=(parts.links&&parts.links.data)||{};
+  return {
+    students:(parts.students&&parts.students.data)||[],
+    attendance:(parts.attendance&&parts.attendance.data)||{},
+    attNotes:(parts.attNotes&&parts.attNotes.data)||{},
+    attMeta:(parts.attMeta&&parts.attMeta.data)||{},
+    quickLinks:linksData.quickLinks||[],
+    teacherTasks:linksData.teacherTasks||[],
+    curriculumTemplates:linksData.curriculumTemplates||{}
+  };
+}
 
-  Promise.all(writes).then(function(results){
-    const failed=results.filter(r=>!r.ok);
-    const criticalKeys=['meta','students','attendance','attNotes','attMeta','links'];
-    const failedCore=failed.find(r=>criticalKeys.includes(r.key));
-    if(failed.length===0){
-      _cloudRetryCount=0;
-      clearTimeout(_cloudRetryTimer);
-      setCloudSyncStatus('✅ Tersimpan ke cloud • '+new Date().toLocaleTimeString('id-ID'));
-    } else if(!failedCore){
-      // Data PENTING (murid/absensi/progress) berhasil, cuma bagian
-      // pelengkap (logo/suara custom/dll) yang gagal — nggak perlu retry
-      // terus-terusan, cukup kasih tau apa adanya.
-      _cloudRetryCount=0;
-      clearTimeout(_cloudRetryTimer);
-      const names={settings:'pengaturan',misc:'data pelengkap',logo:'logo custom',sound:'suara notifikasi custom'};
-      const list=failed.map(f=>names[f.key]||f.key).join(', ');
-      console.warn('Bagian gagal sync (non-kritis):', failed);
-      setCloudSyncStatus('✅ Data murid & absensi tersimpan. ⚠️ '+list+' gagal disimpan (kemungkinan ukurannya kegedean untuk cloud).');
-    } else {
-      // Data PENTING gagal — ini yang perlu di-retry serius.
-      console.error('Gagal sync bagian penting:', failedCore.err);
-      _cloudRetryCount++;
-      const err=failedCore.err||{};
-      const detail=err.code==='permission-denied'
-        ? 'akses ditolak (cek security rules Firestore)'
-        : err.code==='invalid-argument'
-        ? 'ukuran data terlalu besar untuk 1 dokumen'
-        : (!navigator.onLine ? 'HP sedang offline' : (err.message||'error tidak diketahui'));
-      if(_cloudRetryCount<=5){
-        const delaySec=[10,30,60,60,60][_cloudRetryCount-1];
-        setCloudSyncStatus('⚠️ Gagal sync data utama ('+detail+') — coba lagi dalam '+delaySec+' detik…');
-        clearTimeout(_cloudRetryTimer);
-        _cloudRetryTimer=setTimeout(pushToCloud, delaySec*1000);
-      } else {
-        setCloudSyncStatus('⚠️ Gagal sync berkali-kali ('+detail+'). Buka lagi tab Lainnya atau cek koneksi.');
-      }
+// ── PENGGABUNGAN DATA (lokal + cloud) ────────────────────────────────────
+// Prinsip: TIDAK ADA data yang dihapus. Semua yang ada di salah satu sisi
+// ikut masuk. Kalau dua sisi sama-sama punya isian di tempat yang sama
+// (misal status absen murid X tanggal Y beda), yang dipakai versi HP ini.
+// Konsekuensinya: murid/absen yang dihapus di perangkat lain bisa muncul
+// lagi — itu sengaja, lebih aman daripada kehilangan data tagihan.
+function mergeById(localArr, cloudArr, onBoth){
+  const out=(localArr||[]).map(function(x){ return Object.assign({},x); });
+  const idx={};
+  out.forEach(function(x,i){ if(x&&x.id!==undefined) idx[x.id]=i; });
+  (cloudArr||[]).forEach(function(c){
+    if(!c) return;
+    if(c.id!==undefined && idx[c.id]!==undefined){ if(onBoth) onBoth(out[idx[c.id]], c); return; }
+    out.push(Object.assign({},c));
+  });
+  return out;
+}
+function mergeStudentLists(L, C){
+  const out=(L||[]).map(function(s){ return Object.assign({},s); });
+  (C||[]).forEach(function(cs){
+    if(!cs||!cs.name) return;
+    const ls=out.find(function(x){ return x.name===cs.name; });
+    if(!ls){ out.push(Object.assign({},cs)); return; }
+    // Pembayaran yang dicatat di perangkat mana pun tetap dihitung
+    const lp=Math.max(ls.lastPaidAt||0, cs.lastPaidAt||0);
+    if(lp>0) ls.lastPaidAt=lp;
+    if(cs.monthlyPaidThru && (!ls.monthlyPaidThru || cs.monthlyPaidThru>ls.monthlyPaidThru)) ls.monthlyPaidThru=cs.monthlyPaidThru;
+    if(cs.curriculumChecked) ls.curriculumChecked=Object.assign({}, cs.curriculumChecked, ls.curriculumChecked||{});
+    // Reschedule: gabung, buang duplikat (tanggal+hari sama)
+    if(cs.reschedules&&cs.reschedules.length){
+      const rs=(ls.reschedules||[]).slice();
+      const seen=new Set(rs.map(function(r){ return r.date+'|'+r.day; }));
+      cs.reschedules.forEach(function(r){ const k=r.date+'|'+r.day; if(!seen.has(k)){ seen.add(k); rs.push(Object.assign({},r)); } });
+      ls.reschedules=rs;
+    }
+    // Tambahan Kelas: id-nya jadi bagian kunci absensi, jadi entri dari cloud
+    // hanya ditambahkan kalau id-nya belum dipakai di HP ini.
+    if(cs.extraDates&&cs.extraDates.length){
+      const ed=(ls.extraDates||[]).slice();
+      const ids=new Set(ed.map(function(e,i){ return (e.id!==undefined&&e.id!==null)?e.id:i; }));
+      cs.extraDates.forEach(function(e,i){
+        const id=(e.id!==undefined&&e.id!==null)?e.id:i;
+        if(!ids.has(id)){ ids.add(id); ed.push(Object.assign({},e,{id:id})); }
+      });
+      ls.extraDates=ed;
+      if(!ls.extraNote&&cs.extraNote) ls.extraNote=cs.extraNote;
     }
   });
+  return out;
+}
+function mergeBundles(L, C){
+  const attendanceOut={};
+  Object.keys(C.attendance||{}).forEach(function(dk){ attendanceOut[dk]=Object.assign({}, C.attendance[dk]); });
+  Object.keys(L.attendance||{}).forEach(function(dk){ attendanceOut[dk]=Object.assign(attendanceOut[dk]||{}, L.attendance[dk]); });
+  const currOut=Object.assign({}, L.curriculumTemplates||{});
+  Object.keys(C.curriculumTemplates||{}).forEach(function(sub){
+    currOut[sub]=currOut[sub]?mergeById(currOut[sub], C.curriculumTemplates[sub]):(C.curriculumTemplates[sub]||[]).slice();
+  });
+  return {
+    students:mergeStudentLists(L.students, C.students),
+    attendance:attendanceOut,
+    attNotes:Object.assign({}, C.attNotes||{}, L.attNotes||{}),
+    attMeta:Object.assign({}, C.attMeta||{}, L.attMeta||{}),
+    quickLinks:mergeById(L.quickLinks, C.quickLinks),
+    teacherTasks:mergeById(L.teacherTasks, C.teacherTasks, function(l,c){ if(c.done) l.done=true; }),
+    curriculumTemplates:currOut
+  };
+}
+// Gabungkan hasil fetchCloudParts ke data lokal (di memori + localStorage)
+function mergeCloudPartsIntoLocal(parts){
+  const merged=mergeBundles(
+    {students,attendance,attNotes,attMeta,quickLinks,teacherTasks,curriculumTemplates},
+    cloudPartsToBundle(parts)
+  );
+  // Tanda "sudah dikirim" dsb: cukup ditambahkan (tidak menghapus yang lokal)
+  restorePrefixedData((parts.misc&&parts.misc.data)||{});
+  // Pengaturan: yang sudah ada di HP ini tetap dipakai, cuma isi yang kosong
+  const cloudSettings=Object.assign({}, (parts.settings&&parts.settings.data)||{});
+  if(parts.logo&&parts.logo.data!==undefined) cloudSettings['rms_school_logo_img']=parts.logo.data;
+  if(parts.sound&&parts.sound.data!==undefined) cloudSettings['llk_notif_custom_mp3']=parts.sound.data;
+  const missingOnly={};
+  Object.keys(cloudSettings).forEach(function(k){ if(localStorage.getItem(k)===null) missingOnly[k]=cloudSettings[k]; });
+  restoreSettingsData(missingOnly);
+  students=merged.students; attendance=merged.attendance; attNotes=merged.attNotes; attMeta=merged.attMeta;
+  quickLinks=merged.quickLinks; teacherTasks=merged.teacherTasks; curriculumTemplates=merged.curriculumTemplates;
+  const wasPulling=_cloudPulling;
+  _cloudPulling=true; // simpan ke localStorage tanpa memicu sync berantai
+  try{ save(); } finally { _cloudPulling=wasPulling; }
+  markLocalDirty(); // hasil gabungan belum ada di cloud → wajib dikirim
+  applySettings();
+  render();
+}
+
+function pushToCloud(){
+  if(!fbDb||!currentUser||!_cloudReadyToPush) return;
+  if(_cloudPushing){ _cloudPushAgain=true; return; }
+  _cloudPushing=true;
+  const uid=currentUser.uid;
+  const baseRef=fbDb.collection('backups').doc(uid);
+  let snapshotAt=Date.now();
+
+  const finish=function(){
+    _cloudPushing=false;
+    if(_cloudPushAgain){
+      _cloudPushAgain=false;
+      if(_cloudConflictCount>0) setTimeout(pushToCloud, 300+Math.random()*700); // konflik: langsung ulang (dgn jeda acak kecil)
+      else scheduleCloudSync();
+    }
+  };
+  const retryLater=function(detail){
+    _cloudRetryCount++;
+    if(_cloudRetryCount<=5){
+      const delaySec=[10,30,60,60,60][_cloudRetryCount-1];
+      setCloudSyncStatus('⚠️ Gagal sync data utama ('+detail+') — coba lagi dalam '+delaySec+' detik…');
+      clearTimeout(_cloudRetryTimer);
+      _cloudRetryTimer=setTimeout(pushToCloud, delaySec*1000);
+    } else {
+      setCloudSyncStatus('⚠️ Gagal sync berkali-kali ('+detail+'). Buka lagi tab Lainnya atau cek koneksi.');
+    }
+  };
+  const describeErr=function(err){
+    err=err||{};
+    return err.code==='permission-denied'
+      ? 'akses ditolak (cek security rules Firestore)'
+      : err.code==='invalid-argument'
+      ? 'ukuran data terlalu besar untuk 1 dokumen'
+      : (!navigator.onLine ? 'HP sedang offline' : (err.message||'error tidak diketahui'));
+  };
+
+  // 1) Cek dulu apakah cloud sudah diubah perangkat lain sejak sync terakhir
+  baseRef.get().then(function(doc){
+    if(!currentUser||currentUser.uid!==uid) throw {code:'user-changed'};
+    const cloudMarker=doc.exists?cloudMarkerOf(doc.data()):null;
+    if(doc.exists && cloudMarker && cloudMarker!==getSyncMarker(uid)){
+      return fetchCloudParts(baseRef).then(function(res){
+        if(res.erroredCritical.length){
+          const e=new Error((res.erroredCritical[0].errMsg)||'gagal baca data cloud'); e.code='read-failed'; throw e;
+        }
+        saveEmergencyBackup();
+        mergeCloudPartsIntoLocal(res.parts);
+        setSyncMarker(uid, cloudMarker); // data HP ini sekarang sudah memuat versi cloud tsb
+        console.log('☁️ Data dari perangkat lain digabung sebelum dikirim.');
+        toast('☁️ Ada perubahan dari perangkat lain — sudah digabung otomatis');
+      });
+    }
+  }).then(function(){
+    // 2) Tulis data PENTING + dokumen penanda dalam SATU transaksi Firestore
+    //    (semua-atau-tidak-sama-sekali). Transaksi hanya lolos kalau penanda
+    //    di cloud masih versi yang dikenal HP ini — kalau perangkat lain
+    //    menulis di detik yang sama, transaksi ditolak, lalu data digabung
+    //    dulu & dicoba lagi. Jadi 2 HP yang menyimpan bersamaan pun tidak
+    //    saling menimpa.
+    const expected=getSyncMarker(uid);
+    snapshotAt=Date.now();
+    const parts=buildCloudParts();
+    const nowIso=new Date().toISOString();
+    const syncId=nowIso+'#'+Math.random().toString(36).slice(2,8);
+    return fbDb.runTransaction(function(tx){
+      return tx.get(baseRef).then(function(doc){
+        const cm=doc.exists?cloudMarkerOf(doc.data()):null;
+        if(cm && cm!==expected){ const e=new Error('cloud berubah bersamaan'); e.code='sync-conflict'; throw e; }
+        CRITICAL_PART_KEYS.forEach(function(key){ if(parts[key]) tx.set(baseRef.collection('parts').doc(key), parts[key]); });
+        tx.set(baseRef, { updatedAt:firebase.firestore.FieldValue.serverTimestamp(), updatedAtLocal:nowIso, syncId:syncId, version:'8' });
+      });
+    }).then(function(){
+      setSyncMarker(uid, syncId);
+      clearLocalDirtyIfUnchangedSince(snapshotAt);
+      _cloudRetryCount=0; _cloudConflictCount=0;
+      clearTimeout(_cloudRetryTimer);
+      // 3) Bagian pelengkap (pengaturan, logo, suara custom, dll) ditulis
+      //    terpisah — kalau salah satunya kegedean, data penting tetap aman.
+      const writes=[];
+      Object.keys(parts).forEach(function(key){
+        if(parts[key]===null||CRITICAL_PART_KEYS.includes(key)) return;
+        writes.push(baseRef.collection('parts').doc(key).set(parts[key]).then(()=>({key,ok:true})).catch(err=>({key,ok:false,err})));
+      });
+      return Promise.all(writes).then(function(results){
+        const failed=results.filter(r=>!r.ok);
+        if(failed.length===0){
+          setCloudSyncStatus('✅ Tersimpan ke cloud • '+new Date().toLocaleTimeString('id-ID'));
+        } else {
+          const names={settings:'pengaturan',misc:'data pelengkap',logo:'logo custom',sound:'suara notifikasi custom'};
+          const list=failed.map(f=>names[f.key]||f.key).join(', ');
+          console.warn('Bagian gagal sync (non-kritis):', failed);
+          setCloudSyncStatus('✅ Data murid & absensi tersimpan. ⚠️ '+list+' gagal disimpan (kemungkinan ukurannya kegedean untuk cloud).');
+        }
+      });
+    });
+  }).catch(function(err){
+    if(err&&err.code==='user-changed') return;
+    if(err&&err.code==='sync-conflict'){
+      // Perangkat lain baru saja menulis — ulangi: gabung dulu, lalu kirim
+      _cloudConflictCount++;
+      if(_cloudConflictCount<=5){ _cloudPushAgain=true; return; }
+      _cloudConflictCount=0;
+    }
+    console.error('pushToCloud gagal:', err);
+    retryLater(err&&err.code==='read-failed'?'gagal membaca data cloud: '+err.message:describeErr(err));
+  }).then(finish, finish);
 }
 // Begitu HP balik online (misal abis lewat area tanpa sinyal), langsung
 // coba sync ulang saat itu juga, nggak perlu nunggu ada perubahan data baru.
 window.addEventListener('online', function(){
-  if(currentUser && fbDb){ _cloudRetryCount=0; pushToCloud(); }
+  if(currentUser && fbDb && _cloudReadyToPush){ _cloudRetryCount=0; pushToCloud(); }
 });
+// Tiap kali aplikasi dibuka lagi dari background, cek apakah perangkat lain
+// sudah mengubah data di cloud — supaya HP ini tidak lanjut pakai data basi.
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible') checkCloudForUpdates();
+});
+function checkCloudForUpdates(){
+  if(!fbDb||!currentUser||!_cloudReadyToPush||_cloudPulling||_cloudPushing) return;
+  const uid=currentUser.uid;
+  const baseRef=fbDb.collection('backups').doc(uid);
+  baseRef.get().then(function(doc){
+    if(!doc.exists||!currentUser||currentUser.uid!==uid) return;
+    const cloudMarker=cloudMarkerOf(doc.data());
+    if(!cloudMarker||cloudMarker===getSyncMarker(uid)) return; // tidak ada yang baru
+    // Ada perubahan dari perangkat lain:
+    // - HP ini tidak punya perubahan baru → muat versi cloud apa adanya
+    //   (lewat pullFromCloud, termasuk murid yang memang dihapus di HP lain)
+    // - HP ini juga punya perubahan → gabungkan dulu lalu kirim (pushToCloud)
+    if(isLocalDirty()) pushToCloud();
+    else pullFromCloud();
+  }).catch(function(err){ console.warn('Cek update cloud gagal (diabaikan):', err); });
+}
 
 // Simpan cadangan darurat ke localStorage (key TERPISAH dari data utama)
 // tepat sebelum ada kemungkinan data lokal ditimpa oleh data dari cloud.
@@ -7656,146 +8024,161 @@ function saveEmergencyBackup(){
   try{
     localStorage.setItem('rms4_emergency_backup', JSON.stringify({
       savedAt:new Date().toISOString(),
-      students, attendance, attNotes, attMeta, quickLinks, teacherTasks
+      students, attendance, attNotes, attMeta, quickLinks, teacherTasks, curriculumTemplates
     }));
-  }catch(e){ console.warn('Gagal simpan backup darurat:',e); }
+    return true;
+  }catch(e){ console.warn('Gagal simpan backup darurat:',e); return false; }
 }
 
 function pullFromCloud(){
   if(!fbDb||!currentUser) return;
+  const user=currentUser;
+  const uid=user.uid;
   setLoginGateStatus('Mengambil data dari akunmu…');
-  const baseRef=fbDb.collection('backups').doc(currentUser.uid);
-  baseRef.get().then(function(doc){
-    if(doc.exists){
-      const proceedPull=function(){
-        _cloudPulling=true;
-        // Ambil semua bagian dari sub-collection 'parts' secara paralel
-        Promise.all(['students','attendance','attNotes','attMeta','links','settings','misc','logo','sound'].map(function(key){
-          return baseRef.collection('parts').doc(key).get()
-            .then(function(d){ return {key,data:d.exists?d.data():null,error:false}; })
-            .catch(function(err){ return {key,data:null,error:true,errMsg:err&&err.message}; });
-        })).then(function(results){
-          // BUGFIX PENTING: sebelumnya kegagalan BACA (error/permission-denied)
-          // diperlakukan sama persis dengan "field ini memang belum pernah ada
-          // di cloud" (d.exists===false) — keduanya jadi data:null lalu di-default
-          // jadi array/objek KOSONG dan LANGSUNG ditulis ke localStorage. Itu
-          // yang bikin data murid hilang total waktu Firestore Rules belum
-          // benar. Sekarang error BACA dibedakan dari "memang kosong", dan
-          // kalau salah satu bagian PENTING gagal DIBACA (bukan memang kosong),
-          // seluruh proses pull dibatalkan TANPA menyentuh localStorage sama
-          // sekali — data lokal 100% aman apa pun penyebab gagalnya.
-          const criticalKeys=['students','attendance','attNotes','attMeta'];
-          const erroredCritical=results.filter(function(r){ return r.error && criticalKeys.includes(r.key); });
-          if(erroredCritical.length>0){
-            _cloudPulling=false;
-            _cloudReadyToPush=true;
-            const reasons=erroredCritical.map(function(r){ return r.errMsg; }).filter(Boolean).join('; ');
-            console.error('Gagal baca bagian penting dari cloud, pull dibatalkan demi keamanan data lokal:', erroredCritical);
-            alert('⚠️ Gagal mengambil data dari cloud ('+(reasons||'kemungkinan izin akses Firestore belum benar, atau koneksi terputus')+').\n\nData di HP ini TIDAK diubah/ditimpa demi keamanan. Coba lagi nanti, atau cek Firestore Security Rules kalau masalah ini terus berulang.');
-            setLoginGateStatus('');
-            return;
-          }
-          const parts={};
-          results.forEach(function(r){ parts[r.key]=r.data; });
-          const linksData=(parts.links&&parts.links.data)||{};
-          localStorage.setItem('rms4_s',JSON.stringify((parts.students&&parts.students.data)||[]));
-          localStorage.setItem('rms4_a',JSON.stringify((parts.attendance&&parts.attendance.data)||{}));
-          localStorage.setItem('rms4_n',JSON.stringify((parts.attNotes&&parts.attNotes.data)||{}));
-          localStorage.setItem('rms4_meta',JSON.stringify((parts.attMeta&&parts.attMeta.data)||{}));
-          localStorage.setItem('rms4_links',JSON.stringify(linksData.quickLinks||[]));
-          localStorage.setItem('rms4_tasks',JSON.stringify(linksData.teacherTasks||[]));
-          localStorage.setItem('rms4_curriculum',JSON.stringify(linksData.curriculumTemplates||{}));
-          restorePrefixedData((parts.misc&&parts.misc.data)||{});
-          const settingsData=(parts.settings&&parts.settings.data)||{};
-          if(parts.logo&&parts.logo.data!==undefined) settingsData['rms_school_logo_img']=parts.logo.data;
-          if(parts.sound&&parts.sound.data!==undefined) settingsData['llk_notif_custom_mp3']=parts.sound.data;
-          restoreSettingsData(settingsData);
-          loadStorage();
-          loadPhotoCacheAndRerender(); // migrasikan foto dari hasil pemulihan cloud juga (kalau formatnya masih lama)
-          applySettings();
-          render();
-          renderAccountSection();
-          _cloudPulling=false;
-          _cloudReadyToPush=true; // proses pull awal sesi ini selesai, sekarang aman utk mulai push lagi
-          toast('☁️ Data dari akunmu berhasil dimuat!');
-        });
-      };
-      // Kalau HP ini sudah punya data lokal duluan (misal sempat dipakai offline
-      // sebelum login), jangan langsung ditimpa diam-diam — konfirmasi dulu ke user
-      // supaya tidak kehilangan data tanpa sadar.
-      const hasLocalData=(students&&students.length>0);
-      if(hasLocalData){
-        // BUGFIX: sebelumnya dialog konfirmasi generik, jadi user harus MENEBAK
-        // apa isi cloud sebelum memutuskan. Sekarang ambil dulu jumlah murid &
-        // waktu terakhir simpan dari cloud, supaya user lihat perbandingan
-        // NYATA sebelum menekan Oke — dan kalau ternyata cloud kosong/lebih
-        // sedikit dari lokal, kasih peringatan tegas.
-        saveEmergencyBackup(); // jaring pengaman dulu, apa pun keputusan user nanti
-        baseRef.collection('parts').doc('students').get().then(function(sDoc){
-          const cloudStudents=(sDoc.exists && sDoc.data() && sDoc.data().data) || [];
-          const cloudCount=cloudStudents.length;
-          const localCount=students.length;
-          // BUGFIX PENTING (keluhan dialog mengganggu tiap buka app): kalau
-          // jumlah murid di HP & cloud SUDAH SAMA, itu tandanya data sudah
-          // sinkron — nggak perlu tanya-tanya lagi ke user tiap kali app
-          // dibuka. Perlakukan seperti user pilih "Batal": data lokal tetap
-          // dipakai (karena itu yang paling baru dipakai user), dan didorong
-          // ke cloud biar tetap update, TANPA muncul dialog sama sekali.
-          // Dialog HANYA muncul kalau jumlahnya benar-benar beda —
-          // itu baru situasi yang genuinely perlu keputusan user.
-          if(cloudCount===localCount){
-            setLoginGateStatus('');
-            _cloudReadyToPush=true;
-            pushToCloud();
-            return;
-          }
-          const metaData=doc.data()||{};
-          const cloudUpdated=metaData.updatedAtLocal ? new Date(metaData.updatedAtLocal).toLocaleString('id-ID') : 'tidak diketahui';
-          let msg='Akun ini sudah punya data tersimpan di cloud.\n\n'+
-            '📱 Di HP ini sekarang: '+localCount+' murid\n'+
-            '☁️ Di cloud: '+cloudCount+' murid (terakhir disimpan '+cloudUpdated+')\n\n'+
-            'Timpa data di HP ini dengan data dari cloud?';
-          if(cloudCount<localCount){
-            msg+='\n\n⚠️ PERHATIAN: Data cloud lebih SEDIKIT dari HP ini. Kalau kamu tekan Oke, murid yang cuma ada di HP ini akan HILANG. Kalau ragu, tekan Batal — data HP ini tetap aman & sudah dicadangkan otomatis juga (bisa dipulihkan lewat tab Lainnya kalau perlu).';
-          }
-          if(confirm(msg)){
-            proceedPull();
-          } else {
-            setLoginGateStatus('');
-            _cloudReadyToPush=true;
-            // Data lokal diputuskan sebagai yang benar (user pilih Batal) — langsung
-            // dorong ke cloud sekarang juga, jangan nunggu user sempat edit sesuatu
-            // dulu baru ke-trigger scheduleCloudSync(). Ini penting terutama abis
-            // Security Rules baru diperbaiki, supaya cloud segera terisi data asli.
-            pushToCloud();
-          }
-        }).catch(function(err){
-          // BUGFIX: sebelumnya di sini tetap ditampilkan dialog konfirmasi generik
-          // yang kalau di-"Oke"-kan, proceedPull() akan mencoba baca 'parts' lagi —
-          // dan karena PENYEBAB gagalnya (misal Security Rules Firestore belum
-          // mengizinkan akses ke sub-collection 'parts') tidak hilang cuma dengan
-          // dialog baru, proceedPull() JUGA bakal gagal baca lalu menimpa data
-          // lokal dengan kekosongan. Sekarang: kalau ringkasan cloud aja sudah
-          // gagal diambil, jangan tawarkan opsi "timpa data" sama sekali —
-          // data lokal dibiarkan aman apa adanya, cukup kasih tau statusnya.
-          console.error('Gagal ambil ringkasan cloud, proses pull dibatalkan demi keamanan data lokal:',err);
-          setLoginGateStatus('⚠️ Sinkronisasi cloud sedang bermasalah (kemungkinan izin akses Firestore belum benar, atau koneksi terputus). Data di HP ini tetap dipakai apa adanya, tidak ada yang ditimpa.');
-          _cloudReadyToPush=true; // tetap izinkan push jalan normal, siapa tau cuma masalah baca bukan tulis
-          pushToCloud();
-        });
-      } else {
-        proceedPull();
+  const baseRef=fbDb.collection('backups').doc(uid);
+
+  const markReady=function(){ _cloudPulling=false; _cloudReadyToPush=true; setLoginGateStatus(''); };
+
+  // Timpa data HP ini dengan data cloud (dipakai kalau HP kosong, atau HP
+  // tidak punya perubahan baru sementara cloud sudah diperbarui perangkat lain)
+  const replaceWithCloud=function(cloudMarker, silentToast){
+    _cloudPulling=true;
+    fetchCloudParts(baseRef).then(function(res){
+      if(res.erroredCritical.length>0){
+        markReady();
+        const reasons=res.erroredCritical.map(function(r){ return r.errMsg; }).filter(Boolean).join('; ');
+        console.error('Gagal baca bagian penting dari cloud, pull dibatalkan demi keamanan data lokal:', res.erroredCritical);
+        alert('⚠️ Gagal mengambil data dari cloud ('+(reasons||'kemungkinan izin akses Firestore belum benar, atau koneksi terputus')+').\n\nData di HP ini TIDAK diubah/ditimpa demi keamanan. Coba lagi nanti, atau cek Firestore Security Rules kalau masalah ini terus berulang.');
+        return;
       }
-    } else {
-      // Belum ada data di cloud sama sekali → ini login pertama kali, kirim data lokal (kalau ada) ke cloud
-      _cloudReadyToPush=true;
-      pushToCloud();
+      if(hasAnyLocalData()) saveEmergencyBackup();
+      const parts=res.parts;
+      const b=cloudPartsToBundle(parts);
+      localStorage.setItem('rms4_s',JSON.stringify(b.students));
+      localStorage.setItem('rms4_a',JSON.stringify(b.attendance));
+      localStorage.setItem('rms4_n',JSON.stringify(b.attNotes));
+      localStorage.setItem('rms4_meta',JSON.stringify(b.attMeta));
+      localStorage.setItem('rms4_links',JSON.stringify(b.quickLinks));
+      localStorage.setItem('rms4_tasks',JSON.stringify(b.teacherTasks));
+      localStorage.setItem('rms4_curriculum',JSON.stringify(b.curriculumTemplates));
+      restorePrefixedData((parts.misc&&parts.misc.data)||{});
+      const settingsData=(parts.settings&&parts.settings.data)||{};
+      if(parts.logo&&parts.logo.data!==undefined) settingsData['rms_school_logo_img']=parts.logo.data;
+      if(parts.sound&&parts.sound.data!==undefined) settingsData['llk_notif_custom_mp3']=parts.sound.data;
+      restoreSettingsData(settingsData);
+      loadStorage();
+      loadPhotoCacheAndRerender(); // migrasikan foto dari hasil pemulihan cloud juga (kalau formatnya masih lama)
+      applySettings();
+      render();
+      renderAccountSection();
+      setDataOwner(user);
+      if(cloudMarker) setSyncMarker(uid, cloudMarker);
+      localStorage.removeItem(LLK_DIRTY_KEY);
+      markReady();
+      toast(silentToast||'☁️ Data dari akunmu berhasil dimuat!');
+    });
+  };
+
+  // Gabungkan data HP ini dengan cloud (tidak ada yang dihapus), lalu kirim
+  const mergeWithCloud=function(cloudMarker){
+    _cloudPulling=true;
+    fetchCloudParts(baseRef).then(function(res){
+      if(res.erroredCritical.length>0){
+        console.error('Gagal baca cloud untuk digabung — data HP ini tetap dipakai apa adanya:', res.erroredCritical);
+        setLoginGateStatus('⚠️ Sinkronisasi cloud sedang bermasalah (kemungkinan izin akses Firestore belum benar, atau koneksi terputus). Data di HP ini tetap dipakai apa adanya, tidak ada yang ditimpa.');
+        _cloudPulling=false;
+        // Sengaja TIDAK mengizinkan push di sini: tanpa bisa membaca cloud,
+        // mengirim data HP ini bisa menimpa data dari perangkat lain.
+        return;
+      }
+      saveEmergencyBackup();
+      _cloudPulling=false;
+      mergeCloudPartsIntoLocal(res.parts);
+      if(cloudMarker) setSyncMarker(uid, cloudMarker); // HP ini sudah memuat versi cloud tsb
+      setDataOwner(user);
+      markReady();
+      toast('☁️ Data HP ini & cloud sudah digabung — tidak ada yang dihapus');
+      pushToCloud(); // kirim hasil gabungan
+    });
+  };
+
+  baseRef.get().then(function(doc){
+    const hasLocal=hasAnyLocalData();
+    const owner=getDataOwner();
+
+    // (A) Data di HP ini milik akun Google LAIN (misal habis logout lalu
+    //     login pakai akun berbeda). Dulu data akun lama ikut terkirim ke
+    //     cloud akun baru. Sekarang tanya dulu.
+    if(hasLocal && owner && owner.uid && owner.uid!==uid){
+      const ownerLabel=owner.email||'akun lain';
+      if(doc.exists){
+        if(confirm('Data di HP ini milik akun '+ownerLabel+'.\n\nGanti dengan data akun '+(user.email||'ini')+' dari cloud?\n\n(Data HP ini dicadangkan dulu & bisa dipulihkan lewat "Pulihkan Cadangan Darurat". Data akun '+ownerLabel+' di cloud tetap aman.)')){
+          replaceWithCloud(cloudMarkerOf(doc.data()));
+        } else {
+          toast('Login dibatalkan — data di HP ini tetap milik '+ownerLabel,5000);
+          logoutFirebase(true);
+        }
+      } else {
+        if(confirm('Data di HP ini milik akun '+ownerLabel+'.\n\nSalin data ini ('+students.length+' murid) ke akun baru '+(user.email||'ini')+'?\n\nPilih Batal kalau tidak mau data ini masuk ke akun baru.')){
+          setDataOwner(user);
+          markLocalDirty();
+          markReady();
+          pushToCloud();
+        } else {
+          toast('Login dibatalkan — data di HP ini tetap milik '+ownerLabel,5000);
+          logoutFirebase(true);
+        }
+      }
+      return;
     }
+
+    // (B) Belum ada data di cloud sama sekali → login pertama, kirim data lokal
+    if(!doc.exists){
+      setDataOwner(user);
+      markLocalDirty();
+      markReady();
+      pushToCloud();
+      return;
+    }
+
+    const cloudMarker=cloudMarkerOf(doc.data());
+    const myMarker=getSyncMarker(uid);
+
+    // (C) HP ini kosong → ambil semua dari cloud
+    if(!hasLocal){ replaceWithCloud(cloudMarker); return; }
+
+    // (D) Cloud belum berubah sejak sync terakhir HP ini → data HP ini yang terbaru
+    if(myMarker && cloudMarker===myMarker){
+      setDataOwner(user);
+      markReady();
+      if(isLocalDirty()) pushToCloud();
+      return;
+    }
+
+    // (E) Cloud diubah perangkat lain & HP ini tidak punya perubahan baru → pakai versi cloud
+    if(myMarker && !isLocalDirty()){
+      replaceWithCloud(cloudMarker, '☁️ Data terbaru dari perangkat lain sudah dimuat');
+      return;
+    }
+
+    // (F) Dua-duanya berubah, atau HP ini belum pernah tercatat sync (pertama
+    //     kali setelah update aplikasi) → GABUNG, tidak ada yang dihapus
+    mergeWithCloud(cloudMarker);
   }).catch(function(err){
     console.error('Gagal ambil data cloud:',err);
     setLoginGateStatus('⚠️ Gagal ambil data dari cloud: '+err.message);
+    // Push tetap ditahan (_cloudReadyToPush=false) supaya data HP ini tidak
+    // menimpa cloud tanpa dicek. Coba lagi otomatis saat app dibuka/online lagi.
+    _cloudRetryPullPending=true;
   });
 }
+let _cloudRetryPullPending=false;
+window.addEventListener('online', function(){
+  if(_cloudRetryPullPending && currentUser && fbDb){ _cloudRetryPullPending=false; pullFromCloud(); }
+});
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible' && _cloudRetryPullPending && currentUser && fbDb){ _cloudRetryPullPending=false; pullFromCloud(); }
+});
 
 function setCloudSyncStatus(msg){
   const el=document.getElementById('cloudSyncStatus');
@@ -7814,11 +8197,10 @@ function renderAccountSection(){
     if(_subBadgeInfo){
       if(_subBadgeInfo.label==='PRO'){
         badgeHtml='<span style="flex-shrink:0;background:#b31217;color:#fff;font-size:0.6rem;font-weight:800;letter-spacing:0.03em;padding:2px 6px;border-radius:6px;line-height:1.4">PRO</span>';
-        // SEMENTARA: 2 akun khusus ini tetap dikasih tombol "Jadi Pro" walau statusnya
-        // sudah PRO (tester), supaya gampang buka lagi layar Selamat Datang buat preview.
-        // Hapus pengecualian email ini kalau sudah tidak diperlukan lagi.
-        const emailNow=(currentUser.email||'').toLowerCase();
-        if(emailNow==='crestiantoferdian@gmail.com' || emailNow==='betharani.w@gmail.com'){
+        // Akun tester (isTester:true di Firestore) tetap dikasih tombol "Jadi Pro"
+        // supaya gampang buka lagi layar Selamat Datang buat preview. Dulu dicek
+        // lewat daftar email yang ditulis langsung di kode (ikut terbaca publik).
+        if(_subBadgeInfo.isTester){
           upgradeBtnHtml='<button onclick="showWelcomePricing()" style="flex-shrink:0;background:#1c1c1e;color:#fff;font-size:0.62rem;font-weight:800;letter-spacing:0.02em;padding:3px 8px;border:none;border-radius:6px;cursor:pointer">⭐ Jadi Pro</button>';
         }
       } else {
@@ -7832,8 +8214,8 @@ function renderAccountSection(){
     el.innerHTML=
       '<div style="display:flex;align-items:center;gap:10px;padding:12px;background:#f2f2f7;border-radius:12px;margin-bottom:10px">'+
         (currentUser.photoURL?'<img src="'+currentUser.photoURL+'" style="width:36px;height:36px;border-radius:50%">':'<div style="width:36px;height:36px;border-radius:50%;background:#1c1c1e;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">'+(currentUser.displayName||'U').charAt(0)+'</div>')+
-        '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(currentUser.displayName||'')+'</div>'+
-        '<div style="display:flex;align-items:center;gap:6px;min-width:0"><span style="font-size:0.72rem;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">'+(currentUser.email||'')+'</span>'+badgeHtml+upgradeBtnHtml+'</div>'+
+        '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(currentUser.displayName||'')+'</div>'+
+        '<div style="display:flex;align-items:center;gap:6px;min-width:0"><span style="font-size:0.72rem;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">'+escapeHtml(currentUser.email||'')+'</span>'+badgeHtml+upgradeBtnHtml+'</div>'+
         '<div id="cloudSyncStatus" style="font-size:0.68rem;color:#9ca3af;margin-top:2px">Tersinkron otomatis</div></div>'+
         '<button onclick="logoutFirebase()" style="background:none;border:1px solid #e5e5ea;border-radius:8px;padding:6px 10px;font-size:0.72rem;color:#dc2626;cursor:pointer">Logout</button>'+
       '</div>';
