@@ -6054,6 +6054,7 @@ function renderLainnya(){
           <span class="menu-arrow">›</span>
         </div>
       </div>
+      <div id="deleteAccountSlot" style="text-align:center;padding-top:6px"></div>
       <div style="text-align:center;padding:20px;font-size:0.72rem;color:var(--muted)">LesLesanKu · Aplikasi Manajemen Les<br>Data tersimpan di perangkat ini${typeof currentUser!=='undefined'&&currentUser?' & tersinkron ke akun Google':''}<br><a href="privacy-policy.html" target="_blank" style="color:var(--blue);text-decoration:underline">Kebijakan Privasi</a></div>
     </div>`;
   if(typeof renderAccountSection==='function') renderAccountSection();
@@ -7906,7 +7907,10 @@ function initFirebase(){
   }
 
   // Selesaikan proses login kalau baru saja kembali dari redirect Google
-  fbAuth.getRedirectResult().catch(function(err){
+  fbAuth.getRedirectResult().then(function(result){
+    // Kembali dari login ulang Google untuk Hapus Akun (jalur redirect)
+    if(result&&typeof resumeAccountDeletionAfterRedirect==='function') resumeAccountDeletionAfterRedirect(result);
+  }).catch(function(err){
     console.error('Redirect login error:',err);
     setLoginGateStatus('⚠️ Login gagal: '+err.message);
   });
@@ -8341,7 +8345,7 @@ function buildCloudParts(){
 }
 
 function scheduleCloudSync(){
-  if(!fbDb||!currentUser||_cloudPulling||!_cloudReadyToPush) return; // belum login / lagi proses tarik data dari cloud / belum selesai proses pull awal
+  if(!fbDb||!currentUser||_cloudPulling||!_cloudReadyToPush||(typeof _llkDeletingAccount!=='undefined'&&_llkDeletingAccount)) return; // belum login / lagi proses tarik data dari cloud / belum selesai proses pull awal
   clearTimeout(_cloudSyncTimer);
   // Debounce 4 detik: nunggu user selesai beberapa aksi beruntun sebelum kirim,
   // supaya tidak spam write ke Firestore tiap ketukan.
@@ -8531,7 +8535,7 @@ function mergeCloudPartsIntoLocal(parts){
 }
 
 function pushToCloud(){
-  if(!fbDb||!currentUser||!_cloudReadyToPush) return;
+  if(!fbDb||!currentUser||!_cloudReadyToPush||_llkDeletingAccount) return;
   if(_cloudPushing){ _cloudPushAgain=true; return; }
   _cloudPushing=true;
   const uid=currentUser.uid;
@@ -8679,7 +8683,7 @@ function saveEmergencyBackup(){
 }
 
 function pullFromCloud(){
-  if(!fbDb||!currentUser) return;
+  if(!fbDb||!currentUser||_llkDeletingAccount) return;
   const user=currentUser;
   const uid=user.uid;
   setLoginGateStatus('Mengambil data dari akunmu…');
@@ -8867,7 +8871,11 @@ function renderAccountSection(){
         '<div id="cloudSyncStatus" style="font-size:0.68rem;color:#9ca3af;margin-top:2px">Tersinkron otomatis</div></div>'+
         '<button onclick="logoutFirebase()" style="background:none;border:1px solid #e5e5ea;border-radius:8px;padding:6px 10px;font-size:0.72rem;color:#dc2626;cursor:pointer">Logout</button>'+
       '</div>';
+    const delSlot=document.getElementById('deleteAccountSlot');
+    if(delSlot) delSlot.innerHTML='<button onclick="startDeleteAccount()" style="background:none;border:none;color:#dc2626;font-size:0.76rem;font-weight:600;text-decoration:underline;cursor:pointer;padding:8px">🗑 Hapus Akun & Semua Data</button>';
   } else {
+    const delSlot=document.getElementById('deleteAccountSlot');
+    if(delSlot) delSlot.innerHTML='';
     el.innerHTML=
       '<button onclick="reopenLoginGate()" style="width:100%;padding:12px;background:#1c1c1e;color:#fff;border:none;border-radius:12px;font-size:0.82rem;font-weight:700;cursor:pointer;margin-bottom:10px">'+
         '🔐 Login dengan Google (aktifkan cloud backup)'+
@@ -8882,6 +8890,164 @@ function reopenLoginGate(){
   gate.style.display='flex';
   gate.classList.remove('llk-hide');
   showLoginForm();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// HAPUS AKUN (wajib untuk rilis Google Play)
+// Alur: Peringatan 1 → Peringatan 2 (ketik HAPUS) → login ulang Google
+// (verifikasi password oleh Google) → hapus reminder, data cloud, akun
+// login, lalu bersihkan data di HP ini.
+// ══════════════════════════════════════════════════════════════════════
+const DELETE_ACCOUNT_FLAG='llk_pending_account_delete';
+
+function deleteAccountModal(html){
+  let el=document.getElementById('deleteAccountOverlay');
+  if(el) el.remove();
+  el=document.createElement('div');
+  el.id='deleteAccountOverlay';
+  el.style.cssText='position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:20px;font-family:-apple-system,BlinkMacSystemFont,sans-serif';
+  el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:380px;width:100%;max-height:90vh;overflow-y:auto;padding:22px 20px">'+html+'</div>';
+  document.body.appendChild(el);
+  return el;
+}
+function closeDeleteAccountModal(){
+  const el=document.getElementById('deleteAccountOverlay');
+  if(el) el.remove();
+}
+
+// Peringatan 1 — jelaskan apa saja yang akan hilang
+function startDeleteAccount(){
+  if(!currentUser||!fbAuth){ toast('Login dulu untuk menghapus akun'); return; }
+  deleteAccountModal(
+    '<div style="font-size:2rem;text-align:center;margin-bottom:6px">⚠️</div>'+
+    '<div style="font-size:1.05rem;font-weight:800;text-align:center;color:#b91c1c;margin-bottom:6px">Hapus Akun Permanen?</div>'+
+    '<div style="font-size:0.8rem;color:#6b7280;text-align:center;margin-bottom:14px">'+escapeHtml(currentUser.email||'')+'</div>'+
+    '<div style="font-size:0.84rem;color:#1c1c1e;line-height:1.6;margin-bottom:10px">Yang akan <b>dihapus permanen</b> dan <b>tidak bisa dikembalikan</b>:</div>'+
+    '<ul style="font-size:0.82rem;color:#1c1c1e;line-height:1.6;padding-left:20px;margin:0 0 12px">'+
+      '<li>Semua data murid ('+students.length+' murid), absensi, catatan progres, PR, kurikulum & riwayat invoice</li>'+
+      '<li>Salinan data di cloud</li>'+
+      '<li>Semua data aplikasi & foto progres di HP ini</li>'+
+      '<li>Reminder notifikasi yang sudah terjadwal</li>'+
+      '<li>Akun login LesLesanKu kamu (trial/langganan yang tersisa ikut hangus)</li>'+
+    '</ul>'+
+    '<div style="font-size:0.78rem;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.5">💡 Sebelum menghapus, sebaiknya simpan dulu <b>Backup Data Manual</b> — file itu satu-satunya cara memulihkan data setelah akun dihapus.</div>'+
+    '<button onclick="closeDeleteAccountModal();exportData()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid #1d9e4e;background:#fff;color:#1d9e4e;font-size:0.85rem;font-weight:700;cursor:pointer;margin-bottom:8px">💾 Backup Data Dulu</button>'+
+    '<div style="display:flex;gap:8px">'+
+      '<button onclick="closeDeleteAccountModal()" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid #e5e7eb;background:#fff;color:#6b7280;font-size:0.85rem;font-weight:700;cursor:pointer">Batal</button>'+
+      '<button onclick="deleteAccountStep2()" style="flex:1;padding:12px;border-radius:12px;border:none;background:#dc2626;color:#fff;font-size:0.85rem;font-weight:700;cursor:pointer">Lanjut Hapus</button>'+
+    '</div>'
+  );
+}
+
+// Peringatan 2 — wajib ketik HAPUS, lalu login ulang Google
+function deleteAccountStep2(){
+  deleteAccountModal(
+    '<div style="font-size:2rem;text-align:center;margin-bottom:6px">🛑</div>'+
+    '<div style="font-size:1.05rem;font-weight:800;text-align:center;color:#b91c1c;margin-bottom:10px">Peringatan Terakhir</div>'+
+    '<div style="font-size:0.84rem;color:#1c1c1e;line-height:1.6;margin-bottom:12px">Kamu <b>benar-benar yakin</b>? Setelah ini semua data les kamu hilang selamanya.</div>'+
+    '<label style="font-size:0.78rem;color:#6b7280;display:block;margin-bottom:6px">Ketik <b style="color:#b91c1c">HAPUS</b> untuk konfirmasi:</label>'+
+    '<input id="deleteAccountConfirmInput" type="text" autocomplete="off" autocapitalize="characters" oninput="document.getElementById(\'deleteAccountGoBtn\').disabled=this.value.trim().toUpperCase()!==\'HAPUS\';document.getElementById(\'deleteAccountGoBtn\').style.opacity=this.value.trim().toUpperCase()===\'HAPUS\'?\'1\':\'0.4\'" style="width:100%;padding:12px;border:1.5px solid #fca5a5;border-radius:10px;font-size:0.95rem;margin-bottom:10px;box-sizing:border-box"/>'+
+    '<div style="font-size:0.74rem;color:#6b7280;line-height:1.5;margin-bottom:14px">🔐 Setelah itu kamu akan diminta <b>login ulang ke akun Google</b> (masukkan password Google kamu) untuk memastikan ini benar-benar kamu.</div>'+
+    '<div id="deleteAccountStatus" style="font-size:0.78rem;color:#b91c1c;margin-bottom:8px"></div>'+
+    '<div style="display:flex;gap:8px">'+
+      '<button onclick="closeDeleteAccountModal()" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid #e5e7eb;background:#fff;color:#6b7280;font-size:0.85rem;font-weight:700;cursor:pointer">Batal</button>'+
+      '<button id="deleteAccountGoBtn" disabled onclick="deleteAccountReauth()" style="flex:1.4;padding:12px;border-radius:12px;border:none;background:#991b1b;color:#fff;font-size:0.82rem;font-weight:700;cursor:pointer;opacity:0.4">🔐 Verifikasi & Hapus</button>'+
+    '</div>'
+  );
+  setTimeout(function(){ const i=document.getElementById('deleteAccountConfirmInput'); if(i) i.focus(); },100);
+}
+
+function setDeleteAccountStatus(msg){
+  const el=document.getElementById('deleteAccountStatus');
+  if(el) el.textContent=msg||'';
+}
+
+// Login ulang Google (pengganti password). Firebase juga mewajibkan login
+// yang masih baru sebelum akun boleh dihapus.
+function deleteAccountReauth(){
+  const input=document.getElementById('deleteAccountConfirmInput');
+  if(!input||input.value.trim().toUpperCase()!=='HAPUS') return;
+  if(!currentUser){ toast('Sesi login berakhir, silakan login lagi'); closeDeleteAccountModal(); return; }
+  if(!navigator.onLine){ setDeleteAccountStatus('⚠️ Perlu internet untuk menghapus akun.'); return; }
+  const provider=new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({login_hint: currentUser.email||'', prompt:'login'});
+  setDeleteAccountStatus('');
+  currentUser.reauthenticateWithPopup(provider).then(function(){
+    performAccountDeletion();
+  }).catch(function(err){
+    console.warn('Reauth gagal:', err&&err.code, err&&err.message);
+    if(err&&err.code==='auth/user-mismatch'){ setDeleteAccountStatus('⚠️ Akun Google yang dipilih berbeda. Pilih akun '+(currentUser.email||'yang sama')+'.'); return; }
+    if(err&&(err.code==='auth/popup-closed-by-user'||err.code==='auth/cancelled-popup-request')){ setDeleteAccountStatus('Verifikasi dibatalkan — akun TIDAK dihapus.'); return; }
+    if(err&&(err.code==='auth/popup-blocked'||err.code==='auth/operation-not-supported-in-this-environment')){
+      // Tidak bisa popup (mis. di APK) → pakai redirect; lanjutkan hapus setelah kembali
+      try{ sessionStorage.setItem(DELETE_ACCOUNT_FLAG, currentUser.uid); }catch(e){}
+      currentUser.reauthenticateWithRedirect(provider);
+      return;
+    }
+    setDeleteAccountStatus('⚠️ Verifikasi gagal: '+((err&&err.message)||'coba lagi')+'. Akun TIDAK dihapus.');
+  });
+}
+
+// Dipanggil setelah kembali dari login ulang lewat redirect
+function resumeAccountDeletionAfterRedirect(result){
+  let pendingUid=null;
+  try{ pendingUid=sessionStorage.getItem(DELETE_ACCOUNT_FLAG); sessionStorage.removeItem(DELETE_ACCOUNT_FLAG); }catch(e){}
+  if(!pendingUid||!result||!result.user||result.user.uid!==pendingUid) return;
+  if(result.operationType!=='reauthenticate') return;
+  currentUser=result.user;
+  performAccountDeletion();
+}
+
+let _llkDeletingAccount=false; // true selama proses hapus akun — sync cloud dihentikan total
+async function performAccountDeletion(){
+  _llkDeletingAccount=true;
+  closeDeleteAccountModal();
+  showGlobalLoading('Menghapus akun… jangan tutup aplikasi');
+  const user=currentUser;
+  const uid=user.uid;
+  // 1) Hentikan sinkronisasi supaya data tidak terkirim lagi ke cloud
+  _cloudReadyToPush=false;
+  clearTimeout(_cloudSyncTimer); clearTimeout(_cloudRetryTimer);
+  if(_subUnsub){ try{ _subUnsub(); }catch(e){} _subUnsub=null; }
+  try{
+    // 2) Batalkan reminder yang masih terjadwal (butuh login, jadi sebelum akun dihapus)
+    showGlobalLoading('Membatalkan reminder terjadwal…');
+    const ids=getPushIdMap();
+    await Promise.all(Object.keys(ids).map(function(k){
+      const parts=k.split('|'); return cancelReminderPush(parts[0], parts.slice(1).join('|')).catch(function(){});
+    }));
+    try{ if(window.OneSignalDeferred) OneSignalDeferred.push(async function(OS){ try{ await OS.User.PushSubscription.optOut(); }catch(e){} }); }catch(e){}
+
+    // 3) Hapus data cloud (semua bagian + dokumen penanda)
+    showGlobalLoading('Menghapus data cloud…');
+    const baseRef=fbDb.collection('backups').doc(uid);
+    await Promise.all(CLOUD_PART_KEYS.map(function(key){ return baseRef.collection('parts').doc(key).delete(); }));
+    await baseRef.delete();
+
+    // 4) Hapus akun login
+    showGlobalLoading('Menghapus akun login…');
+    await user.delete();
+  }catch(err){
+    hideGlobalLoading();
+    console.error('Hapus akun gagal:', err);
+    const msg=(err&&err.code==='auth/requires-recent-login')
+      ? 'Sesi verifikasi sudah kedaluwarsa. Ulangi Hapus Akun dan login ulang Google.'
+      : 'Terjadi kesalahan: '+((err&&err.message)||err)+'.';
+    _llkDeletingAccount=false;
+    alert('⚠️ Akun BELUM terhapus sepenuhnya.\n\n'+msg+'\n\nData di HP ini tidak dihapus. Coba lagi, atau hubungi crestiantoferdian@gmail.com.');
+    _cloudReadyToPush=true;
+    return;
+  }
+
+  // 5) Bersihkan semua data di HP ini
+  showGlobalLoading('Membersihkan data di HP ini…');
+  try{ localStorage.clear(); }catch(e){}
+  try{ sessionStorage.clear(); }catch(e){}
+  try{ indexedDB.deleteDatabase(LLK_PHOTO_DB); }catch(e){}
+  currentUser=null;
+  hideGlobalLoading();
+  alert('✅ Akun LesLesanKu kamu sudah dihapus permanen beserta semua datanya.\n\nTerima kasih sudah memakai LesLesanKu.');
+  location.reload();
 }
 
 initFirebase();
