@@ -591,6 +591,13 @@ body{
 #loginGateFormWrap{ animation:llkFadeUp .45s ease both; }
 .llk-login-logo{ width:100%; max-width:230px; height:auto; margin:0 auto 22px; display:block; }
 .llk-login-logo-sm{ width:52px; height:auto; }
+@media print{
+  body.llk-printing-invoice > *{display:none !important}
+  body.llk-printing-invoice > #invoicePrintArea{display:block !important}
+  #invoicePrintArea img{width:100%;height:auto}
+  @page{margin:8mm}
+}
+#invoicePrintArea{display:none}
 </style>
 <div id="loginGate" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif">
 
@@ -786,6 +793,14 @@ body{
           <option value="16">16x pertemuan</option>
         </select>
       </div>
+    </div>
+    <div class="mfield" id="tut-step-paytiming">
+      <label>Waktu Bayar</label>
+      <select id="f_pay_timing">
+        <option value="">Ikuti pengaturan umum</option>
+        <option value="belakang">Bayar di Belakang (setelah pertemuan)</option>
+        <option value="depan">Bayar di Depan (sebelum pertemuan)</option>
+      </select>
     </div>
     <div class="mrow" id="tut-step-initial">
       <div class="mfield">
@@ -1999,9 +2014,7 @@ function renderAbsensi(){
     // Payment warning
     const payDue=computeIsDue(s);
     const showPayWarn=paymentMode!=='off'&&payDue.isDue&&isToday;
-    const payWarnLabel=paymentMode==='monthly'
-      ?`💳 Waktunya bayar (akhir bulan) — Ingatkan bayar via WA`
-      :`💳 ${payDue.total}x pertemuan — Ingatkan bayar via WA`;
+    const payWarnLabel=paymentStatusText(s,payDue)+' — 🧾 Kirim invoice';
     // Reschedule badges
     const isRescued=s._isRescheduled||false;
     // Murid tampil di hari rutin tapi ada reschedule aktif ke hari lain
@@ -2382,28 +2395,70 @@ function getBillingMonthKey(){
   return getMonthKey(new Date(d.getFullYear(), d.getMonth()-1, 1));
 }
 function computeIsDue(s){
-  let billingMonth=null;
-  let total;
-  if(paymentMode==='monthly'){
-    billingMonth=getBillingMonthKey();
-    total=countSessionsThisMonth(s.name, billingMonth);
-  }else{
-    total=countSessionsForBilling(s.name);
-  }
+  // timing: 'belakang' = bayar setelah pertemuan berlangsung (cara lama),
+  //         'depan'    = bayar dulu untuk paket pertemuan / bulan berikutnya
+  const timing=getPayTiming(s);
   const cycle=s.payCycle||4;
-  let isDue=false;
-  if(paymentMode==='session'){
+  let billingMonth=null, total=0, isDue=false, credit=null;
+  if(paymentMode==='monthly'){
+    if(timing==='depan'){
+      billingMonth=getPrepaidMonthKey();
+      total=countSessionsThisMonth(s.name, billingMonth);
+      // Lunas kalau sudah dibayar sampai bulan yang ditagih (atau lebih)
+      isDue=!(s.monthlyPaidThru && s.monthlyPaidThru>=billingMonth);
+    } else {
+      billingMonth=getBillingMonthKey();
+      total=countSessionsThisMonth(s.name, billingMonth);
+      // isDue TETAP true selama monthlyPaidThru belum menyamai bulan yang
+      // sedang ditagih — nggak peduli sekarang tanggal berapa, bulan apa.
+      isDue=s.monthlyPaidThru!==billingMonth;
+    }
+  } else if(timing==='depan'){
+    // Sisa "saldo" pertemuan yang sudah dibayar di depan. prepaidThrough =
+    // total sesi terhitung yang sudah tercakup pembayaran. Murid yang baru
+    // dipindah ke Bayar di Depan mulai dari lastPaidAt (yang sudah lunas).
+    const all=countSessions(s.name);
+    const covered=(s.prepaidThrough!=null)?s.prepaidThrough:(s.lastPaidAt||0);
+    credit=covered-all;
+    total=Math.max(0,-credit); // pertemuan yang sudah berjalan tapi belum dibayar
+    isDue=paymentMode==='session' && credit<=0;
+  } else {
+    total=countSessionsForBilling(s.name);
     // BUGFIX: sebelumnya pakai total%cycle===0, jadi tagihan cuma muncul PAS
     // di sesi ke-4/8/12 — begitu lewat 1 sesi tanpa ditandai "Sudah Bayar",
     // peringatannya hilang (dianggap baru 1/4x). Sekarang tetap muncul terus
     // selama sesi sejak terakhir bayar sudah mencapai/melewati siklus.
-    isDue=total>=cycle;
-  }else if(paymentMode==='monthly'){
-    // isDue TETAP true selama monthlyPaidThru belum menyamai bulan yang
-    // sedang ditagih — nggak peduli sekarang tanggal berapa, bulan apa.
-    isDue=s.monthlyPaidThru!==billingMonth;
+    if(paymentMode==='session') isDue=total>=cycle;
   }
-  return {total,cycle,isDue,billingMonth};
+  return {total,cycle,isDue,billingMonth,timing,credit};
+}
+// Label status pembayaran (dipakai kartu Siswa & peringatan di Absensi)
+function paymentStatusText(s, d){
+  d=d||computeIsDue(s);
+  const monthName=mk=>mk?getMonthNameID(new Date(mk+'-01T00:00:00')):'';
+  if(paymentMode==='monthly'){
+    if(d.timing==='depan') return d.isDue?('💳 Bayar di depan · bulan '+monthName(d.billingMonth)):('✅ Lunas s/d '+monthName(s.monthlyPaidThru));
+    return d.isDue?('💳 Waktunya Bayar! (Akhir Bulan · '+d.total+'x)'):'📅 Ditagih akhir bulan';
+  }
+  if(d.timing==='depan'){
+    if(d.isDue) return '💳 Bayar di depan · '+d.cycle+'x berikutnya'+(d.total?' (+'+d.total+'x belum dibayar)':'');
+    return '✅ Sisa '+d.credit+'x pertemuan terbayar';
+  }
+  if(d.isDue) return '💳 Waktunya Bayar! ('+d.total+'x)';
+  const rem=Math.max(0,d.cycle-d.total);
+  return '✅ '+d.total+'/'+d.cycle+'x · '+rem+'x lagi';
+}
+function setPayTimingDefault(t){
+  localStorage.setItem('llk_pay_timing', t==='depan'?'depan':'belakang');
+  if(typeof markLocalDirty==='function') save(); // ikut tersinkron ke cloud (pengaturan)
+  renderPaymentSettings();
+  toast(t==='depan'?'✅ Default: Bayar di Depan':'✅ Default: Bayar di Belakang');
+}
+function savePayInfo(){
+  const v=(document.getElementById('payInfoInput').value||'').trim();
+  if(v) localStorage.setItem('llk_pay_info', v); else localStorage.removeItem('llk_pay_info');
+  save();
+  toast('✅ Info pembayaran disimpan');
 }
 function setPaymentMode(mode){
   paymentMode=mode;
@@ -2445,12 +2500,16 @@ function getMonthlySessionInfo(name, monthKey){
 const TPL_META={
   session:{key:'llk_tpl_session', def:null}, // def diisi belakangan (DEFAULT_TPL_SESSION)
   monthly:{key:'llk_tpl_monthly', def:null},
-  admin:{key:'llk_tpl_admin', def:null}
+  admin:{key:'llk_tpl_admin', def:null},
+  prepaid_session:{key:'llk_tpl_prepaid_session', def:null},
+  prepaid_monthly:{key:'llk_tpl_prepaid_monthly', def:null}
 };
 function getPaymentTemplate(mode){
   TPL_META.session.def=DEFAULT_TPL_SESSION;
   TPL_META.monthly.def=DEFAULT_TPL_MONTHLY;
   TPL_META.admin.def=DEFAULT_TPL_ADMIN;
+  TPL_META.prepaid_session.def=DEFAULT_TPL_PREPAID_SESSION;
+  TPL_META.prepaid_monthly.def=DEFAULT_TPL_PREPAID_MONTHLY;
   const meta=TPL_META[mode]||TPL_META.session;
   return localStorage.getItem(meta.key)||meta.def;
 }
@@ -2458,7 +2517,7 @@ function fillTemplate(tpl,vars){
   return tpl.replace(/\{(\w+)\}/g,(m,k)=>(vars[k]!==undefined?vars[k]:m));
 }
 function savePaymentTemplate(mode){
-  const ids={session:'tplSessionInput', monthly:'tplMonthlyInput', admin:'tplAdminInput'};
+  const ids={session:'tplSessionInput', monthly:'tplMonthlyInput', admin:'tplAdminInput', prepaid_session:'tplPrepaidSessionInput', prepaid_monthly:'tplPrepaidMonthlyInput'};
   const meta=TPL_META[mode]||TPL_META.session;
   const val=document.getElementById(ids[mode]).value.trim();
   localStorage.setItem(meta.key, val||getPaymentTemplate(mode));
@@ -2472,7 +2531,10 @@ function resetPaymentTemplate(mode){
 }
 
 // WA payment reminder — ke siswa langsung, pakai template yang bisa dikustom
-function sendPaymentWA(name){
+// Tombol "Tagih" sekarang selalu lewat invoice (rincian pertemuan + PDF).
+// Fungsi pesan WA lama tetap ada sebagai cadangan (sendPaymentWALegacy).
+function sendPaymentWA(name){ openInvoice(name); }
+function sendPaymentWALegacy(name){
   const s=students.find(x=>x.name===name)||{};
   const phone=(s.phone||'').replace(/\D/g,'');
   const mode=paymentMode==='monthly'?'monthly':'session';
@@ -2498,6 +2560,495 @@ function sendPaymentWA(name){
   const msg=encodeURIComponent(msgText);
   if(phone) window.open(`https://wa.me/62${phone.replace(/^0/,'')}?text=${msg}`,'_blank');
   else toast('❌ Nomor WA tidak ada — cek data murid');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// INVOICE / TAGIHAN — Bayar di Depan & Bayar di Belakang
+// ══════════════════════════════════════════════════════════════════════
+// Alur: tombol "Tagih" → invoice otomatis dibuat dari data absensi/jadwal
+// murid → bisa dikirim ke WA ortu (teks rincian), dibagikan sebagai file
+// PDF, diunduh, atau di-print. Invoice yang sudah dikirim/diunduh dicatat
+// di data murid (s.invoices) supaya bisa dibuka lagi & ditandai LUNAS.
+const INVOICE_MAX_STORED=24; // simpan maksimal 24 invoice terakhir per murid (jaga ukuran data cloud)
+const JSPDF_URL='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+const DAY_SHORT_ID=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+
+function fmtInvDate(dk){
+  if(!dk) return '';
+  const d=new Date(dk+'T00:00:00');
+  return DAY_SHORT_ID[d.getDay()]+', '+d.getDate()+' '+MONTH_SHORT_ID[d.getMonth()]+' '+d.getFullYear();
+}
+function monthKeyToLabel(mk){
+  const [y,m]=mk.split('-').map(Number);
+  return new Date(y,m-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+}
+function dateKeyOfDate(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+
+// Daftar sesi yang DIHITUNG untuk pembayaran (Hadir + Alpa, termasuk sesi
+// tambahan), urut dari yang paling lama. Panjangnya selalu sama dengan
+// countSessions(name) — diawali "sesi sebelum pakai aplikasi" (tanpa tanggal).
+function countedSessionList(name){
+  const s=students.find(x=>x.name===name)||{};
+  const out=[];
+  for(let i=0;i<(s.initialSessions||0);i++) out.push({date:null,label:'Sesi sebelum pakai aplikasi'});
+  const prefix=name+'_extra_';
+  Object.keys(attendance).sort().forEach(dk=>{
+    const dayAtt=attendance[dk]||{};
+    const st=dayAtt[name];
+    if(st==='hadir'||st==='alpa') out.push({date:dk,label:st==='hadir'?'Hadir':'Alpa (tetap dihitung)'});
+    Object.keys(dayAtt).forEach(k=>{
+      if(k.startsWith(prefix)&&(dayAtt[k]==='hadir'||dayAtt[k]==='alpa')){
+        out.push({date:dk,label:(dayAtt[k]==='hadir'?'Hadir':'Alpa (tetap dihitung)')+' · '+(s.extraNote||'Tambahan Kelas')});
+      }
+    });
+  });
+  return out;
+}
+
+// Jadwal sesi MENDATANG murid ini (dari jadwal rutin, reschedule & tambahan
+// kelas — sumber yang sama dengan tab Absensi). Sesi yang sudah ditandai
+// Hadir/Alpa tidak ikut (sudah terhitung).
+function upcomingSessionList(s, fromDk, opts){
+  opts=opts||{};
+  const out=[];
+  const idx=students.indexOf(s);
+  const cur=new Date(fromDk+'T00:00:00');
+  const maxDays=opts.maxDays||180;
+  for(let i=0;i<maxDays;i++){
+    const dk=dateKeyOfDate(cur);
+    if(opts.untilDk && dk>opts.untilDk) break;
+    const dayName=DAYS[DAYS_JS.indexOf(cur.getDay())];
+    getStudentsForDay(dayName, dk).forEach(x=>{
+      if(x._originalIdx!==idx) return;
+      if(x._sameday_reschedule||x._hasActiveReschedule) return; // kartu info saja
+      const attKey=x._attKey||x.name;
+      const attDk=x._extraDate||dk;
+      const st=(attendance[attDk]||{})[attKey];
+      if(st==='hadir'||st==='alpa'||st==='izin') return;
+      out.push({date:attDk,time:x.time||'',label:'Terjadwal'+(x.time?' · '+x.time:'')+(x._isExtra?' · '+(x._extraNote||'Tambahan Kelas'):'')+(x._isRescheduled?' · Reschedule':'')});
+    });
+    if(opts.limit && out.length>=opts.limit) return out.slice(0,opts.limit);
+    cur.setDate(cur.getDate()+1);
+  }
+  return out;
+}
+
+function getPayTiming(s){
+  const t=(s&&s.payTiming)||localStorage.getItem('llk_pay_timing')||'belakang';
+  return t==='depan'?'depan':'belakang';
+}
+// Bulan yang ditagih untuk mode Bulanan + Bayar di Depan: di 3 hari terakhir
+// bulan → bulan DEPAN; selain itu → bulan berjalan (kalau belum dibayar).
+function getPrepaidMonthKey(){
+  const d=new Date();
+  if(isEndOfMonthWindow()) return getMonthKey(new Date(d.getFullYear(), d.getMonth()+1, 1));
+  return getMonthKey(d);
+}
+
+// Susun isi invoice untuk 1 murid sesuai mode (per pertemuan / bulanan)
+// dan waktu bayar (depan / belakang) yang berlaku saat ini.
+function buildInvoiceDraft(s){
+  const timing=getPayTiming(s);
+  const mode=paymentMode==='monthly'?'monthly':'session';
+  const rate=s.rate||40000;
+  const cycle=s.payCycle||4;
+  const today=todayStr();
+  let items=[], period='', desc='';
+  if(mode==='session'){
+    const list=countedSessionList(s.name);
+    if(timing==='belakang'){
+      const paid=Math.min(list.length, s.lastPaidAt||0);
+      items=list.slice(paid);
+      desc='Pembayaran '+items.length+'x pertemuan yang sudah berlangsung';
+    } else {
+      const covered=(s.prepaidThrough!=null)?s.prepaidThrough:(s.lastPaidAt||0);
+      const arrears=list.slice(Math.min(list.length,covered)).map(x=>Object.assign({},x,{label:x.label+' · belum dibayar'}));
+      const upcoming=upcomingSessionList(s, today, {limit:cycle});
+      const extraNeeded=cycle-upcoming.length;
+      items=arrears.concat(upcoming);
+      // Jadwal belum cukup (mis. murid tanpa jadwal rutin) → sisanya tanpa tanggal
+      for(let i=0;i<extraNeeded;i++) items.push({date:null,label:'Pertemuan berikutnya (tanggal menyusul)'});
+      desc='Pembayaran di depan untuk '+cycle+'x pertemuan berikutnya'+(arrears.length?' + '+arrears.length+'x pertemuan yang belum dibayar':'');
+    }
+  } else {
+    if(timing==='belakang'){
+      const mk=getBillingMonthKey();
+      items=countedSessionList(s.name).filter(x=>x.date&&x.date.startsWith(mk));
+      period=mk;
+      desc='Pembayaran les bulan '+monthKeyToLabel(mk)+' ('+items.length+'x pertemuan)';
+    } else {
+      const mk=getPrepaidMonthKey();
+      const [y,m]=mk.split('-').map(Number);
+      const monthStart=mk+'-01';
+      const monthEnd=dateKeyOfDate(new Date(y,m,0));
+      const done=countedSessionList(s.name).filter(x=>x.date&&x.date.startsWith(mk));
+      const from=today>monthStart?today:monthStart;
+      const upcoming=from<=monthEnd?upcomingSessionList(s, from, {untilDk:monthEnd}):[];
+      items=done.concat(upcoming);
+      period=mk;
+      desc='Pembayaran di depan les bulan '+monthKeyToLabel(mk)+' ('+items.length+'x pertemuan)';
+    }
+  }
+  items.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  return {
+    no:'INV-'+today.replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),
+    createdAt:new Date().toISOString(),
+    studentName:s.name, instrument:s.instrument||'',
+    timing, mode, period, desc, rate,
+    items:items.map(x=>({date:x.date,label:x.label})),
+    total:items.length*rate,
+    paidAt:null
+  };
+}
+
+// ── Teks pesan WA (template + rincian invoice) ──
+const DEFAULT_TPL_PREPAID_SESSION='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nMohon izin menyampaikan tagihan les {nama} untuk {sesi}x pertemuan berikutnya (dibayar di depan).\nMohon kesediaan Bapak/Ibu untuk melakukan pembayaran sebesar {biaya}.\n\nTerima kasih atas perhatian dan kerja samanya.\n\nHormat kami';
+const DEFAULT_TPL_PREPAID_MONTHLY='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nMohon izin menyampaikan tagihan les {nama} untuk bulan {bulan} (dibayar di depan), sebanyak {sesi}x pertemuan.\nMohon kesediaan Bapak/Ibu untuk melakukan pembayaran sebesar {biaya}.\n\nTerima kasih atas perhatian dan kerja samanya.\n\nHormat kami';
+function invoiceTemplateKey(inv){
+  if(inv.timing==='depan') return inv.mode==='monthly'?'prepaid_monthly':'prepaid_session';
+  return inv.mode==='monthly'?'monthly':'session';
+}
+function buildInvoiceWaText(inv){
+  const tanggalStr=inv.items.filter(x=>x.date).map(x=>parseInt(x.date.split('-')[2],10)).join(', ')||'-';
+  const vars={
+    nama:inv.studentName, sesi:inv.items.length, siklus:(students.find(x=>x.name===inv.studentName)||{}).payCycle||4,
+    bulan:inv.period?getMonthNameID(new Date(inv.period+'-01T00:00:00')):getMonthNameID(),
+    tanggal:tanggalStr, salam:getGreetingID(), biaya:formatRupiah(inv.total)
+  };
+  let text=inv.paidAt
+    ? getGreetingID()+',\nKepada Yth. Bapak/Ibu '+inv.studentName+',\n\nTerima kasih, pembayaran les '+inv.studentName+' sebesar '+formatRupiah(inv.total)+' sudah kami terima ✅'
+    : fillTemplate(getPaymentTemplate(invoiceTemplateKey(inv)), vars);
+  text+='\n\n🧾 *'+(inv.paidAt?'KUITANSI LUNAS':'INVOICE')+' '+inv.no+'*\n'+inv.desc+'\n';
+  inv.items.forEach((it,i)=>{ text+=(i+1)+'. '+(it.date?fmtInvDate(it.date):'-')+' — '+it.label+'\n'; });
+  text+='*Total: '+formatRupiah(inv.total)+'*';
+  if(inv.paidAt) text+='\nStatus: LUNAS ('+new Date(inv.paidAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+')';
+  const payInfo=(localStorage.getItem('llk_pay_info')||'').trim();
+  if(payInfo&&!inv.paidAt) text+='\n\n💳 Pembayaran:\n'+payInfo;
+  return text;
+}
+
+// ── Gambar invoice (canvas) — dipakai untuk preview, PDF, print & share ──
+function wrapCanvasText(ctx, text, maxW){
+  const lines=[];
+  String(text||'').split('\n').forEach(par=>{
+    const words=par.split(' ');
+    let line='';
+    words.forEach(w=>{
+      const test=line?line+' '+w:w;
+      if(ctx.measureText(test).width>maxW && line){ lines.push(line); line=w; } else line=test;
+    });
+    lines.push(line);
+  });
+  return lines;
+}
+function loadImageSafe(src){
+  return new Promise(res=>{ if(!src) return res(null); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
+}
+async function renderInvoiceCanvas(inv){
+  const W=1240, M=80;
+  const color=localStorage.getItem('rms_school_color')||'#c0392b';
+  const school=localStorage.getItem('rms_school_name')||'LLK';
+  const sub=localStorage.getItem('rms_school_sub')||'LesLesanKu';
+  const logo=await loadImageSafe(localStorage.getItem('rms_school_logo_img')||'');
+  const payInfo=(localStorage.getItem('llk_pay_info')||'').trim();
+  const font=(w,sz)=>`${w} ${sz}px "DM Sans", -apple-system, "Segoe UI", Roboto, sans-serif`;
+  const rowH=58;
+  // Ukur tinggi dulu
+  const meas=document.createElement('canvas').getContext('2d');
+  meas.font=font(400,26);
+  const payLines=payInfo?wrapCanvasText(meas,payInfo,W-2*M-40):[];
+  const H=Math.max(1754, 620+rowH*(inv.items.length+1)+120+(payLines.length?80+payLines.length*36:0)+160);
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const c=cv.getContext('2d');
+  c.fillStyle='#ffffff'; c.fillRect(0,0,W,H);
+  // Header berwarna
+  c.fillStyle=color; c.fillRect(0,0,W,210);
+  let tx=M;
+  if(logo){ c.save(); c.beginPath(); c.arc(M+60,105,60,0,Math.PI*2); c.clip(); c.drawImage(logo,M,45,120,120); c.restore(); tx=M+150; }
+  c.fillStyle='#fff'; c.textBaseline='alphabetic';
+  c.font=font(800,54); c.fillText(school,tx,110);
+  c.font=font(500,28); c.globalAlpha=0.9; c.fillText(sub,tx,152); c.globalAlpha=1;
+  c.textAlign='right'; c.font=font(800,50); c.fillText(inv.paidAt?'KUITANSI':'INVOICE',W-M,110);
+  c.font=font(500,26); c.fillText(inv.no,W-M,152); c.textAlign='left';
+  // Info
+  let y=290;
+  c.fillStyle='#6b7280'; c.font=font(700,22); c.fillText('DITAGIHKAN KEPADA',M,y);
+  c.textAlign='right'; c.fillText('TANGGAL',W-M,y); c.textAlign='left';
+  y+=46; c.fillStyle='#1c1c1e'; c.font=font(800,36); c.fillText('Orang tua/wali '+inv.studentName,M,y);
+  c.textAlign='right'; c.font=font(600,28); c.fillText(new Date(inv.createdAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),W-M,y); c.textAlign='left';
+  y+=40; c.fillStyle='#4b5563'; c.font=font(500,26); c.fillText((inv.instrument?inv.instrument+' · ':'')+(inv.timing==='depan'?'Bayar di Depan':'Bayar di Belakang'),M,y);
+  y+=40; c.fillStyle='#1c1c1e'; c.font=font(600,26);
+  wrapCanvasText(c,inv.desc,W-2*M).forEach(l=>{ c.fillText(l,M,y); y+=34; });
+  // Tabel
+  y+=26;
+  c.fillStyle='#f3f4f6'; c.fillRect(M,y,W-2*M,rowH);
+  c.fillStyle='#374151'; c.font=font(800,24);
+  const colNo=M+20, colDate=M+100, colDesc=M+440, colAmt=W-M-20;
+  c.fillText('NO',colNo,y+37); c.fillText('TANGGAL',colDate,y+37); c.fillText('KETERANGAN',colDesc,y+37);
+  c.textAlign='right'; c.fillText('BIAYA',colAmt,y+37); c.textAlign='left';
+  y+=rowH;
+  c.font=font(500,25);
+  if(!inv.items.length){
+    c.fillStyle='#9ca3af'; c.fillText('Belum ada pertemuan yang perlu dibayar.',colNo,y+37); y+=rowH;
+  }
+  inv.items.forEach((it,i)=>{
+    if(i%2===1){ c.fillStyle='#fafafa'; c.fillRect(M,y,W-2*M,rowH); }
+    c.fillStyle='#1c1c1e';
+    c.fillText(String(i+1),colNo,y+37);
+    c.fillText(it.date?fmtInvDate(it.date):'-',colDate,y+37);
+    let lbl=it.label; while(c.measureText(lbl).width>colAmt-colDesc-200 && lbl.length>4) lbl=lbl.slice(0,-2);
+    if(lbl!==it.label) lbl=lbl.trim()+'…';
+    c.fillStyle='#4b5563'; c.fillText(lbl,colDesc,y+37);
+    c.fillStyle='#1c1c1e'; c.textAlign='right'; c.fillText(formatRupiah(inv.rate),colAmt,y+37); c.textAlign='left';
+    y+=rowH;
+  });
+  c.strokeStyle='#e5e7eb'; c.lineWidth=2; c.beginPath(); c.moveTo(M,y); c.lineTo(W-M,y); c.stroke();
+  // Total
+  y+=70;
+  c.fillStyle='#6b7280'; c.font=font(600,26); c.fillText(inv.items.length+' pertemuan × '+formatRupiah(inv.rate),M,y);
+  c.textAlign='right'; c.fillStyle='#1c1c1e'; c.font=font(800,44); c.fillText('Total '+formatRupiah(inv.total),W-M,y); c.textAlign='left';
+  // Stempel status
+  y+=70;
+  const paid=!!inv.paidAt;
+  const stamp=paid?'LUNAS':'BELUM LUNAS';
+  c.font=font(800,34);
+  const sw=c.measureText(stamp).width+60;
+  c.strokeStyle=paid?'#1d9e4e':'#dc2626'; c.fillStyle=paid?'#1d9e4e':'#dc2626'; c.lineWidth=5;
+  c.strokeRect(M,y,sw,70); c.fillText(stamp,M+30,y+48);
+  if(paid){ c.font=font(500,24); c.fillText('Dibayar '+new Date(inv.paidAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),M+sw+24,y+45); }
+  y+=110;
+  // Info pembayaran
+  if(payLines.length&&!paid){
+    c.fillStyle='#f9fafb'; c.fillRect(M,y,W-2*M,84+payLines.length*36);
+    c.fillStyle='#374151'; c.font=font(800,24); c.fillText('CARA PEMBAYARAN',M+20,y+38);
+    c.font=font(400,26); c.fillStyle='#1c1c1e';
+    payLines.forEach((l,i)=>c.fillText(l,M+20,y+80+i*36));
+    y+=110+payLines.length*36;
+  }
+  // Footer
+  c.fillStyle='#9ca3af'; c.font=font(500,22); c.textAlign='center';
+  c.fillText('Terima kasih atas kepercayaan Bapak/Ibu. · Dibuat dengan LesLesanKu',W/2,H-60);
+  c.textAlign='left';
+  return cv;
+}
+
+let _jspdfLoading=null;
+function loadJsPDF(){
+  if(window.jspdf&&window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if(_jspdfLoading) return _jspdfLoading;
+  _jspdfLoading=new Promise((resolve,reject)=>{
+    const sc=document.createElement('script');
+    sc.src=JSPDF_URL; sc.async=true;
+    sc.onload=()=>window.jspdf&&window.jspdf.jsPDF?resolve(window.jspdf.jsPDF):reject(new Error('jsPDF tidak tersedia'));
+    sc.onerror=()=>{ _jspdfLoading=null; reject(new Error('Gagal memuat pembuat PDF (cek internet)')); };
+    document.head.appendChild(sc);
+  });
+  return _jspdfLoading;
+}
+async function canvasToPdfBlob(cv){
+  const JsPDF=await loadJsPDF();
+  const pdf=new JsPDF({unit:'mm',format:'a4'});
+  const pageW=210, pageH=297, mg=10, imgW=pageW-2*mg;
+  const pxPerMm=cv.width/imgW;
+  const sliceH=Math.floor((pageH-2*mg)*pxPerMm);
+  for(let sy=0, page=0; sy<cv.height; sy+=sliceH, page++){
+    const h=Math.min(sliceH, cv.height-sy);
+    const part=document.createElement('canvas'); part.width=cv.width; part.height=h;
+    part.getContext('2d').drawImage(cv,0,sy,cv.width,h,0,0,cv.width,h);
+    if(page>0) pdf.addPage();
+    pdf.addImage(part.toDataURL('image/jpeg',0.92),'JPEG',mg,mg,imgW,h/pxPerMm);
+  }
+  return pdf.output('blob');
+}
+function canvasToPngBlob(cv){ return new Promise(res=>cv.toBlob(res,'image/png')); }
+function invoiceFileBase(inv){ return inv.no+'_'+inv.studentName.replace(/[^a-zA-Z0-9]+/g,'_'); }
+
+// ── Penyimpanan riwayat invoice di data murid ──
+function saveInvoiceRecord(inv){
+  const s=students.find(x=>x.name===inv.studentName);
+  if(!s) return;
+  s.invoices=s.invoices||[];
+  const i=s.invoices.findIndex(x=>x.no===inv.no);
+  if(i>=0) s.invoices[i]=Object.assign({},inv); else s.invoices.push(Object.assign({},inv));
+  if(s.invoices.length>INVOICE_MAX_STORED) s.invoices=s.invoices.slice(-INVOICE_MAX_STORED);
+  save();
+}
+
+// ── Modal invoice ──
+let _currentInvoice=null, _currentInvoiceCanvas=null;
+function openInvoice(name, invoiceNo){
+  if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
+  const s=students.find(x=>x.name===name);
+  if(!s){ toast('❌ Data murid tidak ditemukan'); return; }
+  let inv=null;
+  if(invoiceNo) inv=(s.invoices||[]).find(x=>x.no===invoiceNo);
+  if(!inv){
+    // Pakai lagi invoice yang belum lunas kalau isinya masih sama (supaya
+    // nomor invoice tidak berganti-ganti tiap tombol Tagih dipencet)
+    const draft=buildInvoiceDraft(s);
+    const open=(s.invoices||[]).slice().reverse().find(x=>!x.paidAt);
+    const sameItems=open&&open.timing===draft.timing&&open.mode===draft.mode&&open.rate===draft.rate&&JSON.stringify(open.items)===JSON.stringify(draft.items);
+    inv=sameItems?open:draft;
+  }
+  _currentInvoice=Object.assign({},inv);
+  showInvoiceModal();
+}
+async function showInvoiceModal(){
+  const inv=_currentInvoice;
+  let el=document.getElementById('invoiceOverlay');
+  if(el) el.remove();
+  el=document.createElement('div');
+  el.id='invoiceOverlay';
+  el.style.cssText='position:fixed;inset:0;z-index:9990;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end;justify-content:center';
+  el.addEventListener('click',e=>{ if(e.target===el) closeInvoiceModal(); });
+  const s=students.find(x=>x.name===inv.studentName)||{};
+  const phone=(s.phone||'').replace(/\D/g,'');
+  const btn=(onclick,label,style)=>`<button onclick="${onclick}" style="padding:13px 10px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:0.84rem;font-weight:700;cursor:pointer;${style}">${label}</button>`;
+  el.innerHTML=`
+    <div style="background:var(--card);border-radius:22px 22px 0 0;width:100%;max-width:520px;max-height:94vh;overflow-y:auto;padding:18px 16px 28px">
+      <div style="width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 14px"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-size:1rem;font-weight:800">${inv.paidAt?'🧾 Kuitansi Lunas':'🧾 Invoice Tagihan'}</div>
+          <div style="font-size:0.74rem;color:var(--muted)">${escapeHtml(inv.studentName)} · ${inv.items.length}x pertemuan · ${escapeHtml(formatRupiah(inv.total))}</div>
+        </div>
+        <button onclick="closeInvoiceModal()" style="width:34px;height:34px;border-radius:50%;border:none;background:var(--bg);font-size:1rem;cursor:pointer">✕</button>
+      </div>
+      <div id="invoicePreviewWrap" style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#f3f4f6;min-height:120px;display:flex;align-items:center;justify-content:center;margin-bottom:12px">
+        <div style="font-size:0.8rem;color:var(--muted);padding:30px">Menyiapkan invoice…</div>
+      </div>
+      ${inv.items.length?'':'<div style="font-size:0.78rem;color:var(--alpa);font-weight:600;margin-bottom:10px">⚠️ Belum ada pertemuan yang perlu ditagih untuk murid ini.</div>'}
+      <div style="display:grid;grid-template-columns:1fr;gap:8px">
+        ${btn('invoiceSendWA()', phone?'💬 Kirim Rincian ke WA '+escapeHtml(s.phone):'💬 Kirim Rincian ke WA (nomor belum diisi)', 'background:#25d366;color:#fff;border:none')}
+        ${btn('invoiceShareFile()','📎 Bagikan File PDF (lampirkan ke WA)','background:var(--blue);color:#fff;border:none')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+        ${btn('invoiceDownloadPdf()','⬇️ Download PDF','background:var(--card);color:var(--text);border:1.5px solid var(--border)')}
+        ${btn('invoicePrint()','🖨️ Print','background:var(--card);color:var(--text);border:1.5px solid var(--border)')}
+      </div>
+      <div style="font-size:0.7rem;color:var(--muted);margin-top:10px;line-height:1.5">WhatsApp tidak mengizinkan aplikasi lain melampirkan file langsung ke nomor tertentu. <b>Kirim Rincian</b> membuka chat ortu dengan rincian tagihan lengkap; <b>Bagikan File PDF</b> membuka menu bagikan HP — pilih WhatsApp lalu pilih kontak ortu.</div>
+    </div>`;
+  document.body.appendChild(el);
+  history.pushState({tab:currentTab, view:'modal'},'');
+  try{
+    _currentInvoiceCanvas=await renderInvoiceCanvas(inv);
+    const wrap=document.getElementById('invoicePreviewWrap');
+    if(wrap){ wrap.innerHTML=''; const im=document.createElement('img'); im.src=_currentInvoiceCanvas.toDataURL('image/png'); im.style.cssText='width:100%;display:block'; im.alt='Preview invoice'; wrap.appendChild(im); }
+  }catch(e){
+    console.error('renderInvoiceCanvas error:',e);
+    const wrap=document.getElementById('invoicePreviewWrap');
+    if(wrap) wrap.innerHTML='<div style="font-size:0.8rem;color:var(--alpa);padding:30px">Gagal membuat gambar invoice</div>';
+  }
+}
+function closeInvoiceModal(){
+  const el=document.getElementById('invoiceOverlay');
+  if(el){ el.remove(); if(history.state&&history.state.view==='modal') history.back(); }
+  _currentInvoice=null; _currentInvoiceCanvas=null;
+}
+async function ensureInvoiceCanvas(){
+  if(!_currentInvoiceCanvas) _currentInvoiceCanvas=await renderInvoiceCanvas(_currentInvoice);
+  return _currentInvoiceCanvas;
+}
+function invoiceSendWA(){
+  const inv=_currentInvoice; if(!inv) return;
+  const s=students.find(x=>x.name===inv.studentName)||{};
+  const phone=(s.phone||'').replace(/\D/g,'');
+  if(!phone){ toast('❌ Nomor WA murid belum diisi — edit data murid dulu'); return; }
+  saveInvoiceRecord(inv);
+  const wa=phone.startsWith('62')?phone:'62'+phone.replace(/^0/,'');
+  window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(buildInvoiceWaText(inv)),'_blank');
+}
+async function invoiceShareFile(){
+  const inv=_currentInvoice; if(!inv) return;
+  try{
+    toast('⏳ Menyiapkan file…');
+    const cv=await ensureInvoiceCanvas();
+    let file;
+    try{
+      const pdf=await canvasToPdfBlob(cv);
+      file=new File([pdf], invoiceFileBase(inv)+'.pdf', {type:'application/pdf'});
+    }catch(e){
+      // Pembuat PDF gagal dimuat (mis. offline pertama kali) → bagikan sebagai gambar
+      console.warn('PDF gagal, pakai gambar:',e);
+      file=new File([await canvasToPngBlob(cv)], invoiceFileBase(inv)+'.png', {type:'image/png'});
+    }
+    saveInvoiceRecord(inv);
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:(inv.paidAt?'Kuitansi ':'Invoice ')+inv.no, text:(inv.paidAt?'Kuitansi ':'Invoice ')+inv.no+' — '+inv.studentName});
+    } else {
+      downloadBlob(file, file.name);
+      toast('ℹ️ HP/browser ini tidak mendukung bagikan file — file diunduh, lampirkan manual ke WA',5000);
+    }
+  }catch(e){
+    if(e&&e.name==='AbortError') return; // user batal
+    console.error('invoiceShareFile error:',e);
+    toast('❌ Gagal membagikan file: '+(e.message||e));
+  }
+}
+function downloadBlob(blob, filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+async function invoiceDownloadPdf(){
+  const inv=_currentInvoice; if(!inv) return;
+  try{
+    toast('⏳ Membuat PDF…');
+    const cv=await ensureInvoiceCanvas();
+    const pdf=await canvasToPdfBlob(cv);
+    saveInvoiceRecord(inv);
+    downloadBlob(pdf, invoiceFileBase(inv)+'.pdf');
+    toast('✅ PDF diunduh');
+  }catch(e){
+    console.error('invoiceDownloadPdf error:',e);
+    // Fallback: unduh sebagai gambar supaya tetap ada file yang bisa dikirim
+    try{ const cv=await ensureInvoiceCanvas(); downloadBlob(await canvasToPngBlob(cv), invoiceFileBase(inv)+'.png'); saveInvoiceRecord(inv); toast('⚠️ PDF gagal dibuat ('+e.message+') — diunduh sebagai gambar',5000); }
+    catch(e2){ toast('❌ Gagal mengunduh invoice'); }
+  }
+}
+async function invoicePrint(){
+  const inv=_currentInvoice; if(!inv) return;
+  const cv=await ensureInvoiceCanvas();
+  saveInvoiceRecord(inv);
+  let area=document.getElementById('invoicePrintArea');
+  if(!area){ area=document.createElement('div'); area.id='invoicePrintArea'; document.body.appendChild(area); }
+  area.innerHTML='';
+  const im=document.createElement('img'); im.src=cv.toDataURL('image/png'); area.appendChild(im);
+  document.body.classList.add('llk-printing-invoice');
+  const done=()=>{ document.body.classList.remove('llk-printing-invoice'); window.removeEventListener('afterprint',done); };
+  window.addEventListener('afterprint',done);
+  setTimeout(()=>{ window.print(); setTimeout(done,1500); },150);
+}
+
+// Setelah "Sudah Bayar": tandai invoice terakhir yang belum lunas sebagai
+// LUNAS & tawarkan kirim kuitansi. Kalau belum pernah dibuat invoice, dibuat
+// otomatis dari tagihan saat ini supaya tetap ada bukti pembayarannya.
+function markLatestInvoicePaid(s, draftBeforePay){
+  s.invoices=s.invoices||[];
+  let inv=s.invoices.slice().reverse().find(x=>!x.paidAt);
+  if(!inv){
+    if(!draftBeforePay||!draftBeforePay.items.length) return null;
+    inv=Object.assign({},draftBeforePay);
+    s.invoices.push(inv);
+  }
+  inv.paidAt=new Date().toISOString();
+  if(s.invoices.length>INVOICE_MAX_STORED) s.invoices=s.invoices.slice(-INVOICE_MAX_STORED);
+  return inv;
+}
+
+// Riwayat invoice untuk halaman profil murid
+function invoiceHistoryHtml(s){
+  const list=(s.invoices||[]).slice().reverse().slice(0,5);
+  if(!list.length) return '';
+  return '<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">'
+    +'<div style="font-size:0.64rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Riwayat Invoice</div>'
+    +list.map(inv=>'<div onclick="openInvoice(\''+jsAttr(s.name)+'\',\''+jsAttr(inv.no)+'\')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;cursor:pointer;border-bottom:1px solid var(--border2)">'
+      +'<div style="min-width:0"><div style="font-size:0.78rem;font-weight:700">'+escapeHtml(inv.no)+'</div>'
+      +'<div style="font-size:0.68rem;color:var(--muted)">'+new Date(inv.createdAt).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})+' · '+inv.items.length+'x · '+escapeHtml(formatRupiah(inv.total))+'</div></div>'
+      +'<span style="flex-shrink:0;font-size:0.62rem;font-weight:800;padding:3px 8px;border-radius:20px;'+(inv.paidAt?'background:var(--hadir-bg);color:var(--hadir-text)':'background:var(--alpa-bg);color:var(--alpa-text)')+'">'+(inv.paidAt?'LUNAS':'BELUM LUNAS')+'</span>'
+      +'</div>').join('')
+    +'</div>';
 }
 
 // ── ATTENDANCE NOTE MODAL ─────────────────────────────
@@ -2924,7 +3475,18 @@ function confirmMarkPaid(btn, studentName){
   // Confirmed — reset cycle
   const idx = students.findIndex(x => x.name === studentName);
   if(idx !== -1){
-    if(paymentMode==='monthly'){
+    const sp=students[idx];
+    const timing=getPayTiming(sp);
+    const draftBeforePay=buildInvoiceDraft(sp); // isi tagihan SEBELUM status diubah (untuk kuitansi)
+    if(paymentMode==='monthly' && timing==='depan'){
+      sp.monthlyPaidThru = getPrepaidMonthKey();
+    }else if(paymentMode!=='monthly' && timing==='depan'){
+      // Bayar di depan: semua sesi yang sudah berjalan dianggap lunas, plus
+      // saldo 1 siklus pertemuan berikutnya.
+      const totalNow = countSessions(studentName);
+      sp.lastPaidAt = totalNow;
+      sp.prepaidThrough = totalNow + (sp.payCycle||4);
+    }else if(paymentMode==='monthly'){
       // BUGFIX: sebelumnya selalu nyimpen getMonthKey() (= bulan HP saat
       // tombol dipencet). Kalau tombol dipencet SETELAH ganti bulan (misal
       // baru sempat nagih tanggal 3 bulan berikutnya), yang kesimpen malah
@@ -2936,9 +3498,17 @@ function confirmMarkPaid(btn, studentName){
       const totalNow = countSessions(studentName);
       students[idx].lastPaidAt = totalNow;
     }
+    const paidInv=markLatestInvoicePaid(sp, draftBeforePay);
     save();
     render();
-    toast('✅ Pembayaran ' + studentName + ' dicatat, siklus direset!');
+    toast('✅ Pembayaran ' + studentName + ' dicatat LUNAS');
+    if(paidInv){
+      setTimeout(function(){
+        showGenericConfirm('Kirim Kuitansi?', 'Pembayaran <b>'+escapeHtml(studentName)+'</b> sebesar <b>'+escapeHtml(formatRupiah(paidInv.total))+'</b> sudah dicatat LUNAS.<br><br>Mau kirim kuitansi lunas ke ortu?', '🧾 Buka Kuitansi', function(){
+          openInvoice(studentName, paidInv.no);
+        });
+      },300);
+    }
   }
 }
 
@@ -2964,17 +3534,13 @@ function siswaCardHtml(s,total,cycle,isDue){
 
     const paymentOff=paymentMode==='off';
     const isMonthly=paymentMode==='monthly';
-    const sessInCycle=total%cycle;
-    const remaining=isDue?0:cycle-sessInCycle;
 
     const borderColor=isDue?'rgba(192,57,43,0.4)':'var(--border)';
     const bgColor=isDue?'#fff9f9':'var(--card)';
     const pillBg=isDue?'#fff0ee':'#eafaf1';
     const pillColor=isDue?'var(--alpa)':'var(--hadir)';
     const pillBorder=isDue?'rgba(192,57,43,0.3)':'rgba(45,138,94,0.3)';
-    const pillText=isMonthly
-      ?(isDue?('💳 Waktunya Bayar! (Akhir Bulan · '+total+'x)'):'📅 Ditagih akhir bulan')
-      :(isDue?('💳 Waktunya Bayar! ('+total+'x)'):('✅ '+sessInCycle+'/'+cycle+'x · '+remaining+'x lagi'));
+    const pillText=paymentStatusText(s);
 
     let html='<div style="background:'+bgColor+';border:1px solid '+borderColor+';border-radius:14px;padding:14px;margin-bottom:8px">';
     html+='<div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openStudentReport(\''+safeName+'\')">';
@@ -2990,7 +3556,7 @@ function siswaCardHtml(s,total,cycle,isDue){
     html+='</div>';
     if(isDue&&!paymentOff){
       html+='<div style="display:flex;gap:8px;margin-top:10px">';
-      html+='<button onclick="sendPaymentWA(\''+safeName+'\')" style="flex:1;padding:11px;background:#25d366;color:#fff;border:none;border-radius:11px;font-family:sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer">💬 Tagih ke Ortu</button>';
+      html+='<button onclick="sendPaymentWA(\''+safeName+'\')" style="flex:1;padding:11px;background:#25d366;color:#fff;border:none;border-radius:11px;font-family:sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer">🧾 Tagih + Invoice</button>';
       html+='<button onclick="confirmMarkPaid(this,\''+safeName+'\')" style="flex:1;padding:11px;background:#fff;color:#27ae60;border:2px solid #27ae60;border-radius:11px;font-family:sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer">✅ Sudah Bayar</button>';
       html+='</div>';
     }
@@ -3363,10 +3929,12 @@ function renderStudentProfile(name, period){
   const alpaPer    = filtered.filter(dk=>statusOnDate(dk)==='alpa').length;
 
   // Billing info
-  const billing    = paymentMode==='monthly'?countSessionsThisMonth(name):countSessionsForBilling(name);
+  const payInfo    = computeIsDue(s);
+  const prepaidSession = payInfo.timing==='depan' && paymentMode!=='monthly';
+  const billing    = paymentMode==='monthly'?payInfo.total:(prepaidSession?Math.max(0,payInfo.credit||0):countSessionsForBilling(name));
   const cycle      = s.payCycle||4;
-  const remaining  = Math.max(0,cycle-billing);
-  const isDue      = computeIsDue(s).isDue;
+  const remaining  = prepaidSession?Math.max(0,payInfo.credit||0):Math.max(0,cycle-billing);
+  const isDue      = payInfo.isDue;
 
   // Period buttons
   const periods = [
@@ -3434,17 +4002,20 @@ function renderStudentProfile(name, period){
     +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
       +'<div style="text-align:center;background:var(--bg);border-radius:10px;padding:10px 6px">'
         +'<div style="font-size:1.5rem;font-weight:800;color:var(--hadir)">'+billing+'</div>'
-        +'<div style="font-size:0.58rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">Sesi Berjalan</div>'
+        +'<div style="font-size:0.58rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">'+(prepaidSession?'Sisa Terbayar':'Sesi Berjalan')+'</div>'
       +'</div>'
       +'<div style="text-align:center;background:var(--bg);border-radius:10px;padding:10px 6px">'
         +'<div style="font-size:1.5rem;font-weight:800;color:var(--blue)">'+(paymentMode==='monthly'?'Bulanan':cycle+'x')+'</div>'
-        +'<div style="font-size:0.58rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">Siklus Bayar</div>'
+        +'<div style="font-size:0.58rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">'+(payInfo.timing==='depan'?'Bayar di Depan':'Bayar di Belakang')+'</div>'
       +'</div>'
       +'<div style="text-align:center;background:'+(isDue?'var(--alpa-bg)':'var(--bg)')+';border-radius:10px;padding:10px 6px;border:1px solid '+(isDue?'rgba(220,38,38,0.2)':'transparent')+'">'
-        +'<div style="font-size:'+(isDue||paymentMode!=='monthly'?'1.5rem':'0.95rem')+';font-weight:800;color:'+(isDue?'var(--alpa)':'var(--muted)')+'">'+(isDue?'Bayar!':(paymentMode==='monthly'?'Akhir Bulan':remaining+'x'))+'</div>'
-        +'<div style="font-size:0.58rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">'+(isDue?'Tagihan':(paymentMode==='monthly'?'Ditagih':'Sisa Sesi'))+'</div>'
+        +'<div style="font-size:'+(isDue||paymentMode!=='monthly'?'1.5rem':'0.95rem')+';font-weight:800;color:'+(isDue?'var(--alpa)':'var(--muted)')+'">'+(isDue?'Bayar!':(paymentMode==='monthly'?(payInfo.timing==='depan'?'Lunas':'Akhir Bulan'):remaining+'x'))+'</div>'
+        +'<div style="font-size:0.58rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">'+(isDue?'Tagihan':(paymentMode==='monthly'?(payInfo.timing==='depan'?'Status':'Ditagih'):(prepaidSession?'Sisa Terbayar':'Sisa Sesi')))+'</div>'
       +'</div>'
     +'</div>'
+  +'<div style="font-size:0.74rem;font-weight:700;margin-top:10px;color:'+(isDue?'var(--alpa)':'var(--hadir)')+'">'+escapeHtml(paymentStatusText(s,payInfo))+'</div>'
+    +'<button onclick="openInvoice(\''+jsAttr(name)+'\')" style="width:100%;margin-top:10px;padding:11px;border-radius:11px;border:none;background:'+(isDue?'#25d366':'var(--blue)')+';color:#fff;font-family:sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer">🧾 '+(isDue?'Tagih + Kirim Invoice':'Buat Invoice')+'</button>'
+    +invoiceHistoryHtml(s)
   +'</div>';
 
   // Curriculum card — cuma muncul kalau ada template kurikulum yang cocok
@@ -5512,7 +6083,8 @@ const BACKUP_SETTINGS_KEYS=[
   'rms_school_name','rms_school_sub','rms_school_logo','rms_school_logo_img','rms_school_color',
   'llk_notif_sound','llk_notif_volume','llk_notif_custom_mp3','llk_notif_custom_name',
   'llk_notif_sheet_time','llk_notif_kirim_time','llk_income_hidden','llk_payment_mode',
-  'llk_tpl_session','llk_tpl_monthly','llk_progress_dest','llk_progress_fields','llk_tpl_progress'
+  'llk_tpl_session','llk_tpl_monthly','llk_progress_dest','llk_progress_fields','llk_tpl_progress',
+  'llk_tpl_admin','llk_pay_timing','llk_pay_info','llk_tpl_prepaid_session','llk_tpl_prepaid_monthly'
 ];
 function collectSettingsData(){
   const out={};
@@ -5906,6 +6478,7 @@ function openAdd(){
   if(rsSectionAdd) rsSectionAdd.style.display='none';
   ['f_name','f_inst','f_notes','f_phone','f_extra_note','f_initial_sessions','f_sheet_link','f_day2','f_time2a','f_time2b','f_day3','f_time3a','f_time3b','f_day4','f_time4a','f_time4b','f_rate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('f_pay_cycle').value='4';
+  document.getElementById('f_pay_timing').value='';
   extraDates=[];
   setTimeout(renderExtraDates,100);
   document.getElementById('f_day').value=selectedDay||DAYS[0];
@@ -6048,6 +6621,7 @@ function openEdit(idx){
   document.getElementById('f_extra_note').value=s.extraNote||'';
   document.getElementById('f_initial_sessions').value=s.initialSessions||'';
   document.getElementById('f_pay_cycle').value=s.payCycle||4;
+  document.getElementById('f_pay_timing').value=s.payTiming||'';
   document.getElementById('f_rate').value=s.rate||'';
   document.getElementById('f_sheet_link').value=s.sheetLink||'';
   extraDates=s.extraDates?JSON.parse(JSON.stringify(s.extraDates)):[];
@@ -6275,6 +6849,7 @@ function doSave(){
     extraDates:extraDates.filter(ed=>ed.date),
     extraNote:document.getElementById('f_extra_note').value.trim(),
     payCycle:parseInt(document.getElementById('f_pay_cycle').value)||4,
+    payTiming:document.getElementById('f_pay_timing').value||'',
     rate:parseInt(document.getElementById('f_rate').value)||40000,
     initialSessions:parseInt(document.getElementById('f_initial_sessions').value)||0,
     sheetLink:document.getElementById('f_sheet_link').value.trim(),
@@ -6300,6 +6875,8 @@ function doSave(){
     // edit info dasar murid (nama/jadwal/dll) — bikin status bayar bulanan
     // & progress kurikulum yang udah dicentang "hilang" tanpa disadari.
     if(old.monthlyPaidThru) s.monthlyPaidThru=old.monthlyPaidThru;
+    if(old.prepaidThrough!=null) s.prepaidThrough=old.prepaidThrough;
+    if(old.invoices) s.invoices=old.invoices;
     if(old.curriculumChecked) s.curriculumChecked=old.curriculumChecked;
     if(old.curriculumCardCollapsed!==undefined) s.curriculumCardCollapsed=old.curriculumCardCollapsed;
     if(old.curriculumCollapsedSections) s.curriculumCollapsedSections=old.curriculumCollapsedSections;
@@ -6440,6 +7017,23 @@ function renderPaymentSettings(){
         <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px">Mode Pengingat</div>
         ${optsHtml}
       </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Waktu Pembayaran (Default)</div>
+        <div style="font-size:0.74rem;color:var(--muted);margin-bottom:12px;line-height:1.5">Berlaku untuk semua murid, kecuali yang diatur khusus di form Edit Murid.</div>
+        ${[
+          {k:'belakang',icon:'⏪',label:'Bayar di Belakang',desc:'Ditagih SETELAH pertemuan berlangsung (mis. setelah 4x pertemuan / akhir bulan). Invoice berisi tanggal-tanggal pertemuan yang sudah terjadi.'},
+          {k:'depan',icon:'⏩',label:'Bayar di Depan',desc:'Ditagih SEBELUM pertemuan (paket pertemuan / bulan berikutnya). Invoice berisi jadwal pertemuan yang akan datang.'}
+        ].map(o=>{ const on=(localStorage.getItem('llk_pay_timing')||'belakang')===o.k; return `<div onclick="setPayTimingDefault('${o.k}')" style="padding:12px 14px;border-radius:12px;border:1.5px solid ${on?'var(--red)':'var(--border)'};background:${on?'#fff5f5':'var(--card)'};cursor:pointer;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:10px"><span style="font-size:1.2rem">${o.icon}</span>
+          <div style="flex:1"><div style="font-size:0.88rem;font-weight:${on?'700':'600'};color:${on?'var(--red)':'var(--text)'}">${o.label}</div>
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;line-height:1.4">${o.desc}</div></div>${on?'<span style="color:var(--red);font-weight:700">✓</span>':''}</div></div>`; }).join('')}
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">🧾 Info Pembayaran di Invoice</div>
+        <div style="font-size:0.74rem;color:var(--muted);margin-bottom:10px;line-height:1.5">Ditampilkan di invoice & pesan WA — misalnya nomor rekening, e-wallet, atau keterangan transfer.</div>
+        <textarea id="payInfoInput" rows="3" placeholder="cth: Transfer BCA 1234567890 a.n. Nama Tutor&#10;atau GoPay/DANA 08123456789" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.82rem;border:1.5px solid var(--border);border-radius:10px;padding:10px;background:var(--card2);color:var(--text);resize:vertical">${escapeHtml(localStorage.getItem('llk_pay_info')||'')}</textarea>
+        <button onclick="savePayInfo()" style="width:100%;margin-top:10px;padding:10px;background:var(--red);color:#fff;border:none;border-radius:10px;font-family:sans-serif;font-size:0.8rem;font-weight:700;cursor:pointer">💾 Simpan Info Pembayaran</button>
+      </div>
       <div style="${boxStyle(sessionActive)}">
         <div style="font-size:0.98rem;font-weight:800;color:var(--text);letter-spacing:0.01em;margin-bottom:4px">🔁 Template Pesan · Setiap Pertemuan${activeTag(sessionActive)}</div>
         <div style="font-size:0.72rem;color:var(--muted);margin-bottom:10px">Dipakai saat menagih langsung ke WA siswa dari tab Absensi.</div>
@@ -6460,7 +7054,19 @@ function renderPaymentSettings(){
           <button onclick="resetPaymentTemplate('monthly')" style="padding:10px 14px;background:#fff;color:var(--muted);border:1.5px solid var(--border);border-radius:10px;font-family:sans-serif;font-size:0.8rem;font-weight:700;cursor:pointer">↩️ Default</button>
         </div>
       </div>
-      <div style="text-align:center;padding:0 8px 16px;font-size:0.72rem;color:var(--muted);line-height:1.5">Perubahan mode & template langsung berlaku di tab Absensi & Siswa.</div>
+      ${[['prepaid_session','tplPrepaidSessionInput','⏩ Template Pesan · Bayar di Depan (Per Pertemuan)','Dipakai untuk murid Bayar di Depan saat mode Setiap Pertemuan.','<code>{salam}</code> <code>{nama}</code> <code>{sesi}</code> <code>{tanggal}</code> <code>{biaya}</code>'],
+         ['prepaid_monthly','tplPrepaidMonthlyInput','⏩ Template Pesan · Bayar di Depan (Bulanan)','Dipakai untuk murid Bayar di Depan saat mode Akhir Bulan.','<code>{salam}</code> <code>{nama}</code> <code>{sesi}</code> <code>{bulan}</code> <code>{tanggal}</code> <code>{biaya}</code>']
+        ].map(([k,id,title,desc,vars])=>`<div style="${boxStyle(false)}">
+        <div style="font-size:0.98rem;font-weight:800;color:var(--text);letter-spacing:0.01em;margin-bottom:4px">${title}</div>
+        <div style="font-size:0.72rem;color:var(--muted);margin-bottom:10px">${desc}</div>
+        <textarea id="${id}" rows="5" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.82rem;border:1.5px solid var(--border);border-radius:10px;padding:10px;background:var(--card2);color:var(--text);resize:vertical">${escapeHtml(getPaymentTemplate(k))}</textarea>
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:6px;line-height:1.5">Variabel: ${vars}</div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button onclick="savePaymentTemplate('${k}')" style="flex:1;padding:10px;background:var(--red);color:#fff;border:none;border-radius:10px;font-family:sans-serif;font-size:0.8rem;font-weight:700;cursor:pointer">💾 Simpan</button>
+          <button onclick="resetPaymentTemplate('${k}')" style="padding:10px 14px;background:#fff;color:var(--muted);border:1.5px solid var(--border);border-radius:10px;font-family:sans-serif;font-size:0.8rem;font-weight:700;cursor:pointer">↩️ Default</button>
+        </div>
+      </div>`).join('')}
+      <div style="text-align:center;padding:0 8px 16px;font-size:0.72rem;color:var(--muted);line-height:1.5">Rincian tanggal pertemuan & total otomatis ditambahkan di bawah pesan, sebagai invoice.<br>Perubahan mode & template langsung berlaku di tab Absensi & Siswa.</div>
     </div>`;
 }
 
@@ -7816,6 +8422,18 @@ function mergeStudentLists(L, C){
     const lp=Math.max(ls.lastPaidAt||0, cs.lastPaidAt||0);
     if(lp>0) ls.lastPaidAt=lp;
     if(cs.monthlyPaidThru && (!ls.monthlyPaidThru || cs.monthlyPaidThru>ls.monthlyPaidThru)) ls.monthlyPaidThru=cs.monthlyPaidThru;
+    if(cs.prepaidThrough!=null) ls.prepaidThrough=Math.max(ls.prepaidThrough!=null?ls.prepaidThrough:0, cs.prepaidThrough);
+    // Invoice: gabung per nomor; status LUNAS dari perangkat mana pun dipertahankan
+    if(cs.invoices&&cs.invoices.length){
+      const invs=(ls.invoices||[]).map(x=>Object.assign({},x));
+      cs.invoices.forEach(ci=>{
+        const li=invs.find(x=>x.no===ci.no);
+        if(!li) invs.push(Object.assign({},ci));
+        else if(ci.paidAt&&!li.paidAt) li.paidAt=ci.paidAt;
+      });
+      invs.sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
+      ls.invoices=invs.slice(-24);
+    }
     if(cs.curriculumChecked) ls.curriculumChecked=Object.assign({}, cs.curriculumChecked, ls.curriculumChecked||{});
     // Reschedule: gabung, buang duplikat (tanggal+hari sama)
     if(cs.reschedules&&cs.reschedules.length){
