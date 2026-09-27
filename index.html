@@ -1457,16 +1457,28 @@ async function cancelReminderPush(dateKey, attKey){
   const notifId=popPushId(pushKey);
   if(!notifId) return; // tidak ada reminder terjadwal untuk sesi ini — tidak perlu apa-apa
   try{
+    const idToken=await getWorkerAuthToken();
+    if(!idToken){ setPushId(pushKey, notifId); console.warn('Batalkan reminder ditunda: belum login'); return; }
     const res=await fetch(NOTIF_BRIDGE_URL, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'cancel', notificationId:notifId })
+      body: JSON.stringify({ action:'cancel', notificationId:notifId, idToken:idToken })
     });
     if(res.ok) console.log('Reminder dibatalkan untuk', pushKey, notifId);
     else console.warn('Gagal batalkan reminder (worker belum dukung action:cancel?) — status',res.status,'untuk',pushKey);
   }catch(e){
     console.warn('Gagal batalkan reminder (network):', e);
   }
+}
+
+// Token login Firebase untuk worker notifikasi — worker hanya melayani
+// pengguna LesLesanKu yang sedang login (mencegah orang luar mengirim
+// notifikasi palsu lewat worker). null kalau belum login.
+async function getWorkerAuthToken(){
+  try{
+    if(typeof currentUser!=='undefined' && currentUser && currentUser.getIdToken) return await currentUser.getIdToken();
+  }catch(e){ console.warn('Gagal ambil token login untuk worker:', e); }
+  return null;
 }
 
 function pushNotifReady(){
@@ -1549,11 +1561,17 @@ async function scheduleReminderPush(title, message, isoDateTime, pushKey){
     console.warn('scheduleReminderPush dibatalkan: subscription ID device ini belum tersedia — coba klik ulang "Aktifkan Notifikasi Push", tunggu beberapa detik, lalu coba lagi.');
     return false;
   }
+  const idToken=await getWorkerAuthToken();
+  if(!idToken){
+    console.warn('scheduleReminderPush dibatalkan: belum login (worker butuh token login)');
+    return false;
+  }
   try{
     const res = await fetch(NOTIF_BRIDGE_URL, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
+        idToken: idToken, // bukti login LesLesanKu — diverifikasi worker
         title: title,
         message: message||'',
         send_after: isoDateTime, // format ISO, contoh: 2026-08-20T14:25:00.000Z
@@ -1600,6 +1618,12 @@ async function scheduleTodayReminders(showToast){
     if(showToast) toast('⚠️ Aktifkan notifikasi push dulu di atas');
     console.warn('scheduleTodayReminders dibatalkan — pushNotifReady:',pushNotifReady(),'enabled:',!!localStorage.getItem('llk_push_enabled'));
     return;
+  }
+  if(typeof currentUser==='undefined' || !currentUser){
+    // Status login belum siap (app baru dibuka) — jangan tandai "sudah
+    // dijadwalkan hari ini"; dicoba lagi otomatis begitu login selesai.
+    if(showToast) toast('⚠️ Login dulu untuk menjadwalkan reminder');
+    return 0;
   }
   const dateKey=todayStr();
   const now=new Date();
@@ -7903,6 +7927,12 @@ function initFirebase(){
       hideLoginGate();
       pullFromCloud();
       listenSubscriptionStatus(user.uid);
+      // Reminder push hari ini baru bisa dijadwalkan setelah login (worker butuh token)
+      setTimeout(function(){
+        if(localStorage.getItem('llk_push_enabled') && localStorage.getItem('llk_push_scheduled_date')!==todayStr()){
+          scheduleTodayReminders(false);
+        }
+      },1500);
       const firstName=(user.displayName||'').split(' ')[0];
       setTimeout(function(){
         toast(getGreetingID()+(firstName?', '+firstName+'! 👋':'! 👋'));
