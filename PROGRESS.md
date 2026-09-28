@@ -94,6 +94,16 @@ _Terakhir diperbarui: 28 Sep 2026_
 - Login akun A → yang tampil data akun A. Logout lalu login akun B → data B langsung dimuat dari cloud (kosong kalau akun baru), tanpa dialog konfirmasi.
 - Sebelum diganti, data perangkat disimpan ke "Pulihkan Cadangan Darurat" (tab Lainnya). Pengaturan akun lama (nama sekolah, info rekening, dll.) dibersihkan supaya tidak terbawa.
 
+## 🛡️ Anti-kecurangan trial & pembayaran (PR #15, 29 Sep 2026)
+Hasil analisis + simulasi; semua di bawah sudah ditutup:
+1. **Trial berulang pakai Gmail baru + pulihkan data lama** → file backup & cadangan darurat kini memuat `ownerUid`; data milik akun lain hanya bisa dipulihkan ke akun **berlangganan** (bukan trial) — muncul tawaran "Data dari Akun Google Lain". File lama tanpa `ownerUid` tetap boleh. Pulihkan cadangan saat belum login → pemilik data dicatat sebagai akun asal.
+2. **Mundurkan jam HP** → masa aktif dihitung dengan `llkNow()`: jam server (header `Date` dari HEAD `manifest.json`, tidak lewat service worker) + batas bawah `llk_time_floor` (jam server terakhir yang pernah terlihat, juga dari timestamp dokumen `subscriptions`). Status dicek ulang tiap 5 menit selama app terbuka.
+3. **Batas murid bisa dilewati** → dicek juga di form Edit (aktifkan lagi), di `doSave` untuk murid baru, dan setelah pulihkan file/teks/cadangan: murid kelebihan dijadikan **nonaktif** (`autoInactiveByLimit`), tidak dihapus.
+4. **Bayar tapi tidak aktif (webhook gagal)** → callable baru `checkMidtransPayment` menanyakan status order pending milik user ke Midtrans Core API (`api[.sandbox].midtrans.com/v2/{order}/status`), cocokkan nominal, lalu aktifkan. Dipanggil otomatis setelah jendela bayar ditutup / sukses, sekali saat paywall tampil, dan lewat tombol "🔄 Cek status pembayaran".
+5. **Notifikasi ganda bersamaan** → aktivasi order lewat `activateOrder()` dalam transaksi Firestore; webhook juga menolak nominal yang tidak cocok dengan order.
+- Sengaja dibiarkan: kalau Firebase gagal dimuat (offline / diblokir), app tetap bisa dipakai tanpa paywall — demi guru yang mengajar tanpa internet.
+- Tidak bisa dicegah 100%: orang membuat Gmail baru tiap bulan dan mulai dari nol (tanpa data lama).
+
 ## ☁️ Cloud Functions (`functions/`)
 - 3 fungsi (1st gen, us-central1): `onUserCreate` (buat trial 31 hari di `subscriptions/{uid}` saat akun baru), `createMidtransTransaction` (callable, buat transaksi Snap, simpan `orders/{orderId}`), `midtransWebhook` (HTTP, verifikasi signature SHA-512 → aktifkan/perpanjang langganan + kirim invoice email).
 - Rahasia (`MIDTRANS_SERVER_KEY`, `MIDTRANS_IS_PRODUCTION`, `SMTP_USER`, `SMTP_PASS`) ada di `functions/.env` yang **hanya** tersimpan di Firebase — tidak pernah di-commit (`functions/.gitignore`).

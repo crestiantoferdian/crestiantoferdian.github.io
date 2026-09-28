@@ -729,6 +729,7 @@ body.llk-limit-reached button[onclick*="reactivateStudent"]::before{content:'�
   </div>
   <div id="paywallPlans" style="width:100%"></div>
   <div id="paywallStatus" style="margin-top:18px;font-size:0.78rem;color:#9ca3af"></div>
+  <button onclick="cekStatusPembayaran(false)" style="margin-top:10px;background:none;border:1.5px solid #d1d5db;border-radius:10px;padding:10px 14px;color:#374151;font-size:0.8rem;font-weight:600;cursor:pointer">🔄 Sudah bayar tapi belum aktif? Cek status pembayaran</button>
   <button onclick="logoutFirebase()" style="margin-top:24px;background:none;border:none;color:#9ca3af;font-size:0.78rem;cursor:pointer;text-decoration:underline">
     Logout
   </button>
@@ -6366,6 +6367,7 @@ function restoreEmergencyBackup(){
   if(!raw){ toast('Tidak ada cadangan darurat tersimpan.'); return; }
   let bak;
   try{ bak=JSON.parse(raw); }catch(e){ toast('Cadangan darurat rusak, tidak bisa dipulihkan.'); return; }
+  if(typeof canImportFromOwner==='function' && !canImportFromOwner(bak.ownerUid)) return;
   const savedAt=bak.savedAt?new Date(bak.savedAt).toLocaleString('id-ID'):'tidak diketahui';
   if(!confirm('Pulihkan cadangan darurat dari '+savedAt+'?\n\nIni akan MENIMPA data yang sedang ada di HP ini sekarang dengan cadangan tersebut ('+((bak.students||[]).length)+' murid). Lanjutkan?')) return;
   students=bak.students||[];
@@ -6375,6 +6377,12 @@ function restoreEmergencyBackup(){
   quickLinks=bak.quickLinks||quickLinks;
   teacherTasks=bak.teacherTasks||teacherTasks;
   if(bak.curriculumTemplates) curriculumTemplates=bak.curriculumTemplates;
+  // Belum login: data ini tetap tercatat milik akun asalnya, supaya saat
+  // login dengan akun lain tidak ikut terbawa ke akun tersebut.
+  if(!currentUser && bak.ownerUid){
+    try{ localStorage.setItem('llk_data_owner', JSON.stringify({uid:bak.ownerUid, email:''})); }catch(e){}
+  }
+  if(typeof enforceStudentLimitAfterRestore==='function') enforceStudentLimitAfterRestore();
   save();
   render();
   renderLainnya();
@@ -6386,7 +6394,8 @@ function exportData(){
     students,attendance,attNotes,attMeta,quickLinks,teacherTasks,curriculumTemplates,
     misc:collectPrefixedData(),
     settings:collectSettingsData(),
-    exportedAt:new Date().toISOString(),version:'6'
+    exportedAt:new Date().toISOString(),version:'6',
+    ownerUid:(typeof currentUser!=='undefined'&&currentUser&&currentUser.uid)||((typeof getDataOwner==='function'&&getDataOwner())||{}).uid||null
   };
   const json=JSON.stringify(data,null,2);
   const tgl=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'-');
@@ -6546,6 +6555,7 @@ function backupToWA(){
 // supaya salah pilih file tidak bikin data asli hilang permanen (sebelumnya
 // langsung menimpa tanpa tanya & ikut tersinkron ke cloud).
 function confirmImportOverwrite(data){
+  if(typeof canImportFromOwner==='function' && !canImportFromOwner(data.ownerUid)) return false;
   const newCount=(data.students||[]).length;
   const curCount=students.length;
   let msg='Pulihkan data dari backup ini?\n\n'+
@@ -6611,6 +6621,7 @@ function readImportFile(input){
       if(data.curriculumTemplates) curriculumTemplates=data.curriculumTemplates; // backup lama tanpa kurikulum: kurikulum yang ada tetap dipakai
       restorePrefixedData(data.misc||data.sheetSent||{}); // dukung format backup lama juga
       restoreSettingsData(data.settings);
+      if(typeof enforceStudentLimitAfterRestore==='function') enforceStudentLimitAfterRestore();
       save();applySettings();render();
       toast('✅ Data dipulihkan! '+students.length+' murid.');
     }catch(err){
@@ -6655,6 +6666,7 @@ function doImportFromText(){
     if(data.curriculumTemplates) curriculumTemplates=data.curriculumTemplates; // sebelumnya kurikulum tidak ikut dipulihkan lewat teks
     restorePrefixedData(data.misc||data.sheetSent||{}); // dukung format backup lama juga
     restoreSettingsData(data.settings);
+    if(typeof enforceStudentLimitAfterRestore==='function') enforceStudentLimitAfterRestore();
     save();applySettings();renderLainnya();render();
     toast('✅ Data dipulihkan! '+students.length+' murid.');
   }catch(err){
@@ -7125,6 +7137,7 @@ function doSave(){
     if(dup){toast('❌ Sudah ada murid bernama "'+s.name+'" — pakai nama yang beda (mis. tambah inisial)',4000);return}
   }
   if(!s.day&&!s.extraDates.length){toast('❌ Isi jadwal rutin, atau tambahkan minimal 1 tanggal di "Tambahan Kelas"');return}
+  if(editIdx===null && typeof isStudentLimitReached==='function' && isStudentLimitReached()){ closeModal(); showUpgradeOffer(true); return; }
   if(editIdx!==null){
     const old=students[editIdx];
     // Preserve lastPaidAt agar siklus bayar tidak hilang saat edit
@@ -7163,6 +7176,7 @@ function toggleInactiveFromModal(){
 
   // Aktifkan kembali tidak perlu konfirmasi, langsung jalan
   if(s.inactive){
+    if(typeof isStudentLimitReached==='function' && isStudentLimitReached()){ closeModal(); showUpgradeOffer(true); return; }
     s.inactive=false;
     delete s.inactiveSince;
     save();
@@ -8221,35 +8235,118 @@ function isStudentLimitReached(){
   const t=tierInfo(_currentTier);
   return !!t && activeStudentCount()>=t.limit;
 }
+/* Data (file backup / cadangan darurat) milik akun Google LAIN hanya boleh
+   dipindahkan ke akun yang sudah berlangganan — mencegah trik "trial habis →
+   Gmail baru → pulihkan data lama" berulang-ulang. File lama tanpa penanda
+   pemilik tetap boleh (tidak bisa dibedakan). */
+function canImportFromOwner(ownerUid){
+  if(!ownerUid||!currentUser||ownerUid===currentUser.uid) return true;
+  if(_subPaidActive) return true;
+  showUpgradeOffer('transfer');
+  return false;
+}
+/* Setelah memulihkan data: kalau murid aktif melebihi batas paket, murid
+   kelebihan dijadikan NONAKTIF (tidak dihapus, riwayat utuh) — bisa diaktifkan
+   lagi setelah naik paket. */
+function enforceStudentLimitAfterRestore(){
+  const t=tierInfo(_currentTier);
+  if(!t||t.limit===Infinity) return 0;
+  let kept=0, turnedOff=0;
+  const today=(typeof todayStr==='function')?todayStr():'';
+  (students||[]).forEach(function(s){
+    if(s.inactive) return;
+    if(kept<t.limit){ kept++; return; }
+    s.inactive=true; s.inactiveSince=today; s.autoInactiveByLimit=true; turnedOff++;
+  });
+  if(turnedOff>0){
+    alert('ℹ️ Paket '+t.name+' maksimal '+t.limit+' murid aktif.\n\n'+turnedOff+' murid dari data yang dipulihkan dijadikan NONAKTIF (tidak dihapus, riwayatnya tetap ada). Naik paket untuk mengaktifkannya lagi.');
+  }
+  return turnedOff;
+}
 function updateStudentLimitUI(){
   if(document.body) document.body.classList.toggle('llk-limit-reached', isStudentLimitReached());
 }
 
+// ── Jam "resmi" untuk mengecek masa aktif ─────────────────────────────
+// Masa trial/langganan TIDAK boleh dihitung pakai jam HP saja: kalau jam HP
+// dimundurkan, langganan yang sudah habis jadi aktif lagi. Jadi dipakai jam
+// server (header Date dari situs ini), dan disimpan "jam server terakhir
+// yang pernah terlihat" supaya saat offline pun waktu tidak bisa mundur.
+let _llkTimeOffset=0;
+function llkNow(){
+  let floor=0;
+  try{ floor=Number(localStorage.getItem('llk_time_floor')||0)||0; }catch(e){}
+  return Math.max(Date.now()+_llkTimeOffset, floor);
+}
+function raiseTimeFloor(ms){
+  if(!ms||isNaN(ms)) return;
+  try{
+    if(ms>Number(localStorage.getItem('llk_time_floor')||0)) localStorage.setItem('llk_time_floor', String(ms));
+  }catch(e){}
+}
+function syncServerTime(){
+  const t0=Date.now();
+  // HEAD tidak ditangani service worker (sw.js hanya GET), jadi selalu ke server
+  return fetch('manifest.json?t='+t0,{method:'HEAD',cache:'no-store'}).then(function(res){
+    const serverMs=Date.parse(res.headers.get('Date')||'');
+    if(isNaN(serverMs)) return false;
+    const t1=Date.now();
+    _llkTimeOffset=serverMs-(t0+t1)/2;
+    raiseTimeFloor(serverMs);
+    return true;
+  }).catch(function(){ return false; });
+}
+
+let _lastSubDoc=null;
+let _subPaidActive=false;   // langganan berbayar aktif (bukan trial)
+let _subRecheckTimer=null;
 function listenSubscriptionStatus(uid){
   if(_subUnsub) _subUnsub();
+  _lastSubDoc=null;
   _subUnsub=fbDb.collection('subscriptions').doc(uid).onSnapshot(function(doc){
+    _lastSubDoc=doc;
+    applySubscriptionDoc(doc);
+  }, function(err){
+    console.error('Gagal memantau status langganan:', err);
+  });
+  // Cek ulang dengan jam server begitu didapat, lalu berkala selama app terbuka
+  // (supaya langganan yang habis saat app sedang dibuka ikut terkunci).
+  syncServerTime().then(function(){ if(_lastSubDoc) applySubscriptionDoc(_lastSubDoc); });
+  clearInterval(_subRecheckTimer);
+  _subRecheckTimer=setInterval(function(){
+    if(!_subUnsub||!_lastSubDoc) return;
+    syncServerTime().then(function(){ if(_subUnsub&&_lastSubDoc) applySubscriptionDoc(_lastSubDoc); });
+  }, 5*60*1000);
+}
+
+function applySubscriptionDoc(doc){
     if(!doc.exists){
       // Akun baru — data trial sedang dibuatkan server (onUserCreate), biasanya
       // cuma butuh 1-2 detik. JANGAN langsung kunci dengan paywall di sini,
       // supaya tidak ada jeda "disuruh bayar" yang keliru sebelum trial aktif.
       hidePaywall();
-      _currentTier=null; updateStudentLimitUI();
+      _currentTier=null; _subPaidActive=false; updateStudentLimitUI();
       _subBadgeInfo=null; renderAccountSection();
       return;
     }
     const d=doc.data();
     _subTrialDenied=d.trialDenied==='already_used';
+    // Waktu yang ditulis server juga jadi batas bawah jam (tidak bisa mundur sebelum ini)
+    ['updatedAt','createdAt','trialStartedAt'].forEach(function(k){
+      if(d[k]&&typeof d[k].toMillis==='function') raiseTimeFloor(d[k].toMillis());
+    });
     if(d.isTester===true){
       hidePaywall();
-      _currentTier='unlimited'; updateStudentLimitUI();
+      _currentTier='unlimited'; _subPaidActive=true; updateStudentLimitUI();
       _subBadgeInfo={label:'PRO',isTester:true}; renderAccountSection();
       return;
     }
-    const now=Date.now();
+    const now=llkNow();
     const trialEndsMs=d.trialEndsAt?d.trialEndsAt.toMillis():0;
     const subEndsMs=d.subscriptionEndsAt?d.subscriptionEndsAt.toMillis():0;
     const trialActive=d.status==='trial' && trialEndsMs>now;
     const subActive=d.status==='active' && subEndsMs>now;
+    _subPaidActive=subActive;
     const tb=document.getElementById('trialBanner');
     if(subActive){
       _currentTier=tierInfo(d.tier)?d.tier:'unlimited'; // PRO lama tanpa tier = Unlimited
@@ -8275,9 +8372,6 @@ function listenSubscriptionStatus(uid){
     }
     updateStudentLimitUI();
     renderAccountSection();
-  }, function(err){
-    console.error('Gagal memantau status langganan:', err);
-  });
 }
 
 /* Reminder H-3 sebelum trial habis — dijadwalkan lewat sistem push yang sama
@@ -8314,6 +8408,32 @@ function showPaywall(){
   const plans=document.getElementById('paywallPlans');
   if(plans) plans.innerHTML=planCardsHtml({minTier:null});
   el.style.display='flex';
+  // Sekali per sesi: kalau ada pembayaran yang sudah lunas tapi notifikasinya
+  // belum sampai ke server, aktifkan otomatis tanpa pengguna harus menekan tombol.
+  if(!window._llkAutoPayCheckDone){ window._llkAutoPayCheckDone=true; cekStatusPembayaran(true); }
+}
+
+/* Tanya status pembayaran yang masih tertunda langsung ke Midtrans (lewat
+   server), lalu aktifkan kalau sudah lunas. silent=true: tanpa loading/pesan
+   kecuali ada yang berhasil diaktifkan. */
+async function cekStatusPembayaran(silent){
+  if(!currentUser||typeof firebase==='undefined'||!firebase.functions) return;
+  if(!silent){ showGlobalLoading('Mengecek status pembayaran…'); }
+  try{
+    const fn=firebase.functions().httpsCallable('checkMidtransPayment');
+    const res=await fn({});
+    const r=(res&&res.data)||{};
+    if(r.activated>0){
+      toast('✅ Pembayaran terkonfirmasi — paket kamu sudah aktif!',5000);
+    } else if(!silent){
+      toast('Belum ada pembayaran yang terkonfirmasi. Kalau baru saja bayar, tunggu 1–2 menit lalu cek lagi.',6000);
+    }
+  }catch(err){
+    console.error('Gagal cek status pembayaran:', err);
+    if(!silent) toast('⚠️ Gagal mengecek status pembayaran, coba lagi.');
+  }finally{
+    if(!silent) hideGlobalLoading();
+  }
 }
 function hidePaywall(){
   const el=document.getElementById('paywallOverlay');
@@ -8402,17 +8522,23 @@ function pickPlan(plan){
    tombol "Naik Paket". Hanya menawarkan paket DI ATAS paket sekarang. */
 function showUpgradeOffer(fromLimit){
   closeUpgradeOffer();
+  const isTransfer=fromLimit==='transfer';
+  if(isTransfer) fromLimit=false;
   const t=tierInfo(_currentTier);
   const n=activeStudentCount();
   const el=document.createElement('div');
   el.id='upgradeOfferOverlay';
   el.style.cssText='position:fixed;inset:0;z-index:9997;background:linear-gradient(180deg,#fff7f7 0%,#ffffff 220px);overflow-y:auto;padding:36px 18px 44px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center';
-  const head=fromLimit&&t
+  const head=isTransfer
+    ? '<div style="font-size:2.2rem;margin-bottom:6px">📦</div><div style="font-size:1.2rem;font-weight:800;color:#1c1c1e;margin-bottom:8px">Data dari Akun Google Lain</div>'
+      +'<div style="font-size:0.85rem;color:#6b7280;max-width:340px;margin:0 auto 22px;line-height:1.6">Data ini milik akun Google yang berbeda. Memindahkan data antar-akun hanya bisa untuk akun yang <b>sudah berlangganan</b> (bukan masa trial). Data aslinya tetap aman di akun asalnya.</div>'
+    : fromLimit&&t
     ? '<div style="font-size:2.2rem;margin-bottom:6px">🔒</div><div style="font-size:1.2rem;font-weight:800;color:#1c1c1e;margin-bottom:8px">Batas Murid '+escapeHtml(t.name)+' Tercapai</div>'
       +'<div style="font-size:0.85rem;color:#6b7280;max-width:340px;margin:0 auto 22px;line-height:1.6">Paket '+escapeHtml(t.name)+' maksimal <b>'+t.limit+' murid aktif</b>, dan kamu sudah punya <b>'+n+'</b>. Naik paket untuk menambah murid — atau nonaktifkan murid yang sudah berhenti les (riwayatnya tetap tersimpan).</div>'
     : '<div style="font-size:2.2rem;margin-bottom:6px">⬆️</div><div style="font-size:1.2rem;font-weight:800;color:#1c1c1e;margin-bottom:22px">Naik Paket</div>';
-  el.innerHTML=head+planCardsHtml({minTier:_currentTier})
+  el.innerHTML=head+planCardsHtml({minTier:isTransfer?null:_currentTier})
     +'<div style="font-size:0.72rem;color:#9ca3af;max-width:320px;margin:4px auto 18px;line-height:1.5">Paket baru berlaku mulai hari ini. Sisa masa aktif paket lama tidak dibawa ke paket baru.</div>'
+    +'<button onclick="cekStatusPembayaran(false)" style="display:block;margin:0 auto 6px;background:none;border:1.5px solid #d1d5db;border-radius:10px;padding:9px 14px;color:#374151;font-size:0.78rem;font-weight:600;cursor:pointer">🔄 Sudah bayar? Cek status pembayaran</button>'
     +'<button onclick="closeUpgradeOffer()" style="background:none;border:none;color:#6b7280;font-size:0.85rem;font-weight:600;cursor:pointer;text-decoration:underline;padding:8px">Nanti saja</button>';
   document.body.appendChild(el);
 }
@@ -8493,10 +8619,14 @@ async function mulaiLangganan(plan){
       onSuccess:function(){
         setPaywallStatus('✅ Pembayaran berhasil! Mengaktifkan langganan…');
         toast('✅ Pembayaran berhasil! Invoice sudah dikirim ke email — cek folder Spam kalau belum kelihatan.',5000);
+        // Cadangan kalau notifikasi Midtrans ke server terlambat/gagal
+        setTimeout(function(){ cekStatusPembayaran(true); },4000);
       },
-      onPending:function(){ setPaywallStatus('⏳ Menunggu konfirmasi pembayaran…'); },
+      onPending:function(){
+        setPaywallStatus('⏳ Menunggu konfirmasi pembayaran… Setelah membayar, tekan "Cek status pembayaran" kalau paket belum aktif.');
+      },
       onError:function(){ setPaywallStatus('❌ Pembayaran gagal, silakan coba lagi.'); },
-      onClose:function(){ setPaywallStatus(''); }
+      onClose:function(){ setPaywallStatus(''); setTimeout(function(){ cekStatusPembayaran(true); },2000); }
     });
   }catch(err){
     hideGlobalLoading();
@@ -8973,6 +9103,7 @@ function saveEmergencyBackup(){
   try{
     localStorage.setItem('rms4_emergency_backup', JSON.stringify({
       savedAt:new Date().toISOString(),
+      ownerUid:(getDataOwner()||{}).uid||null, // pemilik data SEBELUM ditimpa
       students, attendance, attNotes, attMeta, quickLinks, teacherTasks, curriculumTemplates
     }));
     return true;

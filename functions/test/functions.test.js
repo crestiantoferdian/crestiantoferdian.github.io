@@ -27,10 +27,35 @@ function docRef(path) {
     },
   };
 }
+function query(name, filters) {
+  return {
+    where: (f, op, v) => query(name, [...filters, [f, v]]),
+    limit: () => query(name, filters),
+    async get() {
+      const docs = [...store.entries()]
+        .filter(([k, d]) => k.startsWith(name + '/') && filters.every(([f, v]) => d[f] === v))
+        .map(([k, d]) => ({ id: k.slice(name.length + 1), data: () => d, ref: docRef(k) }));
+      return { docs, size: docs.length };
+    },
+  };
+}
+// Transaksi tiruan: semua tulisan ditahan sampai fungsi selesai (seperti Firestore)
+let txLock = Promise.resolve();
 const db = {
-  collection: (name) => ({ doc: (id) => docRef(name + '/' + id) }),
-  async runTransaction(fn) {
-    return fn({ get: (ref) => ref.get(), set: (ref, data) => { store.set(ref.path, { ...data }); } });
+  collection: (name) => ({ doc: (id) => docRef(name + '/' + id), where: (f, op, v) => query(name, [[f, v]]) }),
+  runTransaction(fn) {
+    const run = txLock.then(async () => {
+      const writes = [];
+      const out = await fn({
+        get: (ref) => ref.get(),
+        set: (ref, data, opts) => writes.push(() => ref.set(data, opts)),
+        update: (ref, data) => writes.push(() => ref.update(data)),
+      });
+      for (const w of writes) await w();
+      return out;
+    });
+    txLock = run.catch(() => {});
+    return run;
   },
 };
 const firestore = () => db;
@@ -160,6 +185,60 @@ test('webhook: notifikasi ganda tidak memperpanjang dua kali', async () => {
   const first = store.get('subscriptions/u1').subscriptionEndsAt.toMillis();
   await fns.midtransWebhook(webhookReq('O3', 35000), fakeRes());
   assert.strictEqual(store.get('subscriptions/u1').subscriptionEndsAt.toMillis(), first);
+});
+
+test('webhook: dua notifikasi bersamaan tidak memperpanjang dua kali', async () => {
+  store.clear();
+  store.set('orders/O5', { uid: 'u1', plan: 'up_monthly', grossAmount: 75000, status: 'pending' });
+  await Promise.all([
+    fns.midtransWebhook(webhookReq('O5', 75000), fakeRes()),
+    fns.midtransWebhook(webhookReq('O5', 75000), fakeRes()),
+  ]);
+  const ends = store.get('subscriptions/u1').subscriptionEndsAt.toMillis();
+  assert.ok(ends - Date.now() < 31 * DAY, 'masa aktif hanya 30 hari');
+});
+
+test('webhook: nominal tidak cocok dengan order ditolak', async () => {
+  store.clear();
+  store.set('orders/O6', { uid: 'u1', plan: 'unlimited_yearly', grossAmount: 1000000, status: 'pending' });
+  const res = fakeRes();
+  await fns.midtransWebhook(webhookReq('O6', 35000), res);
+  assert.strictEqual(res.code, 400);
+  assert.strictEqual(store.get('subscriptions/u1'), undefined);
+});
+
+test('cek status pembayaran: order lunas di Midtrans diaktifkan, milik orang lain tidak', async () => {
+  store.clear();
+  const now = Date.now();
+  store.set('orders/P1', { uid: 'u1', plan: 'basic_monthly', grossAmount: 35000, status: 'pending', createdAt: ts(now) });
+  store.set('orders/P2', { uid: 'u1', plan: 'up_monthly', grossAmount: 75000, status: 'pending', createdAt: ts(now) });
+  store.set('orders/P3', { uid: 'lain', plan: 'up_monthly', grossAmount: 75000, status: 'pending', createdAt: ts(now) });
+  const asked = [];
+  global.fetch = async (url) => {
+    const id = decodeURIComponent(url.split('/v2/')[1].split('/')[0]);
+    asked.push(id);
+    if (id === 'P1') return { ok: true, json: async () => ({ order_id: 'P1', transaction_status: 'settlement', gross_amount: '35000.00' }) };
+    return { ok: true, json: async () => ({ status_code: '404', status_message: "Transaction doesn't exist." }) };
+  };
+  const r = await fns.checkMidtransPayment({}, { auth: { uid: 'u1', token: {} } });
+  assert.strictEqual(r.activated, 1);
+  assert.deepStrictEqual(asked.sort(), ['P1', 'P2']);
+  assert.strictEqual(store.get('subscriptions/u1').tier, 'basic');
+  assert.strictEqual(store.get('orders/P2').status, 'pending');
+  assert.strictEqual(store.get('orders/P3').status, 'pending');
+});
+
+test('cek status pembayaran: nominal Midtrans beda dari order → tidak diaktifkan', async () => {
+  store.clear();
+  store.set('orders/P4', { uid: 'u1', plan: 'unlimited_yearly', grossAmount: 1000000, status: 'pending', createdAt: ts(Date.now()) });
+  global.fetch = async () => ({ ok: true, json: async () => ({ order_id: 'P4', transaction_status: 'settlement', gross_amount: '1000.00' }) });
+  const r = await fns.checkMidtransPayment({}, { auth: { uid: 'u1', token: {} } });
+  assert.strictEqual(r.activated, 0);
+  assert.strictEqual(store.get('subscriptions/u1'), undefined);
+});
+
+test('cek status pembayaran: wajib login', async () => {
+  await assert.rejects(fns.checkMidtransPayment({}, {}), (e) => e.code === 'unauthenticated');
 });
 
 test('webhook: order lama (plan monthly) tetap diproses sebagai Unlimited', async () => {
