@@ -61,7 +61,9 @@ _Terakhir diperbarui: 28 Sep 2026_
    - ✅ Firebase Authorized domains: `leslesanku.com` dan `www.leslesanku.com` ditambahkan; `crestiantoferdian.github.io` tetap ada.
    - ✅ Data 2 guru aktif sudah tersinkron ke cloud (version 8, 28 Sep 2026).
    - ✅ PR #9 di-merge 28 Sep 2026 23:39 WIB; https://leslesanku.com sudah aktif (HTTPS jalan).
-   - ⏳ Sisa: cek GitHub Settings → Pages (login sebagai pemilik `crestiantoferdian`, bukan kolaborator `gitarsaktipol`) → Enforce HTTPS → GitHub Settings → Pages → Enforce HTTPS → ganti Site URL OneSignal → guru login ulang & nyalakan ulang notifikasi.
+   - ✅ OneSignal (app "LLK App") → Settings → Push & In-App → Web → Site URL diganti ke `https://leslesanku.com` (29 Sep 2026). Notifikasi di HP pemilik sudah aktif lagi di alamat baru.
+   - ⏳ Sisa: guru kedua buka leslesanku.com → login → izinkan notifikasi → "Jadwalkan Ulang Reminder Hari Ini"; pastikan reminder benar-benar bunyi; cek GitHub Settings → Pages (login sebagai pemilik `crestiantoferdian`, bukan kolaborator `gitarsaktipol`) → Enforce HTTPS.
+   - Catatan: `gitarsaktipol` hanya kolaborator di repo `crestiantoferdian` (tidak ada salinan repo terpisah); semua merge-nya masuk ke repo ini, tapi menu Settings hanya bisa dibuka akun pemilik. → GitHub Settings → Pages → Enforce HTTPS → ganti Site URL OneSignal → guru login ulang & nyalakan ulang notifikasi.
    - Setelah pindah: pakai `https://leslesanku.com` untuk isian website di Play Console, dan `https://leslesanku.com/privacy-policy.html` untuk kebijakan privasi. Aplikasi Android (TWA) versi baru harus memakai host `leslesanku.com`.
 3. **Closed testing** 12 penguji × 14 hari, lalu isi formulir **Data Safety** di Play Console.
 4. **Celah reset trial** (perlu kode Cloud Functions).
