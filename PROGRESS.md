@@ -51,10 +51,22 @@ _Terakhir diperbarui: 28 Sep 2026_
 - **Tahap 2 (belum):** murid, mata pelajaran, tarif, jadwal, dan penugasan Mitra.
 
 ## ⏳ Yang belum / berikutnya
-1. **Google Play Billing untuk V1** (sedang dibahas):
-   - **Pemilik:** isi Payments profile; upload AAB ke Internal testing; buat langganan `llk_pro` (base plan `bulanan` Rp40.000 dan `tahunan`); tambahkan License testing; aktifkan Play Developer API; buat Service Account dengan izin di Play Console; simpan kuncinya sebagai secret di Cloudflare.
-   - **Claude:** deteksi aplikasi dari Play Store (pakai Play Billing) atau browser (tetap Midtrans), verifikasi pembelian di worker Cloudflare, tulis status ke `subscriptions/{uid}`, konfirmasi pembelian ke Google dalam 3 hari, tombol "Pulihkan Langganan".
-   - **Masih harus dijawab:** sudah punya akun Play Console dan AAB? Berapa harga tahunan? Setuju verifikasi dipasang di worker Cloudflare?
+1. **Google Play Billing untuk V1** (sedang dikerjakan):
+   - **Paket langganan baru (keputusan pemilik, 29 Sep 2026)** — menggantikan PRO Rp40.000:
+     | Paket | Maks. murid aktif | Bulanan | Tahunan | Product ID Play (usulan) |
+     |---|---|---|---|---|
+     | Pro Basic | 10 | Rp35.000 | – | `llk_basic` (base plan `bulanan`) |
+     | Pro Up | 40 | Rp75.000 | Rp700.000 | `llk_up` (`bulanan`, `tahunan`) |
+     | Pro Unlimited | tak terbatas | Rp100.000 | Rp1.000.000 | `llk_unlimited` (`bulanan`, `tahunan`) |
+   - **Aturan batas murid:**
+     - Yang dihitung hanya murid **aktif** (Nonaktif tidak dihitung).
+     - Kalau sudah mencapai/melewati batas: tombol **Tambah Murid** (dan aktifkan-lagi murid nonaktif) tampil dengan **gembok**; kalau diklik → tawarkan **semua paket di atasnya**. Murid yang sudah ada tetap tampil & bisa diabsen, data tidak pernah disembunyikan/dihapus.
+     - **Trial 31 hari = setara Pro Unlimited.**
+     - **Pelanggan PRO lama (Midtrans)** = Pro Unlimited sampai masa aktifnya habis.
+   - **Aplikasi Android (TWA) baru:** dibuat ulang di PWABuilder dengan host `leslesanku.com` dan package **`com.leslesanku.app`** (permanen setelah terbit). Kunci lama dipakai ulang: folder PWABuilder 09/09/2026 berisi `signing.keystore` + `signing-key-info.txt` (disimpan pemilik, jangan pernah dikirim ke chat). `.well-known/assetlinks.json` sudah memuat package baru dengan sidik jari kunci yang sama.
+   - **Pemilik:** Payments profile; upload AAB ke Internal testing; buat 3 langganan di atas; License testing; aktifkan Play Developer API; Service Account + izin di Play Console; simpan kuncinya sebagai secret di Cloudflare.
+   - **Claude:** deteksi aplikasi dari Play Store (Play Billing) atau browser (Midtrans); verifikasi pembelian di worker Cloudflare; tulis paket & masa aktif ke `subscriptions/{uid}`; acknowledge dalam 3 hari; tombol "Pulihkan Langganan"; batas murid per paket + gembok di Tambah Murid.
+   - **Masih perlu:** harga Midtrans (web) mengikuti paket baru → butuh kode Cloud Functions yang tidak ada di repo.
 2. ✅ **Pindah ke domain `leslesanku.com`** (PR #9, #10) — selesai 29 Sep 2026:
    - ✅ Worker `llk-onesignal-bridge` menerima alamat baru + alamat lama (sudah di-deploy).
    - ✅ DNS Cloudflare: 4 record A `@` → 185.199.108–111.153 dan CNAME `www` → `crestiantoferdian.github.io`, semua **DNS only** (jangan diubah ke proxied).
