@@ -8857,7 +8857,10 @@ function pullFromCloud(){
 
   // Timpa data HP ini dengan data cloud (dipakai kalau HP kosong, atau HP
   // tidak punya perubahan baru sementara cloud sudah diperbarui perangkat lain)
-  const replaceWithCloud=function(cloudMarker, silentToast){
+  // switchAccount=true: data di HP ini milik akun lain → pengaturan & catatan
+  // akun lama (nama sekolah, info rekening, dll) ikut dibersihkan supaya
+  // tidak terbawa ke akun yang sedang login.
+  const replaceWithCloud=function(cloudMarker, silentToast, switchAccount){
     _cloudPulling=true;
     fetchCloudParts(baseRef).then(function(res){
       if(res.erroredCritical.length>0){
@@ -8865,9 +8868,15 @@ function pullFromCloud(){
         const reasons=res.erroredCritical.map(function(r){ return r.errMsg; }).filter(Boolean).join('; ');
         console.error('Gagal baca bagian penting dari cloud, pull dibatalkan demi keamanan data lokal:', res.erroredCritical);
         alert('⚠️ Gagal mengambil data dari cloud ('+(reasons||'kemungkinan izin akses Firestore belum benar, atau koneksi terputus')+').\n\nData di HP ini TIDAK diubah/ditimpa demi keamanan. Coba lagi nanti, atau cek Firestore Security Rules kalau masalah ini terus berulang.');
+        // Data HP ini milik akun lain → jangan sampai terkirim ke akun yang login
+        if(switchAccount) logoutFirebase(true);
         return;
       }
       if(hasAnyLocalData()) saveEmergencyBackup();
+      if(switchAccount){
+        BACKUP_SETTINGS_KEYS.forEach(function(k){ localStorage.removeItem(k); });
+        Object.keys(collectPrefixedData()).forEach(function(k){ localStorage.removeItem(k); });
+      }
       const parts=res.parts;
       const b=cloudPartsToBundle(parts);
       localStorage.setItem('rms4_s',JSON.stringify(b.students));
@@ -8922,29 +8931,14 @@ function pullFromCloud(){
     const hasLocal=hasAnyLocalData();
     const owner=getDataOwner();
 
-    // (A) Data di HP ini milik akun Google LAIN (misal habis logout lalu
-    //     login pakai akun berbeda). Dulu data akun lama ikut terkirim ke
-    //     cloud akun baru. Sekarang tanya dulu.
+    // (A) Data di HP ini milik akun Google LAIN (habis logout lalu login
+    //     pakai akun berbeda). Langsung tampilkan data akun yang login dari
+    //     cloud (kosong kalau akunnya baru). Data akun lama tetap ada di
+    //     cloud-nya sendiri, dan salinan HP ini disimpan dulu sebagai
+    //     "Pulihkan Cadangan Darurat".
     if(hasLocal && owner && owner.uid && owner.uid!==uid){
-      const ownerLabel=owner.email||'akun lain';
-      if(doc.exists){
-        if(confirm('Data di HP ini milik akun '+ownerLabel+'.\n\nGanti dengan data akun '+(user.email||'ini')+' dari cloud?\n\n(Data HP ini dicadangkan dulu & bisa dipulihkan lewat "Pulihkan Cadangan Darurat". Data akun '+ownerLabel+' di cloud tetap aman.)')){
-          replaceWithCloud(cloudMarkerOf(doc.data()));
-        } else {
-          toast('Login dibatalkan — data di HP ini tetap milik '+ownerLabel,5000);
-          logoutFirebase(true);
-        }
-      } else {
-        if(confirm('Data di HP ini milik akun '+ownerLabel+'.\n\nSalin data ini ('+students.length+' murid) ke akun baru '+(user.email||'ini')+'?\n\nPilih Batal kalau tidak mau data ini masuk ke akun baru.')){
-          setDataOwner(user);
-          markLocalDirty();
-          markReady();
-          pushToCloud();
-        } else {
-          toast('Login dibatalkan — data di HP ini tetap milik '+ownerLabel,5000);
-          logoutFirebase(true);
-        }
-      }
+      replaceWithCloud(doc.exists?cloudMarkerOf(doc.data()):null,
+        '☁️ Data akun '+(user.email||'ini')+' dimuat', true);
       return;
     }
 
