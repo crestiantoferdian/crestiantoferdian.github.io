@@ -65,8 +65,9 @@ _Terakhir diperbarui: 28 Sep 2026_
      - **Pelanggan PRO lama (Midtrans)** = Pro Unlimited sampai masa aktifnya habis.
    - **Aplikasi Android (TWA) baru:** dibuat ulang di PWABuilder dengan host `leslesanku.com` dan package **`com.leslesanku.app`** (permanen setelah terbit). Kunci lama dipakai ulang: folder PWABuilder 09/09/2026 berisi `signing.keystore` + `signing-key-info.txt` (disimpan pemilik, jangan pernah dikirim ke chat). `.well-known/assetlinks.json` sudah memuat package baru dengan sidik jari kunci yang sama.
    - **Pemilik:** Payments profile; upload AAB ke Internal testing; buat 3 langganan di atas; License testing; aktifkan Play Developer API; Service Account + izin di Play Console; simpan kuncinya sebagai secret di Cloudflare.
-   - **Claude:** deteksi aplikasi dari Play Store (Play Billing) atau browser (Midtrans); verifikasi pembelian di worker Cloudflare; tulis paket & masa aktif ke `subscriptions/{uid}`; acknowledge dalam 3 hari; tombol "Pulihkan Langganan"; batas murid per paket + gembok di Tambah Murid.
-   - **Masih perlu:** harga Midtrans (web) mengikuti paket baru (ubah `functions/index.js`).
+   - **Claude (Play Billing, belum):** deteksi aplikasi dari Play Store (Play Billing) atau browser (Midtrans); verifikasi pembelian di worker Cloudflare; acknowledge dalam 3 hari; tombol "Pulihkan Langganan".
+   - ✅ **Paket baru di web (PR #14):** `functions/plans.js` = katalog paket server; `LLK_TIERS` di `index.html` = katalog aplikasi (**harus sama**). Webhook menulis `tier` ke `subscriptions/{uid}`. Ganti paket = berlaku mulai hari itu (sisa masa lama tidak dibawa); paket sama = diperpanjang di ujung. Aplikasi: gembok 🔒 di Tambah Murid & "aktifkan lagi" saat batas tercapai → tawaran paket di atasnya; paywall & layar Selamat Datang menampilkan 3 paket dengan tanda "Cocok untukmu" sesuai jumlah murid aktif; badge akun menampilkan nama paket + tombol "Naik Paket".
+   - ⏳ **Deploy functions dulu, baru merge PR #14** (aplikasi baru mengirim kunci paket baru yang ditolak server lama). Lalu pindah Midtrans ke production: Server Key production di `functions/.env` + `MIDTRANS_IS_PRODUCTION=true`, Client Key production + `app.midtrans.com/snap/snap.js` di `index.html`, Notification URL di dashboard Midtrans production → `https://us-central1-llk-67a30.cloudfunctions.net/midtransWebhook`. Akun Midtrans production **sudah aktif** (29 Sep 2026).
 2. ✅ **Pindah ke domain `leslesanku.com`** (PR #9, #10) — selesai 29 Sep 2026:
    - ✅ Worker `llk-onesignal-bridge` menerima alamat baru + alamat lama (sudah di-deploy).
    - ✅ DNS Cloudflare: 4 record A `@` → 185.199.108–111.153 dan CNAME `www` → `crestiantoferdian.github.io`, semua **DNS only** (jangan diubah ke proxied).
@@ -78,7 +79,7 @@ _Terakhir diperbarui: 28 Sep 2026_
    - Catatan: `gitarsaktipol` hanya kolaborator di repo `crestiantoferdian` (tidak ada salinan repo terpisah); semua merge-nya masuk ke repo ini, tapi menu Settings hanya bisa dibuka akun pemilik.
    - Setelah pindah: pakai `https://leslesanku.com` untuk isian website di Play Console, dan `https://leslesanku.com/privacy-policy.html` untuk kebijakan privasi. Aplikasi Android (TWA) versi baru harus memakai host `leslesanku.com`.
 3. **Closed testing** 12 penguji × 14 hari, lalu isi formulir **Data Safety** di Play Console.
-4. **Celah reset trial** (perlu kode Cloud Functions).
+4. ✅ **Celah reset trial** — kode siap di PR #14, aktif setelah functions di-deploy.
 5. **V2 Tahap 2.**
 6. **Midtrans** tetap dipakai untuk versi web. Saat rilis, ganti ke URL dan Client Key production.
 
@@ -95,8 +96,9 @@ _Terakhir diperbarui: 28 Sep 2026_
 ## ☁️ Cloud Functions (`functions/`)
 - 3 fungsi (1st gen, us-central1): `onUserCreate` (buat trial 31 hari di `subscriptions/{uid}` saat akun baru), `createMidtransTransaction` (callable, buat transaksi Snap, simpan `orders/{orderId}`), `midtransWebhook` (HTTP, verifikasi signature SHA-512 → aktifkan/perpanjang langganan + kirim invoice email).
 - Rahasia (`MIDTRANS_SERVER_KEY`, `MIDTRANS_IS_PRODUCTION`, `SMTP_USER`, `SMTP_PASS`) ada di `functions/.env` yang **hanya** tersimpan di Firebase — tidak pernah di-commit (`functions/.gitignore`).
-- ⚠️ Node.js 20 dihentikan Google **30 Okt 2026** → saat deploy berikutnya naikkan `engines.node` ke 22.
-- Celah trial: Hapus Akun menghapus user Auth → login lagi dengan Gmail yang sama = uid baru = trial baru dari `onUserCreate`. Perbaikan: catat pemakaian trial per email (hash) di koleksi terpisah yang tidak ikut terhapus.
+- ⚠️ Node.js 20 dihentikan Google **30 Okt 2026** → `engines.node` sudah 22 di repo; berlaku saat deploy berikutnya.
+- ✅ Celah trial ditutup (PR #14, aktif setelah deploy): `onUserCreate` mencatat `trialUsage/{sha256(email)}`; email yang sudah tercatat mendapat `status:'expired', trialDenied:'already_used'` (paywall menampilkan "Trial Gratis Sudah Pernah Dipakai"). Fungsi baru `onUserDelete` mencatat email akun lama yang dihapus. `trialUsage` ditolak untuk client di `firestore.rules`.
+- Tes: `cd functions && npm test` (tiruan Firebase di memori, tanpa internet).
 - Deploy belum pernah dilakukan dari repo ini; pemilik tidak memakai Firebase CLI → rencana deploy lewat Cloud Console (Edit → Source) atau dipandu.
 
 ## ⚠️ Aturan kerja

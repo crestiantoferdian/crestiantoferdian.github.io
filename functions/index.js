@@ -2,6 +2,7 @@ const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const { PLANS, resolvePlan, nextSubscription, trialKey } = require('./plans');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -18,12 +19,6 @@ const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 
 const TRIAL_DAYS = 31;
-const PRICES = { monthly: 40000, yearly: 400000 };
-const PLAN_LABEL = { monthly: 'Pro Bulanan', yearly: 'Pro Tahunan' };
-const DURATION_MS = {
-  monthly: 30 * 24 * 60 * 60 * 1000,
-  yearly: 365 * 24 * 60 * 60 * 1000,
-};
 
 function formatRupiah(n) {
   return 'Rp' + Number(n).toLocaleString('id-ID');
@@ -58,7 +53,7 @@ async function sendInvoiceEmail({ toEmail, orderId, plan, grossAmount, paidAtMs,
     console.log('Lewati kirim invoice (SMTP belum di-setup atau email kosong):', orderId);
     return;
   }
-  const planLabel = PLAN_LABEL[plan] || plan;
+  const planLabel = (resolvePlan(plan) || {}).label || plan;
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:12px">
       <h2 style="color:#b31217;margin-bottom:4px">LesLesanKu</h2>
@@ -94,11 +89,38 @@ async function sendInvoiceEmail({ toEmail, orderId, plan, grossAmount, paidAtMs,
 
 /**
  * 1) Dipanggil otomatis oleh Firebase saat ada akun baru (login Google pertama kali).
- *    Ini SATU-SATUNYA tempat trial dimulai -> tidak bisa direset dari client,
- *    karena terikat ke uid, bukan ke device/localStorage.
+ *    Ini SATU-SATUNYA tempat trial dimulai -> tidak bisa direset dari client.
+ *    Trial hanya diberikan SEKALI per email: pemakaiannya dicatat di
+ *    trialUsage/{hash email}, yang tidak ikut terhapus saat akun dihapus.
+ *    Tanpa ini, "Hapus Akun" lalu login lagi = uid baru = trial baru.
  */
 exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
   const now = admin.firestore.Timestamp.now();
+  const key = trialKey(user.email);
+  let trialAllowed = true;
+  if (key) {
+    const usageRef = db.collection('trialUsage').doc(key);
+    trialAllowed = await db.runTransaction(async (tx) => {
+      const usage = await tx.get(usageRef);
+      if (usage.exists) return false;
+      tx.set(usageRef, { firstUid: user.uid, firstTrialAt: now });
+      return true;
+    });
+  }
+  if (!trialAllowed) {
+    console.log('Trial ditolak, email sudah pernah memakai trial:', user.uid);
+    await db.collection('subscriptions').doc(user.uid).set({
+      status: 'expired',
+      trialDenied: 'already_used',
+      trialStartedAt: null,
+      trialEndsAt: now,
+      subscriptionEndsAt: null,
+      plan: null,
+      tier: null,
+      createdAt: now,
+    });
+    return;
+  }
   const trialEnds = admin.firestore.Timestamp.fromMillis(
     now.toMillis() + TRIAL_DAYS * 24 * 60 * 60 * 1000
   );
@@ -108,8 +130,23 @@ exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
     trialEndsAt: trialEnds,
     subscriptionEndsAt: null,
     plan: null,
+    tier: null,
     createdAt: now,
   });
+});
+
+/**
+ * 1b) Saat akun dihapus: pastikan email ini tercatat sudah memakai trial.
+ *     Menutup celah untuk akun lama yang dibuat sebelum trialUsage ada.
+ */
+exports.onUserDelete = functions.auth.user().onDelete(async (user) => {
+  const key = trialKey(user.email);
+  if (!key) return;
+  const usageRef = db.collection('trialUsage').doc(key);
+  const usage = await usageRef.get();
+  if (!usage.exists) {
+    await usageRef.set({ firstUid: user.uid, recordedAtDelete: admin.firestore.Timestamp.now() });
+  }
 });
 
 /**
@@ -122,13 +159,16 @@ exports.createMidtransTransaction = functions.https.onCall(async (data, context)
   }
 
   const uid = context.auth.uid;
-  const plan = data.plan; // 'monthly' | 'yearly'
-  if (!PRICES[plan]) {
-    throw new functions.https.HttpsError('invalid-argument', 'Plan tidak valid.');
+  const plan = data.plan; // salah satu kunci PLANS, mis. 'up_monthly'
+  if (!PLANS[plan]) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Paket tidak valid. Tutup lalu buka lagi aplikasinya supaya memuat daftar paket terbaru.'
+    );
   }
 
   const orderId = `LLK-${uid.slice(0, 8)}-${Date.now()}`;
-  const grossAmount = PRICES[plan];
+  const grossAmount = PLANS[plan].price;
   const email = context.auth.token.email || null; // disimpan supaya webhook nanti tahu ke mana kirim invoice
 
   await db.collection('orders').doc(orderId).set({
@@ -194,17 +234,23 @@ exports.midtransWebhook = functions.https.onRequest(async (req, res) => {
       const subRef = db.collection('subscriptions').doc(order.uid);
       const subSnap = await subRef.get();
       const now = Date.now();
-      const currentEnds =
-        subSnap.exists && subSnap.data().subscriptionEndsAt
-          ? subSnap.data().subscriptionEndsAt.toMillis()
-          : now;
-      const base = Math.max(currentEnds, now);
-      const newEnds = admin.firestore.Timestamp.fromMillis(base + DURATION_MS[order.plan]);
+      const cur = subSnap.exists ? subSnap.data() : null;
+      const next = nextSubscription(
+        cur && {
+          status: cur.status,
+          tier: cur.tier,
+          subscriptionEndsMs: cur.subscriptionEndsAt ? cur.subscriptionEndsAt.toMillis() : 0,
+        },
+        order.plan,
+        now
+      );
+      const newEnds = admin.firestore.Timestamp.fromMillis(next.subscriptionEndsMs);
 
       await subRef.set(
         {
           status: 'active',
           plan: order.plan,
+          tier: next.tier,
           subscriptionEndsAt: newEnds,
           lastOrderId: order_id,
           updatedAt: admin.firestore.Timestamp.now(),
