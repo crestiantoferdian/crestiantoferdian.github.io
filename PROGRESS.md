@@ -4,6 +4,7 @@ _Terakhir diperbarui: 28 Sep 2026_
 
 ## Info dasar
 - **Repo:** `crestiantoferdian/crestiantoferdian.github.io`, di-host di GitHub Pages: https://crestiantoferdian.github.io
+- **Domain:** `leslesanku.com` (dibeli di Cloudflare Registrar, kedaluwarsa 28 Sep 2027, auto renew ON, pengingat di Google Calendar 1 Agu 2027). Akun Cloudflare sudah pakai 2FA.
 - **V1** (`index.html`): aplikasi PWA satu file (±9.000 baris). Sudah dipakai **2 guru**, salah satunya punya 50+ murid. **Keamanan data adalah prioritas utama.**
 - **V2** (`/v2/`): versi multi-guru, baru selesai Tahap 1.
 - **Layanan:** Firebase (Auth Google + Firestore, project `llk-67a30`), Cloud Functions untuk trial dan Midtrans (kodenya **tidak ada di repo**), OneSignal untuk notifikasi, Cloudflare Worker `llk-onesignal-bridge` (sumber: `worker/onesignal-bridge-worker.js`).
@@ -54,7 +55,13 @@ _Terakhir diperbarui: 28 Sep 2026_
    - **Pemilik:** isi Payments profile; upload AAB ke Internal testing; buat langganan `llk_pro` (base plan `bulanan` Rp40.000 dan `tahunan`); tambahkan License testing; aktifkan Play Developer API; buat Service Account dengan izin di Play Console; simpan kuncinya sebagai secret di Cloudflare.
    - **Claude:** deteksi aplikasi dari Play Store (pakai Play Billing) atau browser (tetap Midtrans), verifikasi pembelian di worker Cloudflare, tulis status ke `subscriptions/{uid}`, konfirmasi pembelian ke Google dalam 3 hari, tombol "Pulihkan Langganan".
    - **Masih harus dijawab:** sudah punya akun Play Console dan AAB? Berapa harga tahunan? Setuju verifikasi dipasang di worker Cloudflare?
-2. **Beli domain** setelah gajian tanggal 1, lalu siapkan migrasi dari github.io.
+2. **Pindah ke domain `leslesanku.com`** (PR #9):
+   - ✅ Worker `llk-onesignal-bridge` menerima alamat baru + alamat lama (sudah di-deploy).
+   - ✅ DNS Cloudflare: 4 record A `@` → 185.199.108–111.153 dan CNAME `www` → `crestiantoferdian.github.io`, semua **DNS only** (jangan diubah ke proxied).
+   - ✅ Firebase Authorized domains: `leslesanku.com` dan `www.leslesanku.com` ditambahkan; `crestiantoferdian.github.io` tetap ada.
+   - ✅ Data 2 guru aktif sudah tersinkron ke cloud (version 8, 28 Sep 2026).
+   - ⏳ Merge PR #9 (berisi file `CNAME`) → GitHub Settings → Pages → Enforce HTTPS → ganti Site URL OneSignal → guru login ulang & nyalakan ulang notifikasi.
+   - Setelah pindah: pakai `https://leslesanku.com` untuk isian website di Play Console, dan `https://leslesanku.com/privacy-policy.html` untuk kebijakan privasi. Aplikasi Android (TWA) versi baru harus memakai host `leslesanku.com`.
 3. **Closed testing** 12 penguji × 14 hari, lalu isi formulir **Data Safety** di Play Console.
 4. **Celah reset trial** (perlu kode Cloud Functions).
 5. **V2 Tahap 2.**
