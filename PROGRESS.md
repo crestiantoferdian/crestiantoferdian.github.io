@@ -60,12 +60,17 @@ _Terakhir diperbarui: 28 Sep 2026_
    - ✅ DNS Cloudflare: 4 record A `@` → 185.199.108–111.153 dan CNAME `www` → `crestiantoferdian.github.io`, semua **DNS only** (jangan diubah ke proxied).
    - ✅ Firebase Authorized domains: `leslesanku.com` dan `www.leslesanku.com` ditambahkan; `crestiantoferdian.github.io` tetap ada.
    - ✅ Data 2 guru aktif sudah tersinkron ke cloud (version 8, 28 Sep 2026).
-   - ⏳ Merge PR #9 (berisi file `CNAME`) → GitHub Settings → Pages → Enforce HTTPS → ganti Site URL OneSignal → guru login ulang & nyalakan ulang notifikasi.
+   - ✅ PR #9 di-merge 28 Sep 2026 23:39 WIB; https://leslesanku.com sudah aktif (HTTPS jalan).
+   - ⏳ Sisa: cek GitHub Settings → Pages (login sebagai pemilik `crestiantoferdian`, bukan kolaborator `gitarsaktipol`) → Enforce HTTPS → GitHub Settings → Pages → Enforce HTTPS → ganti Site URL OneSignal → guru login ulang & nyalakan ulang notifikasi.
    - Setelah pindah: pakai `https://leslesanku.com` untuk isian website di Play Console, dan `https://leslesanku.com/privacy-policy.html` untuk kebijakan privasi. Aplikasi Android (TWA) versi baru harus memakai host `leslesanku.com`.
 3. **Closed testing** 12 penguji × 14 hari, lalu isi formulir **Data Safety** di Play Console.
 4. **Celah reset trial** (perlu kode Cloud Functions).
 5. **V2 Tahap 2.**
 6. **Midtrans** tetap dipakai untuk versi web. Saat rilis, ganti ke URL dan Client Key production.
+
+## 🔁 Ganti akun di perangkat yang sama
+- Login akun A → yang tampil data akun A. Logout lalu login akun B → data B langsung dimuat dari cloud (kosong kalau akun baru), tanpa dialog konfirmasi.
+- Sebelum diganti, data perangkat disimpan ke "Pulihkan Cadangan Darurat" (tab Lainnya). Pengaturan akun lama (nama sekolah, info rekening, dll.) dibersihkan supaya tidak terbawa.
 
 ## ⚠️ Aturan kerja
 - Jangan pernah menghapus atau menimpa data pengguna. Tanyakan dulu kalau ada perubahan yang berisiko ke data.
