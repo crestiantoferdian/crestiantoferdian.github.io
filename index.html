@@ -98,6 +98,19 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 
+/* ── Animasi tombol (tekan / loading / berhasil) ── */
+.llk-press{transition:transform .12s ease, box-shadow .12s ease, background-color .2s ease, filter .12s ease}
+.llk-press:active:not(:disabled){transform:scale(0.96);filter:brightness(0.93)}
+.llk-press:disabled{cursor:default}
+.llk-busy{opacity:0.9}
+.llk-ok{background:var(--hadir) !important;color:#fff !important;border-color:var(--hadir) !important;animation:llkPop .35s ease}
+.llk-fail{background:#fff5f5 !important;color:#991b1b !important;border-color:rgba(220,38,38,0.35) !important;animation:llkShake .4s ease}
+.llk-btn-spin{display:inline-block;width:16px;height:16px;border-radius:50%;border:2.5px solid rgba(0,0,0,0.15);border-top-color:var(--red);animation:llkSpin .8s linear infinite;flex-shrink:0;vertical-align:middle;margin-right:6px}
+.llk-btn-spin.light{border-color:rgba(255,255,255,0.35);border-top-color:#fff}
+@keyframes llkSpin{to{transform:rotate(360deg)}}
+@keyframes llkPop{0%{transform:scale(0.94)}60%{transform:scale(1.03)}100%{transform:scale(1)}}
+@keyframes llkShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
 /* ── HEADER ── */
 .app-header{
   background:var(--red);
@@ -1497,6 +1510,7 @@ async function togglePushNotif(){
 async function enablePushNotif(){
   if(typeof OneSignalDeferred==='undefined'){
     toast('⚠️ Push notification belum di-setup — lihat catatan di index.html');
+    renderNotifSettings();
     return;
   }
   try{
@@ -1613,8 +1627,12 @@ function fmtLeadLabel(min){
 // Cover jadwal rutin, reschedule, DAN sesi Tambahan Kelas (extra).
 // Dipanggil otomatis 1x/hari saat tab Absensi dibuka, atau manual lewat tombol
 // di Pengaturan Notifikasi.
-async function scheduleTodayReminders(showToast){
+async function scheduleTodayReminders(showToast, opts){
+  opts=opts||{};
+  const report=opts.report||{};
+  report.scheduled=[]; report.skipped=[]; report.failed=[]; report.reason=null;
   if(!pushNotifReady()||!localStorage.getItem('llk_push_enabled')){
+    report.reason='Notifikasi push belum aktif. Aktifkan dulu tombol hijau di atas.';
     if(showToast) toast('⚠️ Aktifkan notifikasi push dulu di atas');
     console.warn('scheduleTodayReminders dibatalkan — pushNotifReady:',pushNotifReady(),'enabled:',!!localStorage.getItem('llk_push_enabled'));
     return;
@@ -1622,6 +1640,7 @@ async function scheduleTodayReminders(showToast){
   if(typeof currentUser==='undefined' || !currentUser){
     // Status login belum siap (app baru dibuka) — jangan tandai "sudah
     // dijadwalkan hari ini"; dicoba lagi otomatis begitu login selesai.
+    report.reason='Kamu belum login. Login dulu di tab Lainnya.';
     if(showToast) toast('⚠️ Login dulu untuk menjadwalkan reminder');
     return 0;
   }
@@ -1637,24 +1656,31 @@ async function scheduleTodayReminders(showToast){
     // (_isRescheduled:true) yang otomatis ikut lolos filter ini.
     .filter(s=>!s._hasActiveReschedule && !s._sameday_reschedule);
   console.log(`scheduleTodayReminders: ${list.length} sesi ditemukan untuk ${dayName} ${dateKey}`, list.map(s=>s.name+(s._isExtra?' (extra)':'')));
-  let count=0, skipped=[];
+  let count=0, skipped=[], done=0;
   for(const s of list){
-    if(!s.time){ skipped.push(s.name+': tidak ada jam'); continue; }
+    done++;
+    if(opts.onProgress) try{ opts.onProgress(done, list.length, s.name); }catch(e){}
+    if(!s.time){ skipped.push(s.name+': tidak ada jam'); report.skipped.push({name:s.name,why:'tidak ada jam'}); continue; }
     const attKey=s._attKey||s.name; // sesi extra pakai key beda (name_extra_N)
     const attDateKey=s._extraDate||dateKey;
     const status=(attendance[attDateKey]||{})[attKey];
-    if(status==='hadir'||status==='izin'||status==='alpa'){ skipped.push(s.name+': sudah ditandai '+status); continue; }
+    if(status==='hadir'||status==='izin'||status==='alpa'){ skipped.push(s.name+': sudah ditandai '+status); report.skipped.push({name:s.name,time:s.time,why:'sudah ditandai '+status}); continue; }
     const sessionStart=new Date(dateKey+'T'+s.time+':00');
-    if(isNaN(sessionStart.getTime())){ skipped.push(s.name+': format jam tidak valid ('+s.time+')'); continue; }
+    if(isNaN(sessionStart.getTime())){ skipped.push(s.name+': format jam tidak valid ('+s.time+')'); report.skipped.push({name:s.name,why:'format jam tidak valid'}); continue; }
     const reminderAt=new Date(sessionStart.getTime()-leadMin*60000);
-    if(reminderAt<=now){ skipped.push(s.name+': waktu reminder sudah lewat'); continue; }
+    if(reminderAt<=now){ skipped.push(s.name+': waktu reminder sudah lewat'); report.skipped.push({name:s.name,time:s.time,why:'jamnya sudah lewat'}); continue; }
+    // BUGFIX: batalkan dulu reminder lama untuk sesi ini (kalau ada) — dulu
+    // "Jadwalkan Ulang" / ganti waktu reminder bikin notifikasi DOBEL
+    // (yang lama tetap bunyi + yang baru).
+    await cancelReminderPush(attDateKey, attKey);
     const ok=await scheduleReminderPush(
       `🎵 ${s.name} dalam ${fmtLeadLabel(leadMin)}!`,
       `Jadwal jam ${s.time}`,
       reminderAt.toISOString(),
       attDateKey+'|'+attKey
     );
-    if(ok) count++;
+    if(ok){ count++; report.scheduled.push({name:s.name,time:s.time,at:reminderAt}); }
+    else report.failed.push({name:s.name,time:s.time});
   }
   if(skipped.length) console.log('scheduleTodayReminders — sesi yang di-skip:', skipped);
   localStorage.setItem('llk_push_scheduled_date', dateKey);
@@ -1667,6 +1693,83 @@ async function scheduleTodayReminders(showToast){
 }
 
 let notifTimer;
+
+// ── Tombol "Jadwalkan Ulang Reminder" & ganti waktu reminder: animasi
+// loading sampai semua reminder selesai terkirim ke server, lalu tampilkan
+// hasilnya (siapa saja yang terjadwal & jam berapa notifikasinya bunyi).
+let _reminderRunning=false;
+async function runReminderSchedule(trigger){
+  if(_reminderRunning) return;
+  _reminderRunning=true;
+  const btn=document.getElementById('reminderScheduleBtn');
+  const sel=document.getElementById('notifLeadTime');
+  const out=document.getElementById('reminderScheduleResult');
+  const btnHtml=btn?btn.innerHTML:'';
+  if(btn){ btn.disabled=true; btn.classList.add('llk-busy'); btn.innerHTML='<span class="llk-btn-spin"></span><span id="reminderProgTxt">Menyiapkan reminder…</span>'; }
+  if(sel) sel.disabled=true;
+  if(out) out.innerHTML='';
+  const report={};
+  try{
+    await scheduleTodayReminders(false,{report, onProgress:function(i,n,name){
+      const t=document.getElementById('reminderProgTxt');
+      if(t) t.textContent='Menjadwalkan '+i+' dari '+n+' — '+name+'…';
+    }});
+  }catch(e){ report.reason='Terjadi kesalahan: '+(e&&e.message||e); }
+  const n=(report.scheduled||[]).length;
+  if(btn){
+    btn.classList.remove('llk-busy');
+    if(report.reason){
+      btn.innerHTML='⚠️ Belum bisa dijadwalkan';
+      btn.classList.add('llk-fail');
+    }else{
+      btn.innerHTML=n>0?('✅ '+n+' reminder terjadwal'):'✅ Selesai';
+      btn.classList.add('llk-ok');
+    }
+    setTimeout(function(){
+      if(!document.body.contains(btn)) return;
+      btn.classList.remove('llk-ok','llk-fail'); btn.innerHTML=btnHtml; btn.disabled=false;
+    },2600);
+  }
+  if(sel) sel.disabled=false;
+  if(out) out.innerHTML=reminderReportHtml(report);
+  if(report.reason) toast('⚠️ '+report.reason,4000);
+  else if(trigger==='lead') toast(n>0?('✅ Waktu reminder disimpan — '+n+' reminder dijadwalkan ulang'):'✅ Waktu reminder disimpan');
+  else toast(n>0?('✅ '+n+' reminder dijadwalkan hari ini'):'ℹ️ Tidak ada reminder baru untuk hari ini');
+  _reminderRunning=false;
+}
+function reminderReportHtml(r){
+  const box='margin-top:10px;border-radius:10px;padding:10px 12px;font-size:0.76rem;line-height:1.55;animation:llkFadeUp .35s ease both;';
+  if(r.reason) return '<div style="'+box+'background:#fff5f5;border:1px solid rgba(220,38,38,0.25);color:#991b1b">⚠️ '+escapeHtml(r.reason)+'</div>';
+  const fmt=function(d){ return pad(d.getHours())+':'+pad(d.getMinutes()); };
+  let h='';
+  if((r.scheduled||[]).length){
+    h+='<div style="font-weight:800;color:var(--hadir-text);margin-bottom:4px">🔔 Notifikasi akan bunyi:</div>';
+    h+=r.scheduled.map(function(x){ return '<div>• <b>'+fmt(x.at)+'</b> — '+escapeHtml(x.name)+' <span style="color:var(--muted)">(les jam '+escapeHtml(x.time)+')</span></div>'; }).join('');
+  }
+  if((r.failed||[]).length){
+    h+='<div style="font-weight:800;color:#991b1b;margin:8px 0 4px">❌ Gagal dijadwalkan:</div>';
+    h+=r.failed.map(function(x){ return '<div>• '+escapeHtml(x.name)+' (jam '+escapeHtml(x.time)+') — cek internet lalu coba lagi</div>'; }).join('');
+  }
+  if((r.skipped||[]).length){
+    h+='<div style="font-weight:700;color:var(--muted);margin:8px 0 4px">Dilewati:</div>';
+    h+=r.skipped.map(function(x){ return '<div style="color:var(--muted)">• '+escapeHtml(x.name)+(x.time?' (jam '+escapeHtml(x.time)+')':'')+' — '+escapeHtml(x.why)+'</div>'; }).join('');
+  }
+  if(!h) h='<div style="color:var(--muted)">Tidak ada sesi les yang tersisa hari ini.</div>';
+  const ok=(r.scheduled||[]).length&&!(r.failed||[]).length;
+  return '<div style="'+box+'background:'+(ok?'var(--hadir-bg)':'var(--card2)')+';border:1px solid '+(ok?'rgba(29,158,78,0.25)':'var(--border)')+'">'+h+'</div>';
+}
+// Tombol aktif/nonaktif notifikasi push: animasi loading sampai prosesnya selesai
+function onPushToggleClick(btn){
+  if(btn.disabled) return;
+  const enabling=!localStorage.getItem('llk_push_enabled');
+  btn.disabled=true; btn.classList.add('llk-busy');
+  btn.innerHTML='<span class="llk-btn-spin light"></span>'+(enabling?'Mengaktifkan notifikasi…':'Menonaktifkan…');
+  // Jaga-jaga kalau layanan notifikasi tidak merespons (mis. internet putus)
+  setTimeout(function(){
+    if(document.body.contains(btn)&&btn.disabled){ toast('⚠️ Layanan notifikasi belum merespons — cek internet lalu coba lagi',4000); renderNotifSettings(); }
+  },15000);
+  togglePushNotif();
+}
 
 // Play a gentle 3-tone chime using Web Audio API (no external file needed)
 // Nada-nada tersedia
@@ -7131,7 +7234,7 @@ function renderNotifSettings(){
       <div style="background:${localStorage.getItem('llk_push_enabled')?'var(--hadir-bg)':'#fff5f5'};border:1.5px solid ${localStorage.getItem('llk_push_enabled')?'var(--hadir)':'var(--red)'};border-radius:16px;padding:16px;margin-bottom:16px">
         <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">🔔 Notifikasi Latar Belakang (Push)</div>
         <div style="font-size:0.8rem;color:var(--text);margin-bottom:12px;line-height:1.5">${localStorage.getItem('llk_push_enabled')?'Aktif — reminder tetap masuk walau LLK ditutup total.':'Belum aktif — reminder cuma jalan kalau LLK sedang dibuka.'}</div>
-        <button onclick="togglePushNotif()"
+        <button id="pushToggleBtn" class="llk-press" onclick="onPushToggleClick(this)"
           style="width:100%;padding:12px;background:${localStorage.getItem('llk_push_enabled')?'var(--hadir)':'var(--red)'};color:#fff;border:none;border-radius:10px;font-family:sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer">
           ${localStorage.getItem('llk_push_enabled')?'✓ Notifikasi Aktif (klik untuk nonaktifkan)':'🔔 Aktifkan Notifikasi Push'}
         </button>
@@ -7139,7 +7242,7 @@ function renderNotifSettings(){
       <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px">
         <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">⏱️ Waktu Reminder</div>
         <div style="font-size:0.78rem;color:var(--muted);margin-bottom:12px;line-height:1.5">Ingatkan berapa lama sebelum jadwal sesi dimulai.</div>
-        <select id="notifLeadTime" onchange="localStorage.setItem('llk_push_lead_minutes',this.value);toast('✅ Waktu reminder disimpan');scheduleTodayReminders(false)"
+        <select id="notifLeadTime" onchange="localStorage.setItem('llk_push_lead_minutes',this.value);runReminderSchedule('lead')"
           style="width:100%;padding:12px;border-radius:10px;border:1.5px solid var(--border);background:var(--card2);color:var(--text);font-family:sans-serif;font-size:0.85rem;margin-bottom:12px">
           <option value="5" ${getNotifLeadMinutes()===5?'selected':''}>5 menit sebelumnya</option>
           <option value="10" ${getNotifLeadMinutes()===10?'selected':''}>10 menit sebelumnya</option>
@@ -7148,10 +7251,11 @@ function renderNotifSettings(){
           <option value="60" ${getNotifLeadMinutes()===60?'selected':''}>1 jam sebelumnya</option>
           <option value="120" ${getNotifLeadMinutes()===120?'selected':''}>2 jam sebelumnya</option>
         </select>
-        <button onclick="scheduleTodayReminders(true)"
-          style="width:100%;padding:11px;background:var(--card2);color:var(--text);border:1.5px solid var(--border);border-radius:10px;font-family:sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer">
+        <button id="reminderScheduleBtn" class="llk-press" onclick="runReminderSchedule('button')"
+          style="width:100%;padding:11px;background:var(--card2);color:var(--text);border:1.5px solid var(--border);border-radius:10px;font-family:sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px">
           🔄 Jadwalkan Ulang Reminder Hari Ini
         </button>
+        <div id="reminderScheduleResult"></div>
         <div style="font-size:0.65rem;color:var(--muted);margin-top:8px;line-height:1.5">Reminder hari ini terjadwal otomatis begitu tab Absensi dibuka. Tombol ini buat jadwalkan ulang manual (misal setelah ganti waktu reminder atau ubah jadwal siswa).</div>
       </div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px">
