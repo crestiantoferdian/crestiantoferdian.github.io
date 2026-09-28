@@ -55,13 +55,15 @@ _Terakhir diperbarui: 28 Sep 2026_
    - **Pemilik:** isi Payments profile; upload AAB ke Internal testing; buat langganan `llk_pro` (base plan `bulanan` Rp40.000 dan `tahunan`); tambahkan License testing; aktifkan Play Developer API; buat Service Account dengan izin di Play Console; simpan kuncinya sebagai secret di Cloudflare.
    - **Claude:** deteksi aplikasi dari Play Store (pakai Play Billing) atau browser (tetap Midtrans), verifikasi pembelian di worker Cloudflare, tulis status ke `subscriptions/{uid}`, konfirmasi pembelian ke Google dalam 3 hari, tombol "Pulihkan Langganan".
    - **Masih harus dijawab:** sudah punya akun Play Console dan AAB? Berapa harga tahunan? Setuju verifikasi dipasang di worker Cloudflare?
-2. **Pindah ke domain `leslesanku.com`** (PR #9):
+2. ✅ **Pindah ke domain `leslesanku.com`** (PR #9, #10) — selesai 29 Sep 2026:
    - ✅ Worker `llk-onesignal-bridge` menerima alamat baru + alamat lama (sudah di-deploy).
    - ✅ DNS Cloudflare: 4 record A `@` → 185.199.108–111.153 dan CNAME `www` → `crestiantoferdian.github.io`, semua **DNS only** (jangan diubah ke proxied).
    - ✅ Firebase Authorized domains: `leslesanku.com` dan `www.leslesanku.com` ditambahkan; `crestiantoferdian.github.io` tetap ada.
    - ✅ Data 2 guru aktif sudah tersinkron ke cloud (version 8, 28 Sep 2026).
    - ✅ PR #9 di-merge 28 Sep 2026 23:39 WIB; https://leslesanku.com sudah aktif (HTTPS jalan).
-   - ⏳ Sisa: cek GitHub Settings → Pages (login sebagai pemilik `crestiantoferdian`, bukan kolaborator `gitarsaktipol`) → Enforce HTTPS → GitHub Settings → Pages → Enforce HTTPS → ganti Site URL OneSignal → guru login ulang & nyalakan ulang notifikasi.
+   - ✅ OneSignal (app "LLK App") → Settings → Push & In-App → Web → Site URL diganti ke `https://leslesanku.com` (29 Sep 2026). Notifikasi di HP pemilik sudah aktif lagi di alamat baru.
+   - ✅ HP guru kedua (istri pemilik, guru bahasa Inggris) sudah pindah; GitHub Pages: custom domain `leslesanku.com`, DNS check successful, **Enforce HTTPS** aktif. **Pindah domain selesai.**
+   - Catatan: `gitarsaktipol` hanya kolaborator di repo `crestiantoferdian` (tidak ada salinan repo terpisah); semua merge-nya masuk ke repo ini, tapi menu Settings hanya bisa dibuka akun pemilik.
    - Setelah pindah: pakai `https://leslesanku.com` untuk isian website di Play Console, dan `https://leslesanku.com/privacy-policy.html` untuk kebijakan privasi. Aplikasi Android (TWA) versi baru harus memakai host `leslesanku.com`.
 3. **Closed testing** 12 penguji × 14 hari, lalu isi formulir **Data Safety** di Play Console.
 4. **Celah reset trial** (perlu kode Cloud Functions).
