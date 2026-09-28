@@ -127,7 +127,50 @@ export default {
     }
 
     try {
-      // ── 2) Batalkan reminder yang sudah terjadwal ──
+      // ── 2a) Bersihkan SEMUA reminder jadwal les yang masih menunggu untuk
+      //        1 perangkat, sampai batas waktu tertentu (biasanya akhir hari ini).
+      //        Dipakai sebelum menjadwalkan ulang, supaya salinan lama yang ID-nya
+      //        sudah tidak diingat aplikasi (penyebab notifikasi dobel) ikut hilang.
+      //        Hanya notifikasi berjudul "🎵 …" (reminder les) yang disentuh —
+      //        reminder masa trial dll tidak ikut terhapus.
+      if (body.action === 'cleanup') {
+        const sub = typeof body.subscriptionId === 'string' ? body.subscriptionId.trim() : '';
+        if (!/^[0-9a-fA-F-]{8,64}$/.test(sub)) return json({ error: 'subscriptionId tidak valid' }, 400);
+        const untilMs = Date.parse(body.until);
+        const nowMs = Date.now();
+        if (isNaN(untilMs) || untilMs < nowMs || untilMs > nowMs + 2 * 24 * 60 * 60 * 1000) {
+          return json({ error: 'until harus antara sekarang dan 2 hari ke depan' }, 400);
+        }
+        let canceled = 0, checked = 0;
+        for (let offset = 0; offset < 300; offset += 50) {
+          const listRes = await fetchImpl(
+            `https://api.onesignal.com/notifications?app_id=${env.ONESIGNAL_APP_ID}&limit=50&offset=${offset}&kind=1`,
+            { headers: { Authorization: `Key ${env.ONESIGNAL_API_KEY}` } }
+          );
+          if (!listRes.ok) break;
+          const page = await listRes.json().catch(() => ({}));
+          const list = page.notifications || [];
+          for (const n of list) {
+            checked++;
+            const ids = n.include_player_ids || n.include_subscription_ids || [];
+            if (!ids.includes(sub) || n.canceled || n.completed_at) continue;
+            const sendAtMs = (n.send_after || 0) * 1000;
+            if (sendAtMs <= nowMs || sendAtMs > untilMs) continue;
+            const heading = (n.headings && n.headings.en) || '';
+            if (!heading.startsWith('🎵')) continue;
+            const del = await fetchImpl(
+              `https://api.onesignal.com/notifications/${n.id}?app_id=${env.ONESIGNAL_APP_ID}`,
+              { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Key ${env.ONESIGNAL_API_KEY}` } }
+            );
+            if (del.ok) canceled++;
+          }
+          if (list.length < 50) break;
+        }
+        console.log('cleanup oleh uid', uid, 'dibatalkan', canceled);
+        return json({ ok: true, canceled, checked });
+      }
+
+      // ── 2b) Batalkan 1 reminder yang sudah terjadwal ──
       if (body.action === 'cancel') {
         const id = String(body.notificationId || '');
         if (!/^[0-9a-fA-F-]{8,64}$/.test(id)) return json({ error: 'notificationId tidak valid' }, 400);
