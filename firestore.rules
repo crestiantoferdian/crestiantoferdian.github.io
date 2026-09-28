@@ -18,6 +18,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Catatan email yang sudah pernah memakai trial (hanya Cloud Function).
+    match /trialUsage/{key} {
+      allow read, write: if false;
+    }
+
     // Backup data Guru Lepas (murid/absensi dll)
     match /backups/{uid}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;

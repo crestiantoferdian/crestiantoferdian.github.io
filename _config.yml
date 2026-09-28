@@ -1,1 +1,3 @@
 include: [".well-known"]
+# Kode server & tes tidak perlu ikut tampil di situs
+exclude: [functions, tests]

@@ -1,0 +1,5 @@
+node_modules/
+*.local
+# Kunci rahasia (Midtrans, SMTP) — JANGAN pernah di-commit
+.env
+.env.*
