@@ -1358,8 +1358,12 @@ function checkNotifications(){
   // Pakai getStudentsForDay — sumber jadwal yang SAMA dengan tab Absensi —
   // supaya otomatis mengenali siswa nonaktif (dilewati), Tambahan Kelas,
   // hari kedua/ketiga/keempat, dan reschedule terbaru dengan benar.
-  const todayS=getStudentsForDay(todayName, dateKey).filter(s=>!s._sameday_reschedule);
+  const todayS=getStudentsForDay(todayName, dateKey).filter(s=>!s._sameday_reschedule&&!s._hasActiveReschedule);
   todayS.forEach(s=>{
+    // BUGFIX: dulu pengingat di dalam aplikasi tetap bunyi walau murid sudah
+    // ditandai Izin/Hadir/Alpa. Sekarang sesi yang sudah ditandai dilewati.
+    const stNow=(attendance[s._extraDate||dateKey]||{})[s._attKey||s.name];
+    if(stNow==='hadir'||stNow==='izin'||stNow==='alpa') return;
     const effectiveTime=s.time||'00:00';
     const [h,m]=effectiveTime.split(':').map(Number);
     const lessonTime=new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m);
@@ -1372,6 +1376,9 @@ function checkNotifications(){
     }
   });
 
+  // Pastikan reminder push untuk sesi yang sudah ditandai (termasuk yang
+  // ditandai di perangkat lain lalu tersinkron) benar-benar dibatalkan.
+  reconcileMarkedReminders();
   // ── Pengingat: tombol amplop (kirim link) belum dicentang ──
   checkSheetSentReminder(dateKey, todayName);
   // ── Pengingat: laporan tab Kirim hari ini belum di-copy ──
@@ -1478,10 +1485,55 @@ async function cancelReminderPush(dateKey, attKey){
       body: JSON.stringify({ action:'cancel', notificationId:notifId, idToken:idToken })
     });
     if(res.ok) console.log('Reminder dibatalkan untuk', pushKey, notifId);
-    else console.warn('Gagal batalkan reminder (worker belum dukung action:cancel?) — status',res.status,'untuk',pushKey);
+    else{
+      console.warn('Gagal batalkan reminder — status',res.status,'untuk',pushKey);
+      // 400/404 = notifikasi sudah terkirim/tidak ada → tidak perlu diulang
+      if(res.status>=500||res.status===401||res.status===429) setPushId(pushKey, notifId);
+    }
   }catch(e){
-    console.warn('Gagal batalkan reminder (network):', e);
+    console.warn('Gagal batalkan reminder (network) — dicoba lagi nanti:', e);
+    setPushId(pushKey, notifId);
   }
+}
+// Cek berkala: reminder hari ini yang sesinya ternyata sudah ditandai
+// Hadir/Izin/Alpa (mis. pembatalan sebelumnya gagal karena internet, atau
+// ditandai lewat perangkat lain) → batalkan sekarang.
+const _reconcileTried={};
+function reconcileMarkedReminders(){
+  if(typeof currentUser==='undefined'||!currentUser||!navigator.onLine) return;
+  const today=todayStr();
+  const map=getPushIdMap();
+  Object.keys(map).forEach(function(pushKey){
+    const i=pushKey.indexOf('|'); if(i<0) return;
+    const dk=pushKey.slice(0,i), attKey=pushKey.slice(i+1);
+    if(dk<today){ popPushId(pushKey); return; } // reminder hari lalu, sudah lewat
+    const st=(attendance[dk]||{})[attKey];
+    if(st!=='hadir'&&st!=='izin'&&st!=='alpa') return;
+    if(_reconcileTried[pushKey]&&Date.now()-_reconcileTried[pushKey]<60000) return;
+    _reconcileTried[pushKey]=Date.now();
+    cancelReminderPush(dk, attKey);
+  });
+}
+// Bersihkan SEMUA reminder les yang masih menunggu untuk HP ini sampai akhir
+// hari ini (lewat worker) — termasuk salinan lama yang ID-nya sudah tidak
+// diingat aplikasi. Mengembalikan jumlah yang dibatalkan, atau null kalau
+// worker belum mendukung (versi lama) / gagal.
+async function cleanupTodayReminders(){
+  try{
+    const sub=localStorage.getItem('llk_push_subscription_id');
+    const idToken=await getWorkerAuthToken();
+    if(!sub||!idToken) return null;
+    const end=new Date(); end.setHours(23,59,59,0);
+    const res=await fetch(NOTIF_BRIDGE_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'cleanup',subscriptionId:sub,until:end.toISOString(),idToken:idToken})});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||!j.ok) return null;
+    // Semua reminder hari ini sudah dibatalkan di server → lupakan ID-nya
+    const map=getPushIdMap(), today=todayStr();
+    Object.keys(map).forEach(function(k){ if(k.slice(0,10)<=today) delete map[k]; });
+    localStorage.setItem(PUSH_ID_STORE_KEY, JSON.stringify(map));
+    return j.canceled||0;
+  }catch(e){ console.warn('cleanupTodayReminders gagal:', e); return null; }
 }
 
 // Token login Firebase untuk worker notifikasi — worker hanya melayani
@@ -1656,6 +1708,8 @@ async function scheduleTodayReminders(showToast, opts){
     // (_isRescheduled:true) yang otomatis ikut lolos filter ini.
     .filter(s=>!s._hasActiveReschedule && !s._sameday_reschedule);
   console.log(`scheduleTodayReminders: ${list.length} sesi ditemukan untuk ${dayName} ${dateKey}`, list.map(s=>s.name+(s._isExtra?' (extra)':'')));
+  if(opts.onProgress) try{ opts.onProgress(0, list.length, 'membersihkan reminder lama'); }catch(e){}
+  report.cleaned=await cleanupTodayReminders();
   let count=0, skipped=[], done=0;
   for(const s of list){
     done++;
@@ -1712,7 +1766,7 @@ async function runReminderSchedule(trigger){
   try{
     await scheduleTodayReminders(false,{report, onProgress:function(i,n,name){
       const t=document.getElementById('reminderProgTxt');
-      if(t) t.textContent='Menjadwalkan '+i+' dari '+n+' — '+name+'…';
+      if(t) t.textContent=i===0?'Membersihkan reminder lama…':('Menjadwalkan '+i+' dari '+n+' — '+name+'…');
     }});
   }catch(e){ report.reason='Terjadi kesalahan: '+(e&&e.message||e); }
   const n=(report.scheduled||[]).length;
@@ -1742,6 +1796,7 @@ function reminderReportHtml(r){
   if(r.reason) return '<div style="'+box+'background:#fff5f5;border:1px solid rgba(220,38,38,0.25);color:#991b1b">⚠️ '+escapeHtml(r.reason)+'</div>';
   const fmt=function(d){ return pad(d.getHours())+':'+pad(d.getMinutes()); };
   let h='';
+  if(r.cleaned) h+='<div style="color:var(--muted);margin-bottom:6px">🧹 '+r.cleaned+' reminder lama/dobel dibersihkan</div>';
   if((r.scheduled||[]).length){
     h+='<div style="font-weight:800;color:var(--hadir-text);margin-bottom:4px">🔔 Notifikasi akan bunyi:</div>';
     h+=r.scheduled.map(function(x){ return '<div>• <b>'+fmt(x.at)+'</b> — '+escapeHtml(x.name)+' <span style="color:var(--muted)">(les jam '+escapeHtml(x.time)+')</span></div>'; }).join('');
@@ -7259,7 +7314,12 @@ function renderNotifSettings(){
         <div style="font-size:0.65rem;color:var(--muted);margin-top:8px;line-height:1.5">Reminder hari ini terjadwal otomatis begitu tab Absensi dibuka. Tombol ini buat jadwalkan ulang manual (misal setelah ganti waktu reminder atau ubah jadwal siswa).</div>
       </div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px">
-        <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px">Pilih Suara</div>
+        <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Pilih Suara · saat aplikasi terbuka</div>
+        <div style="font-size:0.74rem;color:var(--text);background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px 12px;margin-bottom:12px;line-height:1.55">
+          🔔 Suara di bawah ini dipakai untuk pengingat <b>saat LesLesanKu sedang terbuka</b>.<br>
+          Notifikasi saat aplikasi <b>tertutup</b> memakai <b>suara notifikasi HP</b> — aplikasi web tidak diizinkan Android memilih suaranya sendiri. Untuk menggantinya:<br>
+          <b>Pengaturan HP → Aplikasi → LesLesanKu</b> (atau <b>Chrome</b>, kalau dibuka lewat Chrome) <b>→ Notifikasi</b> → pilih kategori notifikasinya → <b>Suara</b>. Di sana bisa pilih nada lain atau file MP3 sendiri.
+        </div>
         ${soundOptions}
       </div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px">
