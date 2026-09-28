@@ -8415,6 +8415,9 @@ function loginWithGoogle(){
   }
   setLoginGateStatus('Membuka login Google…');
   const provider=new firebase.auth.GoogleAuthProvider();
+  // Selalu tampilkan pilihan akun Google — tanpa ini, setelah logout Google
+  // langsung memakai akun terakhir sehingga tidak bisa pindah ke akun lain.
+  provider.setCustomParameters({prompt:'select_account'});
   // Set persistence LOCAL secara eksplisit (walau ini sebenarnya sudah default
   // Firebase) — supaya sesi login disimpan sepersisten mungkin di penyimpanan
   // browser/TWA, bertahan lintas restart app. Ini nggak bisa 100% mencegah

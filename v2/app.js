@@ -126,6 +126,7 @@ async function login(pendingAction) {
   if (!navigator.onLine) { toast('⚠️ Perlu internet untuk login'); return null; }
   if (isBareWebView()) { alert('Login Google tidak didukung di tampilan ini. Buka lewat Chrome atau aplikasi LesLesanKu resmi.'); return null; }
   const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' }); // selalu tampilkan pilihan akun
   try {
     const res = await signInWithPopup(auth, provider);
     return res.user;
