@@ -1,9 +1,23 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "io.github.crestiantoferdian.twa",
+      "sha256_cert_fingerprints": [
+        "CA:67:8F:6C:E9:F8:83:56:70:C7:68:34:C8:25:BC:A2:21:B2:7B:EA:E2:3F:34:CB:B9:53:8F:2E:16:02:8B:1B"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.leslesanku.app",
       "sha256_cert_fingerprints": [
         "CA:67:8F:6C:E9:F8:83:56:70:C7:68:34:C8:25:BC:A2:21:B2:7B:EA:E2:3F:34:CB:B9:53:8F:2E:16:02:8B:1B"
       ]
