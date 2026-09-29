@@ -603,6 +603,10 @@ button:disabled{opacity:.55;cursor:default}
 .llk-callout.danger{background:var(--alpa-bg);color:var(--alpa-text)}
 .llk-check{width:24px;height:24px;border-radius:8px;border:1.75px solid var(--muted2);background:var(--card);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
 .llk-check.on{background:var(--hadir);border-color:var(--hadir)}
+.llk-logout-btn.is-leaving{background:var(--alpa-bg);border-color:var(--alpa);animation:llkLogoutPress 420ms var(--ease-out)}
+.llk-logout-btn.is-leaving .ico{animation:llkLogoutNudge 520ms var(--ease-out)}
+@keyframes llkLogoutPress{0%{transform:scale(1)}35%{transform:scale(0.9)}100%{transform:scale(1)}}
+@keyframes llkLogoutNudge{0%{transform:none;opacity:1}45%{transform:translateX(7px);opacity:0}46%{transform:translateX(-7px);opacity:0}100%{transform:none;opacity:1}}
 .llk-cp-row{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border2);border-radius:var(--r-md);background:var(--card);color:var(--text);font:inherit;text-align:left;cursor:pointer;transition:transform var(--d1) var(--ease-out),background-color var(--d1) var(--ease-out),border-color var(--d1) var(--ease-out)}
 .llk-cp-row:active{transform:scale(0.985)}
 .llk-cp-row.on{background:var(--hadir-bg);border-color:var(--hadir)}
@@ -1085,7 +1089,7 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
   <div id="paywallPlans" style="width:100%"></div>
   <div id="paywallStatus" style="margin-top:18px;font-size:0.84rem;color:var(--muted)"></div>
   <button onclick="cekStatusPembayaran(false)" class="llk-btn secondary" style="margin-top:10px;height:auto;min-height:44px;padding:10px 14px;font-size:0.84rem;font-weight:600"><svg class="ico" aria-hidden="true"><use href="#i-refresh"/></svg>Sudah bayar tapi belum aktif? Cek status pembayaran</button>
-  <button onclick="logoutFirebase()" style="margin-top:20px;background:none;border:none;color:var(--text2);font-size:0.84rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:10px 12px">
+  <button onclick="confirmLogout(this)" style="margin-top:20px;background:none;border:none;color:var(--text2);font-size:0.84rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:10px 12px">
     Logout
   </button>
 </div>
@@ -4718,12 +4722,13 @@ function deleteTeacherTask(id){
 
 // ── DIALOG KONFIRMASI GENERIK ──────────────────────────
 // Bisa dipakai fitur mana pun yang butuh "yakin?" sebelum aksi, tanpa harus bikin overlay baru tiap kali.
-function showGenericConfirm(title, msg, confirmLabel, onConfirm, danger){
+function showGenericConfirm(title, msg, confirmLabel, onConfirm, danger, icon){
   let overlay=document.getElementById('genericConfirmOverlay');
   if(!overlay){
     overlay=document.createElement('div');
     overlay.id='genericConfirmOverlay';
     overlay.className='overlay';
+    overlay.style.zIndex='10001';
     overlay.innerHTML=`
       <div class="modal" style="max-width:360px;text-align:center">
         <div id="genericConfirmIc" class="llk-dialog-ic ok"></div>
@@ -4739,7 +4744,7 @@ function showGenericConfirm(title, msg, confirmLabel, onConfirm, danger){
   document.getElementById('genericConfirmTitle').textContent=title;
   document.getElementById('genericConfirmMsg').innerHTML=msg;
   const gcIc=document.getElementById('genericConfirmIc');
-  if(gcIc){ gcIc.className='llk-dialog-ic '+(danger?'danger':'ok'); gcIc.innerHTML=llkI(danger?'trash':'check-circle'); }
+  if(gcIc){ gcIc.className='llk-dialog-ic '+(danger?'danger':'ok'); gcIc.innerHTML=llkI(icon||(danger?'trash':'check-circle')); }
   const yesBtn=document.getElementById('genericConfirmYesBtn');
   yesBtn.textContent=llkStripLeadEmoji(confirmLabel)||'Ya';
   yesBtn.style.background=danger?'var(--alpa)':'var(--hadir)';
@@ -8310,6 +8315,13 @@ function llkPaintPreview(val){
   if(tile) tile.style.background=on==='#ffffff'?'rgba(255,255,255,0.16)':'rgba(43,36,32,0.08)';
 }
 // Dipanggil saat slider digeser: gabungkan Warna/Kepekatan/Kecerahan jadi kode hex
+// Saat slider warna mulai disentuh, lepas fokus kolom teks yang masih aktif
+// (mis. Nama Kursus). Tanpa ini, HP Android menutup keyboard lalu menggulir
+// halaman balik ke kolom teks itu — slider jadi tidak bisa digeser.
+function llkSliderTouchStart(e){
+  const a=document.activeElement;
+  if(a && a!==e.target && (a.tagName==='TEXTAREA' || (a.tagName==='INPUT' && a.type!=='range'))) a.blur();
+}
 function llkColorSlide(){
   const h=+document.getElementById('llkHue').value, sa=+document.getElementById('llkSat').value, l=+document.getElementById('llkLight').value;
   window._llkSliding=true;
@@ -8323,7 +8335,7 @@ function renderColorSwatches(selected){
   if(!grid) return;
   if(!grid.querySelector('#llkHue')){
     const row=(id,label,min,max)=>`<div class="llk-slider"><div class="llk-slider-head"><span>${label}</span><span id="${id}Val"></span></div>
-      <input type="range" id="${id}" min="${min}" max="${max}" step="1" aria-label="${label}" oninput="llkColorSlide()"/></div>`;
+      <input type="range" id="${id}" min="${min}" max="${max}" step="1" aria-label="${label}" oninput="llkColorSlide()" onpointerdown="llkSliderTouchStart(event)" ontouchstart="llkSliderTouchStart(event)"/></div>`;
     grid.innerHTML=row('llkHue','Warna',0,359)+row('llkSat','Kepekatan',0,100)+row('llkLight','Kecerahan',6,94);
   }
   const hueEl=document.getElementById('llkHue'), satEl=document.getElementById('llkSat'), litEl=document.getElementById('llkLight');
@@ -9542,6 +9554,17 @@ function loginWithGoogle(){
   });
 }
 
+// Tombol logout: animasi kecil lalu tanya dulu sebelum benar-benar keluar
+function confirmLogout(btn){
+  if(btn&&btn.classList){
+    btn.classList.remove('is-leaving'); void btn.offsetWidth; btn.classList.add('is-leaving');
+    setTimeout(function(){ btn.classList.remove('is-leaving'); }, 700);
+  }
+  const email=currentUser&&currentUser.email?'<b>'+escapeHtml(currentUser.email)+'</b>':'akun ini';
+  setTimeout(function(){
+    showGenericConfirm('Keluar dari akun?', 'Anda yakin mau keluar dari '+email+'?<br><br>Data di HP ini tetap aman dan akan tersinkron lagi saat kamu masuk kembali.', 'Ya, Keluar', function(){ logoutFirebase(); }, true, 'logout');
+  }, 220);
+}
 function logoutFirebase(skipDirtyCheck){
   if(!fbAuth) return;
   // Data di HP TIDAK dihapus saat logout (sengaja — kalau sync terakhir belum
@@ -10126,7 +10149,7 @@ function renderAccountSection(){
         '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:0.96rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(currentUser.displayName||'')+'</div>'+
         '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0;margin-top:2px"><span style="font-size:0.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:100%">'+escapeHtml(currentUser.email||'')+'</span>'+badgeHtml+upgradeBtnHtml+'</div>'+
         '<div id="cloudSyncStatus" style="font-size:0.76rem;color:var(--hadir);margin-top:4px">Tersinkron otomatis</div></div>'+
-        '<button onclick="logoutFirebase()" class="llk-icon-btn sm" aria-label="Logout" title="Logout" style="color:var(--alpa)">'+llkI('logout')+'</button>'+
+        '<button onclick="confirmLogout(this)" class="llk-icon-btn sm llk-logout-btn" aria-label="Logout" title="Logout" style="color:var(--alpa)">'+llkI('logout')+'</button>'+
       '</div>';
     const delSlot=document.getElementById('deleteAccountSlot');
     if(delSlot) delSlot.innerHTML='<button onclick="startDeleteAccount()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--alpa);font-size:0.84rem;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:10px">'+llkI('trash','sm')+' Hapus Akun & Semua Data</button>';

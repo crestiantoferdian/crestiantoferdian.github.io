@@ -9,6 +9,10 @@ _Terakhir diperbarui: 30 Sep 2026 (Pembayaran Custom, kirim ulang kuitansi)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 🔧 Slider warna di HP + konfirmasi logout (30 Sep 2026)
+- **Bug (Android):** setelah mengetik Nama Kursus, menyentuh slider warna membuat halaman menggulir balik ke kolom nama (keyboard menutup, Chrome menggulir ke kolom yang masih fokus). Perbaikan: `llkSliderTouchStart()` di `onpointerdown/ontouchstart` slider melepas fokus kolom teks lebih dulu. Keyboard sungguhan tidak bisa ditiru di Playwright — **cek langsung di HP**.
+- **Logout:** tombol logout (kartu akun di Lainnya & layar paket) kini beranimasi lalu menampilkan dialog "Keluar dari akun? Anda yakin mau keluar dari [email]?" lewat `confirmLogout()` → `logoutFirebase()` (tidak berubah). `showGenericConfirm` dapat parameter ikon opsional; dialognya kini `z-index:10001` supaya tampil di atas layar paket & lembar invoice.
+
 ## 💳 Pembayaran Custom, kirim ulang kuitansi, "Perlu Dibayar" (30 Sep 2026)
 Permintaan pemilik: (1) ortu yang sudah bayar minta invoice lagi karena terhapus, tapi invoice untuk yang sudah dibayar tidak boleh dibuat lagi; (2) "Belum Lunas" → "Perlu Dibayar"; (3) ortu sering bayar di tengah siklus / sekalian beberapa pertemuan / sampai bulan depan → guru memilih sendiri tanggal yang dibayar, di semua mode.
 1. **Kirim Ulang Kuitansi**: tombol di kartu Siswa (saat lunas) dan di profil murid, membuka kuitansi terakhir (nomor & tanggal bayar sama, bukan invoice baru). Kuitansi yang pernah dikirim (`inv.receiptSentAt`) atau dibayar di hari lain diberi tanda **"SALINAN · dikirim ulang [tgl]"** di gambar/PDF & teks WA. Riwayat Invoice di profil kini punya **"Lihat semua"** (tersimpan s/d 24 per murid).
