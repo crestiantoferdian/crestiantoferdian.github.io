@@ -1,0 +1,30 @@
+# Sekali pakai: unduh file helper login resmi Firebase (llk-67a30.firebaseapp.com/__/auth/*)
+# supaya bisa di-host sendiri di leslesanku.com/__/auth/. Workflow ini menghapus dirinya
+# sendiri setelah selesai.
+name: fetch-firebase-auth-helper
+on:
+  push:
+    branches: [claude/loving-edison-auya78]
+    paths: [.github/workflows/fetch-firebase-auth-helper.yml]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unduh file helper
+        run: |
+          mkdir -p __/auth
+          for f in handler handler.js experiments.js iframe iframe.js; do
+            curl -fsSL "https://llk-67a30.firebaseapp.com/__/auth/$f" -o "__/auth/$f"
+            echo "$f: $(wc -c < "__/auth/$f") byte"
+          done
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -q .github/workflows/fetch-firebase-auth-helper.yml
+          git add __/auth
+          git commit -m "Tambah file helper login Firebase untuk di-host di leslesanku.com/__/auth/"
+          git push
