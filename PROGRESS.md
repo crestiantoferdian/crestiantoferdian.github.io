@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 29 Sep 2026 (perombakan tampilan)_
+_Terakhir diperbarui: 30 Sep 2026 (Pembayaran Custom, kirim ulang kuitansi)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,19 @@ _Terakhir diperbarui: 29 Sep 2026 (perombakan tampilan)_
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
+
+## 💳 Pembayaran Custom, kirim ulang kuitansi, "Perlu Dibayar" (30 Sep 2026)
+Permintaan pemilik: (1) ortu yang sudah bayar minta invoice lagi karena terhapus, tapi invoice untuk yang sudah dibayar tidak boleh dibuat lagi; (2) "Belum Lunas" → "Perlu Dibayar"; (3) ortu sering bayar di tengah siklus / sekalian beberapa pertemuan / sampai bulan depan → guru memilih sendiri tanggal yang dibayar, di semua mode.
+1. **Kirim Ulang Kuitansi**: tombol di kartu Siswa (saat lunas) dan di profil murid, membuka kuitansi terakhir (nomor & tanggal bayar sama, bukan invoice baru). Kuitansi yang pernah dikirim (`inv.receiptSentAt`) atau dibayar di hari lain diberi tanda **"SALINAN · dikirim ulang [tgl]"** di gambar/PDF & teks WA. Riwayat Invoice di profil kini punya **"Lihat semua"** (tersimpan s/d 24 per murid).
+2. Cap invoice & label riwayat: **PERLU DIBAYAR** (dulu BELUM LUNAS). Invoice yang dibatalkan: **DIBATALKAN** (`inv.voidAt`).
+3. **Pembayaran Custom** (tombol di profil murid, semua mode): daftar "Belum dibayar · sudah berjalan" + "Jadwal berikutnya" (s/d ±200 hari), dicentang **berurutan dari yang paling lama**, pilihan cepat (yang sudah berjalan, +siklus, s/d akhir bulan ini/depan), total Rp langsung terlihat → simpan membuat kuitansi LUNAS (`inv.custom`).
+   - Per pertemuan (depan/belakang): saldo dicatat sebagai angka di `lastPaidAt` (belakang) / `prepaidThrough` (depan) → kalau tanggal yang dibayar jadi izin, jatahnya pindah ke pertemuan berikutnya. Status: "Terbayar di muka · sisa Nx".
+   - Bulanan (akhir bulan): field baru **`s.paidThruDate`** (semua pertemuan s/d tanggal itu lunas); bulan yang semua pertemuannya terbayar ikut ditandai di `monthlyPaidThru`. Tagihan akhir bulan hanya berisi tanggal yang belum dibayar.
+   - Invoice lama yang belum dibayar otomatis DIBATALKAN saat Pembayaran Custom disimpan.
+4. **Batalkan Pembayaran Ini** (di kuitansi terakhir, untuk Pembayaran Custom maupun "Sudah Bayar"): mengembalikan `lastPaidAt/prepaidThrough/monthlyPaidThru/paidThruDate` persis seperti sebelum dicatat (disimpan di `inv.undo`), memulihkan invoice yang tadi dibatalkan.
+5. Bug diperbaiki: (a) Bulanan + Bayar di Belakang dengan `monthlyPaidThru` > bulan tagihan dulu dianggap belum bayar (`!==` → `>=`); (b) "Buat Invoice" mode Bayar di Depan dulu ikut menagih pertemuan yang sudah dibayar di muka; (c) di profil murid, menutup invoice / menekan Batal di dialog dulu ikut melempar balik ke daftar (flag `_llkSkipPop`); tombol Back HP kini menutup lembar invoice/Pembayaran Custom.
+6. Data: `paidThruDate` ikut dipertahankan saat edit murid & digabung (ambil yang terbaru) saat sinkron cloud; `voidAt` ikut tergabung. Catatan: penggabungan cloud mengambil nilai pembayaran terbesar, jadi pembatalan yang dilakukan saat perangkat lain belum sinkron bisa muncul lagi (jarang).
+7. Diuji Playwright (`paytest.js` di scratchpad sesi): 50 cek untuk 4 kombinasi mode (per pertemuan/bulanan × depan/belakang), Sudah Bayar + batalkan, salinan, tombol kembali; func.js 20/20, colortest 10/10.
 
 ## 🎨 Warna tema: header berwarna + slider (30 Sep 2026)
 - Permintaan pemilik: warna tema juga mengganti **warna header**, teksnya otomatis **hitam kalau header terang, putih kalau gelap**; pemilih warna berupa **slider geser**, bukan tombol-tombol warna.
