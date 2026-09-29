@@ -8064,7 +8064,10 @@ if ('serviceWorker' in navigator) {
 // (Project settings → General → Your apps → Web app → SDK setup and config)
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAvD4ABTYIjCtPCYzUaRM8AHsjiOamHQLU",
-  authDomain: "llk-67a30.firebaseapp.com",
+  // Login lewat domain sendiri (helper di /__/auth/) — layar Google menampilkan
+  // "leslesanku.com", bukan "llk-67a30.firebaseapp.com". Kalau login bermasalah,
+  // kembalikan ke "llk-67a30.firebaseapp.com".
+  authDomain: "leslesanku.com",
   projectId: "llk-67a30",
   storageBucket: "llk-67a30.firebasestorage.app",
   messagingSenderId: "894092774293",
