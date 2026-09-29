@@ -636,6 +636,12 @@ body.llk-limit-reached button[onclick*="reactivateStudent"]::before{content:'�
   .modal .mactions{padding-bottom:22px}
   .modal-handle{display:none}
 }
+/* Kartu paket langganan berjejer di layar lebar */
+@media (min-width:900px){
+  .llk-plan-row{display:flex;justify-content:center;align-items:stretch;gap:16px;max-width:1080px;margin:0 auto 8px}
+  .llk-plan-row>div{flex:1 1 0;max-width:340px!important;margin:0!important;display:flex;flex-direction:column}
+  .llk-plan-row>div>button:first-of-type{margin-top:auto}
+}
 /* Layar laptop yang cukup lebar (≥1200px): daftar & menu jadi 2 kolom */
 @media (min-width:1200px){
   /* Absensi: daftar murid 2 kolom */
@@ -723,11 +729,13 @@ body.llk-limit-reached button[onclick*="reactivateStudent"]::before{content:'�
 <!-- ═══ PAYWALL ═══ tampil di atas segalanya kalau trial habis & belum berlangganan.
      Beda dengan loginGate: ini muncul SETELAH user login, bukan sebelum. -->
 <div id="paywallOverlay" style="display:none;position:fixed;inset:0;z-index:9998;background:#fff;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 18px 32px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif;overflow-y:auto">
-  <div style="font-size:2.4rem;margin-bottom:4px">🎓</div>
+  <img id="paywallLogo" alt="LesLesanKu" style="width:100%;max-width:210px;height:auto;margin:0 auto 18px;display:block"/>
   <div id="paywallTitle" style="font-size:1.3rem;font-weight:800;color:#1c1c1e;margin-bottom:6px">Trial 31 Hari Kamu Sudah Selesai</div>
   <div id="paywallDesc" style="font-size:0.85rem;color:#6b7280;margin-bottom:22px;max-width:340px;line-height:1.6">
     Semoga sebulan ini bantu kelola les kamu lebih rapi! Lanjutkan supaya semua data absensi, progres, dan jadwal murid tetap aman & bisa terus dipakai.
   </div>
+  <div id="paywallFeatures" style="width:100%"></div>
+  <div style="font-size:0.95rem;font-weight:800;color:#1c1c1e;margin:6px 0 16px">Pilih paket kamu</div>
   <div id="paywallPlans" style="width:100%"></div>
   <div id="paywallStatus" style="margin-top:18px;font-size:0.78rem;color:#9ca3af"></div>
   <button onclick="cekStatusPembayaran(false)" style="margin-top:10px;background:none;border:1.5px solid #d1d5db;border-radius:10px;padding:10px 14px;color:#374151;font-size:0.8rem;font-weight:600;cursor:pointer">🔄 Sudah bayar tapi belum aktif? Cek status pembayaran</button>
@@ -8440,6 +8448,12 @@ function showPaywall(){
   }
   const plans=document.getElementById('paywallPlans');
   if(plans) plans.innerHTML=planCardsHtml({minTier:null});
+  const feats=document.getElementById('paywallFeatures');
+  if(feats) feats.innerHTML=proFeaturesHtml();
+  // Pakai gambar logo yang sama dengan layar login (tidak menyalin data gambar lagi)
+  const logo=document.getElementById('paywallLogo');
+  const srcLogo=document.querySelector('#loginGateFormWrap img');
+  if(logo&&srcLogo&&!logo.src) logo.src=srcLogo.src;
   el.style.display='flex';
   // Sekali per sesi: kalau ada pembayaran yang sudah lunas tapi notifikasinya
   // belum sampai ke server, aktifkan otomatis tanpa pengguna harus menekan tombol.
@@ -8511,11 +8525,40 @@ function showWelcomePricing(){
       <button onclick="closeWelcomePricing()" style="width:100%;padding:14px;background:#1c9e4e;color:#fff;border:none;border-radius:12px;font-size:0.9rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(28,158,78,0.32)">Mulai Gratis Sekarang</button>
     </div>
 
+    ${proFeaturesHtml()}
+    <div style="font-size:0.9rem;font-weight:800;color:#1c1c1e;margin:0 0 16px">Atau langsung berlangganan:</div>
     ${planCardsHtml({minTier:null})}
 
     <div style="font-size:0.72rem;color:#9ca3af;max-width:320px;margin:0 auto">Trial gratis 31 hari kamu sudah otomatis aktif (semua fitur, murid tanpa batas) — pilihan paket di atas cuma buat yang mau lewati trial & langsung berlangganan.</div>
   `;
   document.body.appendChild(el);
+}
+
+/* Daftar fitur yang didapat di SEMUA paket Pro (bedanya hanya batas murid).
+   Ditampilkan di paywall & layar Selamat Datang, di atas tombol beli. */
+const LLK_PRO_FEATURES=[
+  ['📋','Absensi harian sekali ketuk','Hadir, izin, alpa — jadwal tiap hari tersusun otomatis.'],
+  ['📝','Catatan progres + foto','Tiap pertemuan tercatat, riwayat lengkap per murid.'],
+  ['💬','Kirim progres ke orang tua','Langsung ke WhatsApp atau Google Sheet murid, 1 klik.'],
+  ['🔔','Pengingat jadwal les','Notifikasi sebelum les dimulai, walau aplikasi tertutup.'],
+  ['💰','Tagihan & invoice otomatis','Bayar di depan / di belakang, invoice PDF atau kirim ke WA.'],
+  ['📈','Track record & penghasilan','Rekap hadir-izin-alpa, kalender, dan estimasi pemasukan.'],
+  ['🔄','Reschedule & kelas tambahan','Pindah jadwal tanpa merusak riwayat absensi.'],
+  ['📚','Kurikulum, materi & PR guru','Tersusun rapi per mata pelajaran, siap dipakai tiap les.'],
+  ['🏫','Branding les kamu','Nama, logo, dan warna tema lembaga les sendiri.'],
+  ['☁️','Data aman di cloud','Tersinkron otomatis di HP & laptop, ada backup.']
+];
+function proFeaturesHtml(){
+  return '<div style="max-width:560px;margin:0 auto 22px;text-align:left;background:#fafafa;border:1px solid #eee;border-radius:20px;padding:18px 18px 8px">'
+    +'<div style="font-size:0.72rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#b31217;margin-bottom:12px;text-align:center">Semua paket Pro sudah termasuk</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:0 18px">'
+    +LLK_PRO_FEATURES.map(function(f){
+      return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0 10px">'
+        +'<span style="font-size:1.15rem;line-height:1.3;flex-shrink:0">'+f[0]+'</span>'
+        +'<div><div style="font-size:0.84rem;font-weight:700;color:#1c1c1e;line-height:1.35">'+f[1]+'</div>'
+        +'<div style="font-size:0.74rem;color:#6b7280;line-height:1.45;margin-top:1px">'+f[2]+'</div></div></div>';
+    }).join('')
+    +'</div></div>';
 }
 
 function formatRpPlan(n){ return 'Rp'+Number(n).toLocaleString('id-ID'); }
@@ -8529,20 +8572,20 @@ function planCardsHtml(opts){
   const n=activeStudentCount();
   const tiers=LLK_TIERS.filter(function(t,i){ return i>minIdx; });
   const fit=tiers.find(function(t){ return t.limit>n; })||tiers[tiers.length-1];
-  return tiers.map(function(t){
+  return '<div class="llk-plan-row">'+tiers.map(function(t){
     const isFit=fit&&fit.id===t.id;
     const limitText=t.limit===Infinity?'Murid aktif <b>tanpa batas</b>':'Maks. <b>'+t.limit+' murid aktif</b>';
     let btns='<button onclick="pickPlan(\''+t.monthly.plan+'\')" class="llk-pro-btn'+(isFit?' dark':'')+'" style="width:100%;padding:13px;background:'+(isFit?'#1c1c1e':'#fff')+';color:'+(isFit?'#fff':'#1c1c1e')+';border:'+(isFit?'none':'2px solid #1c1c1e')+';border-radius:12px;font-size:0.88rem;font-weight:700;cursor:pointer">Bulanan — '+formatRpPlan(t.monthly.price)+'</button>';
     if(t.yearly){
       const hemat=t.monthly.price*12-t.yearly.price;
-      btns+='<button onclick="pickPlan(\''+t.yearly.plan+'\')" style="width:100%;margin-top:8px;padding:13px;background:#fff;color:#1c1c1e;border:1.5px solid #d1d5db;border-radius:12px;font-size:0.85rem;font-weight:700;cursor:pointer">Tahunan — '+formatRpPlan(t.yearly.price)+(hemat>0?' <span style="color:#1c9e4e">(hemat '+formatRpPlan(hemat)+')</span>':'')+'</button>';
+      btns+='<button onclick="pickPlan(\''+t.yearly.plan+'\')" style="width:100%;margin-top:8px;padding:13px;background:#fff;color:#1c1c1e;border:1.5px solid #d1d5db;border-radius:12px;font-size:0.85rem;font-weight:700;cursor:pointer">Tahunan — '+formatRpPlan(t.yearly.price)+(hemat>0?'<span style="display:block;color:#1c9e4e;font-size:0.76rem;margin-top:2px">hemat '+formatRpPlan(hemat)+'</span>':'')+'</button>';
     }
     return '<div style="border:'+(isFit?'2px solid #1c1c1e':'1.5px solid #e5e7eb')+';border-radius:20px;padding:20px;max-width:360px;margin:0 auto 14px;text-align:left;position:relative;background:#fff;'+(isFit?'box-shadow:0 8px 24px rgba(0,0,0,0.08)':'')+'">'
       +(isFit?'<div style="position:absolute;top:-11px;right:16px;background:#1c1c1e;color:#fff;font-size:0.64rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.03em">COCOK UNTUKMU</div>':'')
       +'<div style="font-size:1.05rem;font-weight:800;color:#1c1c1e;margin-bottom:4px">'+(t.id==='unlimited'?'👑':t.id==='up'?'⭐':'✨')+' '+t.name+'</div>'
       +'<div style="font-size:0.82rem;color:#4b5563;margin-bottom:12px">'+limitText+' · semua fitur Pro</div>'
       +btns+'</div>';
-  }).join('');
+  }).join('')+'</div>';
 }
 
 function pickPlan(plan){
