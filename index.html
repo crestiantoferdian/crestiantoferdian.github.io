@@ -8064,10 +8064,10 @@ if ('serviceWorker' in navigator) {
 // (Project settings → General → Your apps → Web app → SDK setup and config)
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAvD4ABTYIjCtPCYzUaRM8AHsjiOamHQLU",
-  // Login lewat domain sendiri (helper di /__/auth/) — layar Google menampilkan
-  // "leslesanku.com", bukan "llk-67a30.firebaseapp.com". Kalau login bermasalah,
-  // kembalikan ke "llk-67a30.firebaseapp.com".
-  authDomain: "leslesanku.com",
+  // Sementara dikembalikan ke firebaseapp.com: login lewat "leslesanku.com"
+  // (helper di /__/auth/) gagal redirect_uri_mismatch karena pengaturan OAuth di
+  // Google belum aktif. Ganti lagi ke "leslesanku.com" setelah tes lengkap berhasil.
+  authDomain: "llk-67a30.firebaseapp.com",
   projectId: "llk-67a30",
   storageBucket: "llk-67a30.firebasestorage.app",
   messagingSenderId: "894092774293",
