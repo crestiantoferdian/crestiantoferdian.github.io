@@ -13,6 +13,7 @@ _Terakhir diperbarui: 29 Sep 2026 (perombakan tampilan)_
 - Permintaan pemilik: warna tema juga mengganti **warna header**, teksnya otomatis **hitam kalau header terang, putih kalau gelap**; pemilih warna berupa **slider geser**, bukan tombol-tombol warna.
 - `applySettings()` kini juga memanggil `llkApplyAccentVars(color)` (murni tampilan) yang mengisi `--on-red` (hitam/putih, mana yang lebih kontras) dan `--red-text` (warna tema yang digelapkan otomatis sampai ≥4.5:1 di atas kertas, dipakai untuk teks/tautan/menu aktif). Tombol aksen & badge memakai `--on-red`, jadi warna terang (mis. kuning) tetap terbaca.
 - Pengaturan Aplikasi: 3 slider (Warna/hue, Kepekatan, Kecerahan) + kolom hex. `pickColor()` dan `savePengaturan()` tetap sama; key `rms_school_color` tidak berubah. Pratinjau header ikut berubah langsung saat digeser.
+- Perbaikan: slider sempat berubah putih saat diklik, karena gaya fokus kolom isian (`.mfield input:focus`) menimpa gradasinya. Sekarang slider memakai gayanya sendiri juga saat fokus.
 
 ## 🎨 Perombakan tampilan total — "Buku Catatan Guru" (branch `claude/dazzling-cerf-ra7fos`, 29 Sep 2026)
 Murni tampilan: **tidak ada logika, alur data, key localStorage, nama fungsi/variabel, atau aturan Firestore yang diubah.** Data murid aman.
