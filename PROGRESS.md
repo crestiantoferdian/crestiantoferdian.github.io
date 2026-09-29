@@ -1,12 +1,20 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 28 Sep 2026_
+_Terakhir diperbarui: 29 Sep 2026_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
+0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
 1. Pastikan PR #15 sudah di-merge → buka leslesanku.com (Ctrl+Shift+R): badge masih PRO, murid lengkap, Tambah Murid tidak bergembok.
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
+
+## 🎨 Poles tampilan & perbaikan scroll (PR #21, 29 Sep 2026)
+1. **Kartu login:** teks dirapikan jadi 2 baris ("Login dengan akun Google untuk mulai." / "Data absensi & siswa tersimpan otomatis, plus **trial gratis 31 hari**."), `text-wrap:balance`, frasa trial tidak terpotong (`index.html`, `#loginGateMsg`).
+2. **Kartu paket (`planCardsHtml`):** tombol harga dibungkus `.llk-plan-btns` dan dipusatkan vertikal di kartu; semua tombol paket (`.llk-plan-btn`) punya animasi hover (naik + membesar) dan animasi tekan (menyusut).
+3. **Logo di sidebar laptop (≥900px):** `<img id="sidebarLogo" class="sidebar-logo">` di dalam `.bottom-nav` menggantikan teks "LesLesanKu"; sumber gambar disalin dari logo layar login lewat `llkSetSidebarLogo()` (tidak menggandakan data base64). Tampilan HP tidak berubah.
+4. **Bug tidak bisa scroll setelah bayar (laptop):** `showGlobalLoading` dulu mengunci `body.style.overflow='hidden'`; Midtrans Snap menyimpan nilai itu lalu memulihkannya saat ditutup sehingga halaman terkunci sampai reload. Kunci itu dihapus (overlay sudah memblokir wheel/touch) dan ada `llkUnlockPageScroll()` yang dipanggil di semua callback Snap (`onSuccess/onPending/onError/onClose`). **Belum diuji dengan pembayaran sungguhan** — cek di uji sandbox berikutnya bahwa halaman Lainnya bisa di-scroll (untuk Hapus Akun) setelah bayar.
+- Tidak ada perubahan yang menyentuh data murid.
 
 ## Info dasar
 - **Repo:** `crestiantoferdian/crestiantoferdian.github.io`, di-host di GitHub Pages: https://crestiantoferdian.github.io
