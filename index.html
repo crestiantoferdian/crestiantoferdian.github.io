@@ -603,6 +603,15 @@ button:disabled{opacity:.55;cursor:default}
 .llk-callout.danger{background:var(--alpa-bg);color:var(--alpa-text)}
 .llk-check{width:24px;height:24px;border-radius:8px;border:1.75px solid var(--muted2);background:var(--card);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
 .llk-check.on{background:var(--hadir);border-color:var(--hadir)}
+.llk-cp-row{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border2);border-radius:var(--r-md);background:var(--card);color:var(--text);font:inherit;text-align:left;cursor:pointer;transition:transform var(--d1) var(--ease-out),background-color var(--d1) var(--ease-out),border-color var(--d1) var(--ease-out)}
+.llk-cp-row:active{transform:scale(0.985)}
+.llk-cp-row.on{background:var(--hadir-bg);border-color:var(--hadir)}
+.llk-cp-row[disabled]{cursor:default;opacity:0.62}
+.llk-cp-row .d{font-weight:700;font-size:0.9rem;line-height:1.3}
+.llk-cp-row .l{font-size:0.78rem;color:var(--muted);margin-top:1px}
+.llk-cp-chip{display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--card);color:var(--text2);font:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:transform var(--d1) var(--ease-out)}
+.llk-cp-chip:active{transform:scale(0.96)}
+.llk-cp-chip.on{background:var(--text);border-color:var(--text);color:var(--card)}
 .llk-check .ico{width:15px;height:15px;animation:llkPop var(--d3) var(--ease-spring)}
 /* Kartu estimasi penghasilan (Track) — "halaman buku kas" bertinta gelap */
 .llk-income{position:relative;overflow:hidden;background:var(--text);color:#fffcf7;border-radius:var(--r-lg);padding:18px 18px 16px;margin-bottom:14px}
@@ -2498,6 +2507,12 @@ render();
 let _backPressedOnce=false, _backTimer=null;
 window.addEventListener('popstate',function(e){
   const state=e.state||{};
+  // Pop yang dipicu tombol tutup lembar (invoice / Pembayaran Custom): sudah ditutup, jangan navigasi
+  if(window._llkSkipPop){ window._llkSkipPop=false; return; }
+  const cpov=document.getElementById('customPayOverlay');
+  if(cpov){ cpov.remove(); window._cp=null; return; }
+  const invov=document.getElementById('invoiceOverlay');
+  if(invov){ invov.remove(); _currentInvoice=null; _currentInvoiceCanvas=null; _currentInvoiceCopy=null; return; }
 
   // 0. Tutup popup "Kirim Progres/Sheet" jika terbuka (dibuat dinamis, bukan overlay tetap)
   const spop=document.getElementById('sheetPopup');
@@ -3110,12 +3125,23 @@ function computeIsDue(s){
       total=countSessionsThisMonth(s.name, billingMonth);
       // Lunas kalau sudah dibayar sampai bulan yang ditagih (atau lebih)
       isDue=!(s.monthlyPaidThru && s.monthlyPaidThru>=billingMonth);
+      // Pembayaran Custom: sebagian pertemuan bulan ini sudah dibayar per tanggal
+      if(isDue && s.paidThruDate && s.paidThruDate>=billingMonth+'-01'){
+        total=llkMonthlyUnpaidCount(s, billingMonth, false);
+        isDue=llkMonthlyUnpaidCount(s, billingMonth, true)>0;
+      }
     } else {
       billingMonth=getBillingMonthKey();
       total=countSessionsThisMonth(s.name, billingMonth);
-      // isDue TETAP true selama monthlyPaidThru belum menyamai bulan yang
+      // isDue TETAP true selama monthlyPaidThru belum mencapai bulan yang
       // sedang ditagih — nggak peduli sekarang tanggal berapa, bulan apa.
-      isDue=s.monthlyPaidThru!==billingMonth;
+      // Pakai >= (bukan ===) supaya bayar di muka s/d bulan depan tetap lunas.
+      isDue=!(s.monthlyPaidThru && s.monthlyPaidThru>=billingMonth);
+      // Pembayaran Custom: pertemuan s/d s.paidThruDate sudah dibayar per tanggal
+      if(isDue && s.paidThruDate && s.paidThruDate>=billingMonth+'-01'){
+        total=llkMonthlyUnpaidCount(s, billingMonth, false);
+        isDue=total>0;
+      }
     }
   } else if(timing==='depan'){
     // Sisa "saldo" pertemuan yang sudah dibayar di depan. prepaidThrough =
@@ -3128,6 +3154,8 @@ function computeIsDue(s){
     isDue=paymentMode==='session' && credit<=0;
   } else {
     total=countSessionsForBilling(s.name);
+    // >0 = pertemuan yang sudah dibayar di muka lewat Pembayaran Custom
+    credit=Math.max(0,(s.lastPaidAt||0)-countSessions(s.name));
     // BUGFIX: sebelumnya pakai total%cycle===0, jadi tagihan cuma muncul PAS
     // di sesi ke-4/8/12 — begitu lewat 1 sesi tanpa ditandai "Sudah Bayar",
     // peringatannya hilang (dianggap baru 1/4x). Sekarang tetap muncul terus
@@ -3141,6 +3169,8 @@ function paymentStatusText(s, d){
   d=d||computeIsDue(s);
   const monthName=mk=>mk?getMonthNameID(new Date(mk+'-01T00:00:00')):'';
   if(paymentMode==='monthly'){
+    if(!d.isDue && s.monthlyPaidThru && s.monthlyPaidThru>=getMonthKey()) return '✅ Lunas s/d '+monthName(s.monthlyPaidThru);
+    if(!d.isDue && s.paidThruDate && s.paidThruDate>=todayStr()) return '✅ Terbayar s/d '+fmtInvDate(s.paidThruDate);
     if(d.timing==='depan') return d.isDue?('💳 Bayar di depan · bulan '+monthName(d.billingMonth)):('✅ Lunas s/d '+monthName(s.monthlyPaidThru));
     return d.isDue?('💳 Waktunya Bayar! (Akhir Bulan · '+d.total+'x)'):'📅 Ditagih akhir bulan';
   }
@@ -3149,6 +3179,7 @@ function paymentStatusText(s, d){
     return '✅ Sisa '+d.credit+'x pertemuan terbayar';
   }
   if(d.isDue) return '💳 Waktunya Bayar! ('+d.total+'x)';
+  if(d.credit>0) return '✅ Terbayar di muka · sisa '+d.credit+'x';
   const rem=Math.max(0,d.cycle-d.total);
   return '✅ '+d.total+'/'+d.cycle+'x · '+rem+'x lagi';
 }
@@ -3367,7 +3398,9 @@ function buildInvoiceDraft(s){
     } else {
       const covered=(s.prepaidThrough!=null)?s.prepaidThrough:(s.lastPaidAt||0);
       const arrears=list.slice(Math.min(list.length,covered)).map(x=>Object.assign({},x,{label:x.label+' · belum dibayar'}));
-      const upcoming=upcomingSessionList(s, today, {limit:cycle});
+      // Pertemuan mendatang yang sudah dibayar di muka dilewati (tidak ditagih lagi)
+      const credit=Math.max(0,covered-list.length);
+      const upcoming=upcomingSessionList(s, today, {limit:credit+cycle}).slice(credit);
       const extraNeeded=cycle-upcoming.length;
       items=arrears.concat(upcoming);
       // Jadwal belum cukup (mis. murid tanpa jadwal rutin) → sisanya tanpa tanggal
@@ -3377,7 +3410,7 @@ function buildInvoiceDraft(s){
   } else {
     if(timing==='belakang'){
       const mk=getBillingMonthKey();
-      items=countedSessionList(s.name).filter(x=>x.date&&x.date.startsWith(mk));
+      items=countedSessionList(s.name).filter(x=>x.date&&x.date.startsWith(mk)&&llkDateUnpaidMonthly(s,x.date));
       period=mk;
       desc='Pembayaran les bulan '+monthKeyToLabel(mk)+' ('+items.length+'x pertemuan)';
     } else {
@@ -3388,7 +3421,7 @@ function buildInvoiceDraft(s){
       const done=countedSessionList(s.name).filter(x=>x.date&&x.date.startsWith(mk));
       const from=today>monthStart?today:monthStart;
       const upcoming=from<=monthEnd?upcomingSessionList(s, from, {untilDk:monthEnd}):[];
-      items=done.concat(upcoming);
+      items=done.concat(upcoming).filter(x=>llkDateUnpaidMonthly(s,x.date));
       period=mk;
       desc='Pembayaran di depan les bulan '+monthKeyToLabel(mk)+' ('+items.length+'x pertemuan)';
     }
@@ -3412,7 +3445,7 @@ function invoiceTemplateKey(inv){
   if(inv.timing==='depan') return inv.mode==='monthly'?'prepaid_monthly':'prepaid_session';
   return inv.mode==='monthly'?'monthly':'session';
 }
-function buildInvoiceWaText(inv){
+function buildInvoiceWaText(inv, copyDate){
   const tanggalStr=inv.items.filter(x=>x.date).map(x=>parseInt(x.date.split('-')[2],10)).join(', ')||'-';
   const vars={
     nama:inv.studentName, sesi:inv.items.length, siklus:(students.find(x=>x.name===inv.studentName)||{}).payCycle||4,
@@ -3422,7 +3455,9 @@ function buildInvoiceWaText(inv){
   let text=inv.paidAt
     ? getGreetingID()+',\nKepada Yth. Bapak/Ibu '+inv.studentName+',\n\nTerima kasih, pembayaran les '+inv.studentName+' sebesar '+formatRupiah(inv.total)+' sudah kami terima ✅'
     : fillTemplate(getPaymentTemplate(invoiceTemplateKey(inv)), vars);
-  text+='\n\n🧾 *'+(inv.paidAt?'KUITANSI LUNAS':'INVOICE')+' '+inv.no+'*\n'+inv.desc+'\n';
+  text+='\n\n🧾 *'+(inv.paidAt?'KUITANSI LUNAS':'INVOICE')+' '+inv.no+'*\n';
+  if(copyDate&&inv.paidAt) text+='_Salinan · dikirim ulang '+new Date(copyDate+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+'_\n';
+  text+=inv.desc+'\n';
   inv.items.forEach((it,i)=>{ text+=(i+1)+'. '+(it.date?fmtInvDate(it.date):'-')+' — '+it.label+'\n'; });
   text+='*Total: '+formatRupiah(inv.total)+'*';
   if(inv.paidAt) text+='\nStatus: LUNAS ('+new Date(inv.paidAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+')';
@@ -3448,7 +3483,7 @@ function wrapCanvasText(ctx, text, maxW){
 function loadImageSafe(src){
   return new Promise(res=>{ if(!src) return res(null); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
 }
-async function renderInvoiceCanvas(inv){
+async function renderInvoiceCanvas(inv, copyDate){
   const W=1240, M=80;
   const color=localStorage.getItem('rms_school_color')||'#a8372a';
   const school=localStorage.getItem('rms_school_name')||'LLK';
@@ -3473,7 +3508,9 @@ async function renderInvoiceCanvas(inv){
   c.font=font(800,54); c.fillText(school,tx,110);
   c.font=font(500,28); c.globalAlpha=0.9; c.fillText(sub,tx,152); c.globalAlpha=1;
   c.textAlign='right'; c.font=font(800,50); c.fillText(inv.paidAt?'KUITANSI':'INVOICE',W-M,110);
-  c.font=font(500,26); c.fillText(inv.no,W-M,152); c.textAlign='left';
+  c.font=font(500,26); c.fillText(inv.no,W-M,152);
+  if(copyDate){ c.font=font(700,21); c.globalAlpha=0.9; c.fillText('SALINAN · dikirim ulang '+new Date(copyDate+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}),W-M,190); c.globalAlpha=1; }
+  c.textAlign='left';
   // Info
   let y=290;
   c.fillStyle='#6b7280'; c.font=font(700,22); c.fillText('DITAGIHKAN KEPADA',M,y);
@@ -3513,11 +3550,12 @@ async function renderInvoiceCanvas(inv){
   c.textAlign='right'; c.fillStyle='#1c1c1e'; c.font=font(800,44); c.fillText('Total '+formatRupiah(inv.total),W-M,y); c.textAlign='left';
   // Stempel status
   y+=70;
-  const paid=!!inv.paidAt;
-  const stamp=paid?'LUNAS':'BELUM LUNAS';
+  const paid=!!inv.paidAt&&!inv.voidAt;
+  const stamp=inv.voidAt?'DIBATALKAN':paid?'LUNAS':'PERLU DIBAYAR';
+  const stampColor=inv.voidAt?'#6b7280':paid?'#1d9e4e':'#dc2626';
   c.font=font(800,34);
   const sw=c.measureText(stamp).width+60;
-  c.strokeStyle=paid?'#1d9e4e':'#dc2626'; c.fillStyle=paid?'#1d9e4e':'#dc2626'; c.lineWidth=5;
+  c.strokeStyle=stampColor; c.fillStyle=stampColor; c.lineWidth=5;
   c.strokeRect(M,y,sw,70); c.fillText(stamp,M+30,y+48);
   if(paid){ c.font=font(500,24); c.fillText('Dibayar '+new Date(inv.paidAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),M+sw+24,y+45); }
   y+=110;
@@ -3572,6 +3610,8 @@ function saveInvoiceRecord(inv){
   const s=students.find(x=>x.name===inv.studentName);
   if(!s) return;
   s.invoices=s.invoices||[];
+  // Kuitansi yang sudah pernah dikirim → pembukaan berikutnya ditandai "Salinan"
+  if(inv.paidAt && !inv.receiptSentAt) inv.receiptSentAt=new Date().toISOString();
   const i=s.invoices.findIndex(x=>x.no===inv.no);
   if(i>=0) s.invoices[i]=Object.assign({},inv); else s.invoices.push(Object.assign({},inv));
   if(s.invoices.length>INVOICE_MAX_STORED) s.invoices=s.invoices.slice(-INVOICE_MAX_STORED);
@@ -3579,7 +3619,7 @@ function saveInvoiceRecord(inv){
 }
 
 // ── Modal invoice ──
-let _currentInvoice=null, _currentInvoiceCanvas=null;
+let _currentInvoice=null, _currentInvoiceCanvas=null, _currentInvoiceCopy=null;
 function openInvoice(name, invoiceNo){
   if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
   const s=students.find(x=>x.name===name);
@@ -3590,11 +3630,13 @@ function openInvoice(name, invoiceNo){
     // Pakai lagi invoice yang belum lunas kalau isinya masih sama (supaya
     // nomor invoice tidak berganti-ganti tiap tombol Tagih dipencet)
     const draft=buildInvoiceDraft(s);
-    const open=(s.invoices||[]).slice().reverse().find(x=>!x.paidAt);
+    const open=(s.invoices||[]).slice().reverse().find(x=>!x.paidAt&&!x.voidAt);
     const sameItems=open&&open.timing===draft.timing&&open.mode===draft.mode&&open.rate===draft.rate&&JSON.stringify(open.items)===JSON.stringify(draft.items);
     inv=sameItems?open:draft;
   }
   _currentInvoice=Object.assign({},inv);
+  // Kuitansi yang dibuka lagi (sudah pernah dikirim / dibayar di hari lain) = salinan
+  _currentInvoiceCopy=(inv.paidAt&&!inv.voidAt&&(inv.receiptSentAt||dateKeyOfDate(new Date(inv.paidAt))<todayStr()))?todayStr():null;
   showInvoiceModal();
 }
 async function showInvoiceModal(){
@@ -3613,7 +3655,7 @@ async function showInvoiceModal(){
       <div style="width:40px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 16px"></div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
         <div style="min-width:0">
-          <div class="modal-title" style="margin:0">${llkI('receipt')}${inv.paidAt?'Kuitansi Lunas':'Invoice Tagihan'}</div>
+          <div class="modal-title" style="margin:0">${llkI('receipt')}${inv.voidAt?'Invoice Dibatalkan':inv.paidAt?(_currentInvoiceCopy?'Salinan Kuitansi':'Kuitansi Lunas'):'Invoice Tagihan'}</div>
           <div style="font-size:0.84rem;color:var(--muted);margin-top:2px">${escapeHtml(inv.studentName)} · ${inv.items.length}x pertemuan · ${escapeHtml(formatRupiah(inv.total))}</div>
         </div>
         <button onclick="closeInvoiceModal()" class="llk-icon-btn sm" aria-label="Tutup" style="border-radius:50%">${llkI('x')}</button>
@@ -3630,12 +3672,13 @@ async function showInvoiceModal(){
         ${btn('invoiceDownloadPdf()',llkI('download')+' Download PDF','background:var(--card);color:var(--text);border:1px solid var(--border)')}
         ${btn('invoicePrint()',llkI('printer')+' Print','background:var(--card);color:var(--text);border:1px solid var(--border)')}
       </div>
+      ${llkCanUndoPayment(s,(s.invoices||[]).find(x=>x.no===inv.no))?'<button onclick="undoInvoicePayment()" class="llk-btn soft block" style="margin-top:10px;color:var(--alpa)">'+llkI('undo')+' Batalkan Pembayaran Ini</button>':''}
       <div style="font-size:0.8rem;color:var(--muted);margin-top:12px;line-height:1.55">WhatsApp tidak mengizinkan aplikasi lain melampirkan file langsung ke nomor tertentu. <b>Kirim Rincian</b> membuka chat ortu dengan rincian tagihan lengkap; <b>Bagikan File PDF</b> membuka menu bagikan HP — pilih WhatsApp lalu pilih kontak ortu.</div>
     </div>`;
   document.body.appendChild(el);
   history.pushState({tab:currentTab, view:'modal'},'');
   try{
-    _currentInvoiceCanvas=await renderInvoiceCanvas(inv);
+    _currentInvoiceCanvas=await renderInvoiceCanvas(inv, _currentInvoiceCopy);
     const wrap=document.getElementById('invoicePreviewWrap');
     if(wrap){ wrap.innerHTML=''; const im=document.createElement('img'); im.src=_currentInvoiceCanvas.toDataURL('image/png'); im.style.cssText='width:100%;display:block'; im.alt='Preview invoice'; wrap.appendChild(im); }
   }catch(e){
@@ -3646,11 +3689,11 @@ async function showInvoiceModal(){
 }
 function closeInvoiceModal(){
   const el=document.getElementById('invoiceOverlay');
-  if(el){ el.remove(); if(history.state&&history.state.view==='modal') history.back(); }
-  _currentInvoice=null; _currentInvoiceCanvas=null;
+  if(el){ el.remove(); if(history.state&&history.state.view==='modal'){ window._llkSkipPop=true; history.back(); } }
+  _currentInvoice=null; _currentInvoiceCanvas=null; _currentInvoiceCopy=null;
 }
 async function ensureInvoiceCanvas(){
-  if(!_currentInvoiceCanvas) _currentInvoiceCanvas=await renderInvoiceCanvas(_currentInvoice);
+  if(!_currentInvoiceCanvas) _currentInvoiceCanvas=await renderInvoiceCanvas(_currentInvoice, _currentInvoiceCopy);
   return _currentInvoiceCanvas;
 }
 function invoiceSendWA(){
@@ -3660,7 +3703,7 @@ function invoiceSendWA(){
   if(!phone){ toast('❌ Nomor WA murid belum diisi — edit data murid dulu'); return; }
   saveInvoiceRecord(inv);
   const wa=phone.startsWith('62')?phone:'62'+phone.replace(/^0/,'');
-  window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(buildInvoiceWaText(inv)),'_blank');
+  window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(buildInvoiceWaText(inv, _currentInvoiceCopy)),'_blank');
 }
 async function invoiceShareFile(){
   const inv=_currentInvoice; if(!inv) return;
@@ -3730,7 +3773,7 @@ async function invoicePrint(){
 // otomatis dari tagihan saat ini supaya tetap ada bukti pembayarannya.
 function markLatestInvoicePaid(s, draftBeforePay){
   s.invoices=s.invoices||[];
-  let inv=s.invoices.slice().reverse().find(x=>!x.paidAt);
+  let inv=s.invoices.slice().reverse().find(x=>!x.paidAt&&!x.voidAt);
   if(!inv){
     if(!draftBeforePay||!draftBeforePay.items.length) return null;
     inv=Object.assign({},draftBeforePay);
@@ -3741,17 +3784,245 @@ function markLatestInvoicePaid(s, draftBeforePay){
   return inv;
 }
 
-// Riwayat invoice untuk halaman profil murid
+// ══════════════════════════════════════════════════════════════════════
+// PEMBAYARAN CUSTOM — guru memilih sendiri pertemuan mana yang dibayar ortu
+// (lunasi yang sudah berjalan, bayar 3x ke depan, sekalian s/d bulan depan…).
+// Dicentang berurutan dari yang paling lama supaya tidak ada tagihan yang
+// terselip. Per pertemuan: saldo dicatat di lastPaidAt / prepaidThrough
+// (angka, jadi kalau tanggal yang dibayar ternyata izin, jatahnya pindah ke
+// pertemuan berikutnya). Bulanan: dicatat per tanggal di s.paidThruDate, dan
+// bulan yang semua pertemuannya terbayar ikut ditandai di monthlyPaidThru.
+// ══════════════════════════════════════════════════════════════════════
+const LLK_PAY_FIELDS=['lastPaidAt','prepaidThrough','monthlyPaidThru','paidThruDate'];
+function llkPaySnapshot(s){ const o={}; LLK_PAY_FIELDS.forEach(k=>{ if(s[k]!==undefined&&s[k]!==null) o[k]=s[k]; }); return o; }
+function llkMonthAdd(mk, n){ const [y,m]=mk.split('-').map(Number); return getMonthKey(new Date(y,m-1+n,1)); }
+function llkMonthEnd(mk){ const [y,m]=mk.split('-').map(Number); return dateKeyOfDate(new Date(y,m,0)); }
+// Mode bulanan: apakah pertemuan tanggal dk masih perlu dibayar
+function llkDateUnpaidMonthly(s, dk){
+  if(!dk) return true;
+  if(s.paidThruDate && dk<=s.paidThruDate) return false;
+  if(s.monthlyPaidThru && dk.slice(0,7)<=s.monthlyPaidThru) return false;
+  return true;
+}
+// Mode bulanan: jumlah pertemuan bulan mk yang belum tercakup s.paidThruDate
+function llkMonthlyUnpaidCount(s, mk, withUpcoming){
+  const pd=s.paidThruDate||'';
+  let n=countedSessionList(s.name).filter(x=>x.date&&x.date.startsWith(mk)&&x.date>pd).length;
+  if(withUpcoming){
+    const end=llkMonthEnd(mk), today=todayStr();
+    const from=today>mk+'-01'?today:mk+'-01';
+    if(from<=end) n+=upcomingSessionList(s, from, {untilDk:end}).filter(x=>x.date>pd).length;
+  }
+  return n;
+}
+// Kuitansi terakhir yang masih berlaku
+function llkLastReceipt(s){
+  return (s.invoices||[]).filter(x=>x.paidAt&&!x.voidAt).sort((a,b)=>String(a.paidAt).localeCompare(String(b.paidAt))).pop()||null;
+}
+// Daftar pertemuan yang bisa dipilih: yang sudah berjalan tapi belum dibayar,
+// lalu jadwal berikutnya. prepaid = jadwal yang sudah dibayar di muka.
+function llkCustomPayCandidates(s){
+  const today=todayStr();
+  const timing=getPayTiming(s);
+  if(paymentMode==='monthly'){
+    const bm=timing==='depan'?getPrepaidMonthKey():getBillingMonthKey();
+    const startMonth=(s.monthlyPaidThru&&s.monthlyPaidThru>=bm)?llkMonthAdd(s.monthlyPaidThru,1):bm;
+    const from=startMonth+'-01', pd=s.paidThruDate||'';
+    const past=countedSessionList(s.name).filter(x=>x.date&&x.date>=from&&x.date>pd).map(x=>Object.assign({},x,{past:true}));
+    const up=upcomingSessionList(s, today>from?today:from, {maxDays:200, limit:80}).filter(x=>x.date>pd);
+    return {kind:'date', startMonth, prepaid:[], items:past.concat(up)};
+  }
+  const list=countedSessionList(s.name);
+  const covered=timing==='depan'?((s.prepaidThrough!=null)?s.prepaidThrough:(s.lastPaidAt||0)):(s.lastPaidAt||0);
+  const credit=Math.max(0,covered-list.length);
+  const past=list.slice(Math.min(list.length,covered)).map(x=>Object.assign({},x,{past:true}));
+  const up=upcomingSessionList(s, today, {maxDays:200, limit:credit+60});
+  return {kind:'count', covered, prepaid:up.slice(0,credit), items:past.concat(up.slice(credit))};
+}
+function openCustomPay(name){
+  if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
+  const s=students.find(x=>x.name===name);
+  if(!s){ toast('❌ Data murid tidak ditemukan'); return; }
+  const cand=llkCustomPayCandidates(s);
+  window._cp={name, cand, n:0, rate:s.rate||40000};
+  let el=document.getElementById('customPayOverlay');
+  if(el) el.remove();
+  el=document.createElement('div');
+  el.id='customPayOverlay';
+  el.style.cssText='position:fixed;inset:0;z-index:9990;background:rgba(43,36,32,0.42);display:flex;align-items:flex-end;justify-content:center';
+  el.addEventListener('click',e=>{ if(e.target===el) closeCustomPay(); });
+  const dateTxt=x=>x.date?fmtInvDate(x.date):'Sebelum pakai aplikasi';
+  const row=(x,i)=>'<button class="llk-cp-row" data-i="'+i+'" onclick="llkCpTap('+i+')"><span class="llk-check"></span><span style="min-width:0;flex:1"><span class="d" style="display:block">'+escapeHtml(dateTxt(x))+'</span><span class="l" style="display:block">'+escapeHtml(x.label)+'</span></span></button>';
+  const pastN=cand.items.filter(x=>x.past).length;
+  let list='';
+  if(cand.prepaid.length){
+    list+='<div class="llk-section-label">'+llkI('check-circle')+'Sudah dibayar di muka</div>'
+      +cand.prepaid.map(x=>'<button class="llk-cp-row on" disabled><span class="llk-check on">'+llkI('check')+'</span><span style="min-width:0;flex:1"><span class="d" style="display:block">'+escapeHtml(dateTxt(x))+'</span><span class="l" style="display:block">'+escapeHtml(x.label)+'</span></span></button>').join('');
+  }
+  if(pastN) list+='<div class="llk-section-label">'+llkI('alert')+'Belum dibayar · sudah berjalan</div>'+cand.items.slice(0,pastN).map((x,i)=>row(x,i)).join('');
+  if(cand.items.length>pastN) list+='<div class="llk-section-label">'+llkI('calendar')+'Jadwal berikutnya</div>'+cand.items.slice(pastN).map((x,i)=>row(x,i+pastN)).join('');
+  if(!cand.items.length) list+='<div class="empty">'+llkIll('calendar')+'<div class="empty-t">Belum ada pertemuan</div><div class="empty-d">Tidak ada pertemuan yang belum dibayar maupun jadwal berikutnya untuk murid ini.</div></div>';
+  el.innerHTML=`
+    <div style="background:var(--card);border-radius:var(--r-xl) var(--r-xl) 0 0;width:100%;max-width:520px;max-height:94vh;display:flex;flex-direction:column;box-shadow:var(--shadow-float);animation:llkSheetUp var(--d3) var(--ease-out) both">
+      <div style="padding:12px 18px 0">
+        <div style="width:40px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 16px"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div style="min-width:0">
+            <div class="modal-title" style="margin:0">${llkI('wallet')}Pembayaran Custom</div>
+            <div style="font-size:0.84rem;color:var(--muted);margin-top:2px">${escapeHtml(name)} · ${escapeHtml(formatRupiah(window._cp.rate))}/pertemuan</div>
+          </div>
+          <button onclick="closeCustomPay()" class="llk-icon-btn sm" aria-label="Tutup" style="border-radius:50%">${llkI('x')}</button>
+        </div>
+        <div style="font-size:0.82rem;color:var(--text2);line-height:1.5;margin:10px 0 10px">Centang pertemuan yang dibayar ortu. Pertemuan sebelumnya ikut tercentang supaya tidak ada yang terlewat.</div>
+        <div id="cpChips" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin:0 -18px;padding-left:18px;padding-right:18px"></div>
+      </div>
+      <div id="cpList" style="flex:1;overflow-y:auto;padding:0 18px 8px;border-top:1px solid var(--border2)">${list}</div>
+      <div style="padding:12px 18px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--card)">
+        <div id="cpSum" style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px"></div>
+        <button id="cpSave" onclick="saveCustomPay()" class="llk-btn success block">${llkI('check')} Simpan & Buat Kuitansi</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  history.pushState({tab:currentTab, view:'modal'},'');
+  llkCpRender();
+}
+function llkCpTap(i){
+  const cp=window._cp; if(!cp) return;
+  cp.n=i<cp.n?i:i+1;
+  llkCpRender();
+}
+function llkCpSet(n){ const cp=window._cp; if(!cp) return; cp.n=Math.max(0,Math.min(n,cp.cand.items.length)); llkCpRender(); }
+function llkCpRender(){
+  const cp=window._cp; if(!cp) return;
+  const items=cp.cand.items;
+  document.querySelectorAll('#cpList .llk-cp-row[data-i]').forEach(b=>{
+    const on=+b.dataset.i<cp.n;
+    if(b.classList.contains('on')===on) return;
+    b.classList.toggle('on',on);
+    const ck=b.querySelector('.llk-check');
+    ck.classList.toggle('on',on); ck.innerHTML=on?llkI('check'):'';
+  });
+  // Pilihan cepat
+  const pastN=items.filter(x=>x.past).length;
+  const cycle=(students.find(x=>x.name===cp.name)||{}).payCycle||4;
+  const now=new Date();
+  const endThis=llkMonthEnd(getMonthKey(now)), endNext=llkMonthEnd(getMonthKey(new Date(now.getFullYear(),now.getMonth()+1,1)));
+  const upto=dk=>items.filter(x=>!x.date||x.date<=dk).length;
+  const chips=[];
+  if(pastN) chips.push(['Yang sudah berjalan · '+pastN+'x', pastN]);
+  if(items.length>pastN) chips.push(['+'+Math.min(cycle,items.length-pastN)+'x berikutnya', Math.min(items.length,pastN+cycle)]);
+  const nThis=upto(endThis), nNext=upto(endNext);
+  if(nThis>0) chips.push(['s/d akhir '+getMonthNameID(now)+' · '+nThis+'x', nThis]);
+  if(nNext>nThis) chips.push(['s/d akhir '+getMonthNameID(new Date(now.getFullYear(),now.getMonth()+1,1))+' · '+nNext+'x', nNext]);
+  const seen={};
+  document.getElementById('cpChips').innerHTML=chips.filter(c=>!seen[c[1]]&&(seen[c[1]]=1)).map(c=>'<button class="llk-cp-chip'+(cp.n===c[1]?' on':'')+'" onclick="llkCpSet('+c[1]+')">'+escapeHtml(c[0])+'</button>').join('')
+    +(cp.n?'<button class="llk-cp-chip" onclick="llkCpSet(0)">Kosongkan</button>':'');
+  const last=cp.n?items[cp.n-1]:null;
+  document.getElementById('cpSum').innerHTML='<div style="font-size:0.84rem;color:var(--muted)">'+(cp.n?'<b style="color:var(--text)">'+cp.n+' pertemuan</b>'+(last&&last.date?' · s/d '+escapeHtml(fmtInvDate(last.date)):''):'Belum ada yang dipilih')+'</div>'
+    +'<div style="font-family:var(--font-display);font-size:1.35rem;font-weight:600;font-variant-numeric:lining-nums tabular-nums;white-space:nowrap">'+escapeHtml(formatRupiah(cp.n*cp.rate))+'</div>';
+  const btn=document.getElementById('cpSave');
+  btn.disabled=!cp.n; btn.style.opacity=cp.n?'':'0.5';
+}
+function closeCustomPay(){
+  const el=document.getElementById('customPayOverlay');
+  if(el){ el.remove(); if(history.state&&history.state.view==='modal'){ window._llkSkipPop=true; history.back(); } }
+  window._cp=null;
+}
+// Setelah pembayaran: segarkan halaman yang sedang terbuka (profil murid / daftar)
+function llkRefreshAfterPay(name){
+  if(window._profileName===name && document.querySelector('#mainContent .hist-back')) renderStudentProfile(name, window._profilePeriod||'all');
+  else render();
+}
+function saveCustomPay(){
+  const cp=window._cp; if(!cp||!cp.n) return;
+  const s=students.find(x=>x.name===cp.name);
+  if(!s){ toast('❌ Data murid tidak ditemukan'); return; }
+  const sel=cp.cand.items.slice(0,cp.n);
+  const prev=llkPaySnapshot(s);
+  const timing=getPayTiming(s);
+  if(cp.cand.kind==='count'){
+    const newCovered=cp.cand.covered+cp.n;
+    if(timing==='depan'){
+      s.prepaidThrough=newCovered;
+      s.lastPaidAt=Math.max(s.lastPaidAt||0, Math.min(newCovered, countSessions(s.name)));
+    } else s.lastPaidAt=newCovered;
+  } else {
+    const last=sel[sel.length-1].date;
+    if(!s.paidThruDate||last>s.paidThruDate) s.paidThruDate=last;
+    // Bulan yang semua pertemuannya sudah terbayar → tandai lunas s/d bulan itu
+    const lastMonth=last.slice(0,7), next=cp.cand.items[cp.n];
+    const paidThru=(!next||!next.date||next.date.slice(0,7)!==lastMonth)?lastMonth:llkMonthAdd(lastMonth,-1);
+    if(paidThru>=cp.cand.startMonth && (!s.monthlyPaidThru||paidThru>s.monthlyPaidThru)) s.monthlyPaidThru=paidThru;
+  }
+  // Invoice lama yang belum dibayar sudah tidak sesuai → dibatalkan (bisa dipulihkan lewat Batalkan Pembayaran)
+  const now=new Date().toISOString(), today=todayStr(), voided=[];
+  s.invoices=s.invoices||[];
+  s.invoices.forEach(x=>{ if(!x.paidAt&&!x.voidAt){ x.voidAt=now; voided.push(x.no); } });
+  const dated=sel.filter(x=>x.date);
+  const inv={
+    no:'INV-'+today.replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),
+    createdAt:now, studentName:s.name, instrument:s.instrument||'',
+    timing, mode:paymentMode==='monthly'?'monthly':'session', period:'',
+    desc:'Pembayaran '+sel.length+'x pertemuan'+(dated.length?' ('+fmtInvDate(dated[0].date)+(dated.length>1?' – '+fmtInvDate(dated[dated.length-1].date):'')+')':''),
+    rate:cp.rate, items:sel.map(x=>({date:x.date,label:x.label})), total:sel.length*cp.rate,
+    paidAt:now, custom:true, undo:{prev, created:true, voided}
+  };
+  s.invoices.push(inv);
+  if(s.invoices.length>INVOICE_MAX_STORED) s.invoices=s.invoices.slice(-INVOICE_MAX_STORED);
+  save();
+  closeCustomPay();
+  llkRefreshAfterPay(s.name);
+  toast('✅ Pembayaran '+s.name+' dicatat: '+sel.length+'x · '+formatRupiah(inv.total));
+  setTimeout(function(){
+    showGenericConfirm('Kirim Kuitansi?', 'Pembayaran <b>'+escapeHtml(s.name)+'</b> untuk <b>'+sel.length+'x pertemuan</b> sebesar <b>'+escapeHtml(formatRupiah(inv.total))+'</b> sudah dicatat LUNAS.<br><br>Mau kirim kuitansi ke ortu?', '🧾 Buka Kuitansi', function(){
+      openInvoice(s.name, inv.no);
+    });
+  },300);
+}
+// Batalkan pembayaran terakhir (salah catat): kembalikan status bayar persis
+// seperti sebelum dicatat. Hanya untuk kuitansi terakhir murid ini.
+function llkCanUndoPayment(s, inv){
+  if(!inv||!inv.paidAt||inv.voidAt||!inv.undo) return false;
+  const last=llkLastReceipt(s);
+  return !!last && last.no===inv.no;
+}
+function undoInvoicePayment(){
+  const cur=_currentInvoice; if(!cur) return;
+  const s=students.find(x=>x.name===cur.studentName); if(!s) return;
+  const inv=(s.invoices||[]).find(x=>x.no===cur.no);
+  if(!llkCanUndoPayment(s,inv)){ toast('⚠️ Hanya pembayaran terakhir yang bisa dibatalkan'); return; }
+  closeInvoiceModal();
+  setTimeout(function(){
+    showGenericConfirm('Batalkan Pembayaran?', 'Pembayaran <b>'+escapeHtml(s.name)+'</b> sebesar <b>'+escapeHtml(formatRupiah(inv.total))+'</b> akan dibatalkan. Status tagihan kembali seperti sebelum dicatat.', 'Ya, Batalkan', function(){
+      const u=inv.undo; if(!u) return;
+      LLK_PAY_FIELDS.forEach(k=>{ if(k in u.prev) s[k]=u.prev[k]; else delete s[k]; });
+      const now=new Date().toISOString();
+      (u.voided||[]).forEach(no=>{ const x=(s.invoices||[]).find(v=>v.no===no); if(x) delete x.voidAt; });
+      if(u.created) inv.voidAt=now; else { inv.paidAt=null; inv.unpaidAt=now; }
+      delete inv.undo;
+      save();
+      llkRefreshAfterPay(s.name);
+      toast('✅ Pembayaran '+s.name+' dibatalkan');
+    }, true);
+  },300);
+}
+
+// Riwayat invoice untuk halaman profil murid (5 terakhir + "Lihat semua")
 function invoiceHistoryHtml(s){
-  const list=(s.invoices||[]).slice().reverse().slice(0,5);
-  if(!list.length) return '';
+  const all=(s.invoices||[]).slice().reverse();
+  if(!all.length) return '';
+  const row=inv=>{
+    const st=inv.voidAt?['DIBATALKAN','background:var(--paper-2);color:var(--muted)']:inv.paidAt?['LUNAS','background:var(--hadir-bg);color:var(--hadir-text)']:['PERLU DIBAYAR','background:var(--alpa-bg);color:var(--alpa-text)'];
+    return '<div onclick="openInvoice(\''+jsAttr(s.name)+'\',\''+jsAttr(inv.no)+'\')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;cursor:pointer;border-bottom:1px solid var(--border2)">'
+      +'<div style="min-width:0"><div style="font-size:0.78rem;font-weight:700">'+escapeHtml(inv.no)+'</div>'
+      +'<div style="font-size:0.68rem;color:var(--muted)">'+new Date(inv.createdAt).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})+' · '+inv.items.length+'x · '+escapeHtml(formatRupiah(inv.total))+(inv.custom?' · Custom':'')+'</div></div>'
+      +'<span style="flex-shrink:0;font-size:0.62rem;font-weight:800;padding:3px 8px;border-radius:20px;'+st[1]+'">'+st[0]+'</span>'
+      +'</div>';
+  };
   return '<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">'
     +'<div style="font-size:0.64rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Riwayat Invoice</div>'
-    +list.map(inv=>'<div onclick="openInvoice(\''+jsAttr(s.name)+'\',\''+jsAttr(inv.no)+'\')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;cursor:pointer;border-bottom:1px solid var(--border2)">'
-      +'<div style="min-width:0"><div style="font-size:0.78rem;font-weight:700">'+escapeHtml(inv.no)+'</div>'
-      +'<div style="font-size:0.68rem;color:var(--muted)">'+new Date(inv.createdAt).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})+' · '+inv.items.length+'x · '+escapeHtml(formatRupiah(inv.total))+'</div></div>'
-      +'<span style="flex-shrink:0;font-size:0.62rem;font-weight:800;padding:3px 8px;border-radius:20px;'+(inv.paidAt?'background:var(--hadir-bg);color:var(--hadir-text)':'background:var(--alpa-bg);color:var(--alpa-text)')+'">'+(inv.paidAt?'LUNAS':'BELUM LUNAS')+'</span>'
-      +'</div>').join('')
+    +all.slice(0,5).map(row).join('')
+    +(all.length>5?'<div hidden>'+all.slice(5).map(row).join('')+'</div><button onclick="this.previousElementSibling.hidden=false;this.remove()" style="background:none;border:none;color:var(--blue);font:inherit;font-size:0.8rem;font-weight:600;padding:10px 0 2px;cursor:pointer">Lihat semua ('+all.length+')</button>':'')
     +'</div>';
 }
 
@@ -4182,6 +4453,8 @@ function confirmMarkPaid(btn, studentName){
     const sp=students[idx];
     const timing=getPayTiming(sp);
     const draftBeforePay=buildInvoiceDraft(sp); // isi tagihan SEBELUM status diubah (untuk kuitansi)
+    const prevPay=llkPaySnapshot(sp); // untuk "Batalkan Pembayaran Ini"
+    const hadOpenInv=(sp.invoices||[]).some(x=>!x.paidAt&&!x.voidAt);
     if(paymentMode==='monthly' && timing==='depan'){
       sp.monthlyPaidThru = getPrepaidMonthKey();
     }else if(paymentMode!=='monthly' && timing==='depan'){
@@ -4203,6 +4476,7 @@ function confirmMarkPaid(btn, studentName){
       students[idx].lastPaidAt = totalNow;
     }
     const paidInv=markLatestInvoicePaid(sp, draftBeforePay);
+    if(paidInv) paidInv.undo={prev:prevPay, created:!hadOpenInv, voided:[]};
     save();
     render();
     toast('✅ Pembayaran ' + studentName + ' dicatat LUNAS');
@@ -4260,6 +4534,9 @@ function siswaCardHtml(s,total,cycle,isDue){
       html+='<button onclick="sendPaymentWA(\''+safeName+'\')" class="llk-btn wa sm" style="flex:1">'+llkI('receipt')+' Tagih + Invoice</button>';
       html+='<button onclick="confirmMarkPaid(this,\''+safeName+'\')" class="llk-btn outline-success sm" style="flex:1">'+llkI('check')+' Sudah Bayar</button>';
       html+='</div>';
+    } else if(!paymentOff){
+      const rc=llkLastReceipt(s);
+      if(rc) html+='<button onclick="openInvoice(\''+safeName+'\',\''+jsAttr(rc.no)+'\')" class="llk-btn soft sm" style="margin-top:10px;height:38px;font-size:0.8rem">'+llkI('receipt','sm')+' Kirim Ulang Kuitansi</button>';
     }
     html+='</div>';
     return html;
@@ -4474,6 +4751,7 @@ function cancelGenericConfirm(){
   const overlay=document.getElementById('genericConfirmOverlay');
   if(overlay) overlay.classList.remove('open');
   window._genericConfirmCallback=null;
+  window._llkSkipPop=true; // dialog sudah ditutup — pop ini jangan ikut menutup halaman profil
   history.back();
 }
 function confirmGenericConfirm(){
@@ -4633,9 +4911,11 @@ function renderStudentProfile(name, period){
   // Billing info
   const payInfo    = computeIsDue(s);
   const prepaidSession = payInfo.timing==='depan' && paymentMode!=='monthly';
+  // Bayar di Belakang tapi sudah dibayar di muka lewat Pembayaran Custom
+  const creditAhead = !prepaidSession && paymentMode!=='monthly' && (payInfo.credit||0)>0;
   const billing    = paymentMode==='monthly'?payInfo.total:(prepaidSession?Math.max(0,payInfo.credit||0):countSessionsForBilling(name));
   const cycle      = s.payCycle||4;
-  const remaining  = prepaidSession?Math.max(0,payInfo.credit||0):Math.max(0,cycle-billing);
+  const remaining  = (prepaidSession||creditAhead)?Math.max(0,payInfo.credit||0):Math.max(0,cycle-billing);
   const isDue      = payInfo.isDue;
 
   // Period buttons
@@ -4710,11 +4990,13 @@ function renderStudentProfile(name, period){
       +'</div>'
       +'<div style="text-align:center;background:'+(isDue?'var(--alpa-bg)':'var(--card2)')+';padding:12px 6px;border-left:1px solid var(--border2)">'
         +'<div style="font-family:var(--font-display);font-size:'+(isDue||paymentMode!=='monthly'?'1.5rem':'1rem')+';font-weight:600;font-variant-numeric:lining-nums;color:'+(isDue?'var(--alpa)':'var(--text2)')+'">'+(isDue?'Bayar!':(paymentMode==='monthly'?(payInfo.timing==='depan'?'Lunas':'Akhir Bulan'):remaining+'x'))+'</div>'
-        +'<div style="font-size:0.7rem;font-weight:600;color:var(--muted);margin-top:2px">'+(isDue?'Tagihan':(paymentMode==='monthly'?(payInfo.timing==='depan'?'Status':'Ditagih'):(prepaidSession?'Sisa Terbayar':'Sisa Sesi')))+'</div>'
+        +'<div style="font-size:0.7rem;font-weight:600;color:var(--muted);margin-top:2px">'+(isDue?'Tagihan':(paymentMode==='monthly'?(payInfo.timing==='depan'?'Status':'Ditagih'):((prepaidSession||creditAhead)?'Sisa Terbayar':'Sisa Sesi')))+'</div>'
       +'</div>'
     +'</div>'
   +'<div style="font-size:0.84rem;font-weight:600;margin-top:10px;color:'+(isDue?'var(--alpa)':'var(--hadir)')+'">'+escapeHtml(llkStripLeadEmoji(paymentStatusText(s,payInfo)))+'</div>'
-    +'<button onclick="openInvoice(\''+jsAttr(name)+'\')" class="llk-btn block '+(isDue?'wa':'secondary')+'" style="margin-top:12px">'+llkI('receipt')+(isDue?' Tagih + Kirim Invoice':' Buat Invoice')+'</button>'
+    +(isDue||buildInvoiceDraft(s).items.length?'<button onclick="openInvoice(\''+jsAttr(name)+'\')" class="llk-btn block '+(isDue?'wa':'secondary')+'" style="margin-top:12px">'+llkI('receipt')+(isDue?' Tagih + Kirim Invoice':' Buat Invoice')+'</button>':'')
+    +'<button onclick="openCustomPay(\''+jsAttr(name)+'\')" class="llk-btn block secondary" style="margin-top:8px">'+llkI('wallet')+' Pembayaran Custom</button>'
+    +(!isDue&&llkLastReceipt(s)?'<button onclick="openInvoice(\''+jsAttr(name)+'\',\''+jsAttr(llkLastReceipt(s).no)+'\')" class="llk-btn block soft" style="margin-top:8px">'+llkI('receipt')+' Kirim Ulang Kuitansi</button>':'')
     +invoiceHistoryHtml(s)
   +'</div>';
 
@@ -7587,6 +7869,7 @@ function doSave(){
     // & progress kurikulum yang udah dicentang "hilang" tanpa disadari.
     if(old.monthlyPaidThru) s.monthlyPaidThru=old.monthlyPaidThru;
     if(old.prepaidThrough!=null) s.prepaidThrough=old.prepaidThrough;
+    if(old.paidThruDate) s.paidThruDate=old.paidThruDate;
     if(old.invoices) s.invoices=old.invoices;
     if(old.curriculumChecked) s.curriculumChecked=old.curriculumChecked;
     if(old.curriculumCardCollapsed!==undefined) s.curriculumCardCollapsed=old.curriculumCardCollapsed;
@@ -9429,13 +9712,17 @@ function mergeStudentLists(L, C){
     if(lp>0) ls.lastPaidAt=lp;
     if(cs.monthlyPaidThru && (!ls.monthlyPaidThru || cs.monthlyPaidThru>ls.monthlyPaidThru)) ls.monthlyPaidThru=cs.monthlyPaidThru;
     if(cs.prepaidThrough!=null) ls.prepaidThrough=Math.max(ls.prepaidThrough!=null?ls.prepaidThrough:0, cs.prepaidThrough);
+    if(cs.paidThruDate && (!ls.paidThruDate || cs.paidThruDate>ls.paidThruDate)) ls.paidThruDate=cs.paidThruDate;
     // Invoice: gabung per nomor; status LUNAS dari perangkat mana pun dipertahankan
     if(cs.invoices&&cs.invoices.length){
       const invs=(ls.invoices||[]).map(x=>Object.assign({},x));
       cs.invoices.forEach(ci=>{
         const li=invs.find(x=>x.no===ci.no);
         if(!li) invs.push(Object.assign({},ci));
-        else if(ci.paidAt&&!li.paidAt) li.paidAt=ci.paidAt;
+        else {
+          if(ci.paidAt&&!li.paidAt&&!(li.unpaidAt&&li.unpaidAt>ci.paidAt)) li.paidAt=ci.paidAt;
+          if(ci.voidAt&&!li.voidAt) li.voidAt=ci.voidAt; // invoice yang dibatalkan tetap batal
+        }
       });
       invs.sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
       ls.invoices=invs.slice(-24);
