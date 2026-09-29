@@ -8678,9 +8678,10 @@ function showGlobalLoading(msg){
   }
   document.getElementById('llkGlobalLoadingMsg').textContent=msg||'Memproses…';
   el.style.display='flex';
-  // Kunci scroll body juga, jaga-jaga browser tetap izinkan "rubber-band" scroll di baliknya
-  document.documentElement.style.overflow='hidden';
-  document.body.style.overflow='hidden';
+  // Catatan: body TIDAK dikunci lewat style.overflow. Midtrans Snap mencatat nilai overflow
+  // body saat dibuka lalu memulihkannya saat ditutup; kalau saat itu 'hidden', halaman
+  // jadi tidak bisa di-scroll selamanya (bug laptop setelah bayar). Overlay ini sudah
+  // memblokir wheel/touch sendiri.
 }
 function hideGlobalLoading(){
   const el=document.getElementById('llkGlobalLoading');
@@ -8694,6 +8695,11 @@ function hideGlobalLoading(){
 // Snap, dan BARU sembunyikan loading kita begitu elemen itu benar-benar muncul.
 // Ini menutup celah waktu di mana loading sudah hilang tapi Snap belum tampil
 // (yang sebelumnya bikin menu di belakang masih bisa dipencet).
+// Jaring pengaman: pastikan halaman bisa di-scroll lagi setelah Snap ditutup
+function llkUnlockPageScroll(){
+  document.documentElement.style.overflow='';
+  document.body.style.overflow='';
+}
 function waitForSnapThenHideLoading(){
   const loadingEl=document.getElementById('llkGlobalLoading');
   const observer=new MutationObserver(function(mutations){
@@ -8722,16 +8728,18 @@ async function mulaiLangganan(plan){
     waitForSnapThenHideLoading(); // loading TETAP tampil sampai Snap benar-benar muncul
     window.snap.pay(result.data.token, {
       onSuccess:function(){
+        setTimeout(llkUnlockPageScroll,500);
         setPaywallStatus('✅ Pembayaran berhasil! Mengaktifkan langganan…');
         toast('✅ Pembayaran berhasil! Invoice sudah dikirim ke email — cek folder Spam kalau belum kelihatan.',5000);
         // Cadangan kalau notifikasi Midtrans ke server terlambat/gagal
         setTimeout(function(){ cekStatusPembayaran(true); },4000);
       },
       onPending:function(){
+        setTimeout(llkUnlockPageScroll,500);
         setPaywallStatus('⏳ Menunggu konfirmasi pembayaran… Setelah membayar, tekan "Cek status pembayaran" kalau paket belum aktif.');
       },
-      onError:function(){ setPaywallStatus('❌ Pembayaran gagal, silakan coba lagi.'); },
-      onClose:function(){ setPaywallStatus(''); setTimeout(function(){ cekStatusPembayaran(true); },2000); }
+      onError:function(){ setTimeout(llkUnlockPageScroll,500); setPaywallStatus('❌ Pembayaran gagal, silakan coba lagi.'); },
+      onClose:function(){ setTimeout(llkUnlockPageScroll,500); setPaywallStatus(''); setTimeout(function(){ cekStatusPembayaran(true); },2000); }
     });
   }catch(err){
     hideGlobalLoading();
