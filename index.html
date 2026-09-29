@@ -594,6 +594,7 @@ body.llk-limit-reached button[onclick*="reactivateStudent"]::before{content:'ðŸ”
    Hanya aktif di layar lebar. Tampilan HP (<900px) tidak berubah sama sekali.
    Menu bawah pindah jadi sidebar kiri, isi di tengah dengan lebar terbatas,
    form tampil sebagai jendela di tengah. Di â‰¥1200px daftar jadi 2 kolom. */
+.sidebar-logo{ display:none; }
 @media (min-width:900px){
   body{padding-bottom:0;padding-left:236px}
   .app-header{padding:18px 32px}
@@ -613,9 +614,9 @@ body.llk-limit-reached button[onclick*="reactivateStudent"]::before{content:'ðŸ”
     backdrop-filter:none;-webkit-backdrop-filter:none;
     box-shadow:2px 0 18px rgba(0,0,0,0.04);
   }
-  .bottom-nav::before{
-    content:'LesLesanKu';position:absolute;top:30px;left:28px;
-    font-size:1.25rem;font-weight:800;letter-spacing:-0.03em;color:var(--red);
+  .sidebar-logo{
+    display:block;position:absolute;top:14px;left:22px;
+    width:192px;height:auto;pointer-events:none;
   }
   .bnav{
     flex:0 0 auto;flex-direction:row;justify-content:flex-start;gap:14px;
@@ -782,6 +783,7 @@ body.llk-limit-reached button[onclick*="reactivateStudent"]::before{content:'ðŸ”
 <div id="mainContent"></div>
 
 <div class="bottom-nav">
+  <img id="sidebarLogo" class="sidebar-logo" alt="LesLesanKu"/>
   <button class="bnav active" onclick="setTab('absensi')" id="tab-absensi"><span class="bicon">ðŸ“‹</span>Absensi<div class="bnav-dot"></div></button>
   <button class="bnav" onclick="setTab('siswa')" id="tab-siswa"><span class="bicon">ðŸŽ“</span>Siswa<div class="bnav-dot"></div></button>
   <button class="bnav" onclick="setTab('track')" id="tab-track"><span class="bicon">ðŸ“ˆ</span>Track<div class="bnav-dot"></div></button>
@@ -8605,6 +8607,14 @@ function planCardsHtml(opts){
       +'<div class="llk-plan-btns">'+btns+'</div></div>';
   }).join('')+'</div>';
 }
+
+/* Logo di sidebar laptop: memakai gambar yang sama dengan layar login (tidak menyalin data gambar) */
+function llkSetSidebarLogo(){
+  const el=document.getElementById('sidebarLogo');
+  const src=document.querySelector('#loginGateFormWrap img');
+  if(el&&src&&src.src) el.src=src.src;
+}
+llkSetSidebarLogo();
 
 function pickPlan(plan){
   closeWelcomePricing();
