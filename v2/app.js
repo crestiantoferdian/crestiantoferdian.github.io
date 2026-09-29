@@ -12,7 +12,7 @@ import { getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, updateDoc
 
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyAvD4ABTYIjCtPCYzUaRM8AHsjiOamHQLU',
-  authDomain: 'llk-67a30.firebaseapp.com',
+  authDomain: 'leslesanku.com', // helper login di /__/auth/ (lihat __/README.md)
   projectId: 'llk-67a30',
   storageBucket: 'llk-67a30.firebasestorage.app',
   messagingSenderId: '894092774293',

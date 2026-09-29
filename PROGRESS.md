@@ -110,6 +110,12 @@ Hasil analisis + simulasi; semua di bawah sudah ditutup:
 - Sengaja dibiarkan: kalau Firebase gagal dimuat (offline / diblokir), app tetap bisa dipakai tanpa paywall — demi guru yang mengajar tanpa internet.
 - Tidak bisa dicegah 100%: orang membuat Gmail baru tiap bulan dan mulai dari nol (tanpa data lama).
 
+## 🔑 Login Google lewat domain sendiri (PR #16 & #17)
+- Helper login resmi Firebase di-host di `__/auth/` (lihat `__/README.md`); `authDomain` V1 & V2 = `leslesanku.com` → layar Google menampilkan "Lanjutkan ke leslesanku.com".
+- Google Cloud → Credentials → OAuth client "Web client (auto created by Google Service)": origin `https://leslesanku.com` + redirect `https://leslesanku.com/__/auth/handler` (ditambahkan 29 Sep 2026; isian lama firebaseapp.com tetap ada sebagai cadangan).
+- Kalau login bermasalah: kembalikan `authDomain` ke `llk-67a30.firebaseapp.com` di `index.html` & `v2/app.js`.
+- Berikutnya (opsional): verifikasi merek di Google Auth Platform → Branding agar tampil nama "LesLesanKu" + logo.
+
 ## ☁️ Cloud Functions (`functions/`)
 - 3 fungsi (1st gen, us-central1): `onUserCreate` (buat trial 31 hari di `subscriptions/{uid}` saat akun baru), `createMidtransTransaction` (callable, buat transaksi Snap, simpan `orders/{orderId}`), `midtransWebhook` (HTTP, verifikasi signature SHA-512 → aktifkan/perpanjang langganan + kirim invoice email).
 - Rahasia (`MIDTRANS_SERVER_KEY`, `MIDTRANS_IS_PRODUCTION`, `SMTP_USER`, `SMTP_PASS`) ada di `functions/.env` yang **hanya** tersimpan di Firebase — tidak pernah di-commit (`functions/.gitignore`).
