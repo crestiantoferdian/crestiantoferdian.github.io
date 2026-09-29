@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 29 Sep 2026_
+_Terakhir diperbarui: 29 Sep 2026 (perombakan tampilan)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,21 @@ _Terakhir diperbarui: 29 Sep 2026_
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
+
+## 🎨 Perombakan tampilan total — "Buku Catatan Guru" (branch `claude/dazzling-cerf-ra7fos`, 29 Sep 2026)
+Murni tampilan: **tidak ada logika, alur data, key localStorage, nama fungsi/variabel, atau aturan Firestore yang diubah.** Data murid aman.
+- **Arah desain:** hangat & tenang. Kertas krem `#f6f1e9`, kartu `#fffcf7`, tinta `#2b2420`, aksen bata `#a8372a` (default baru; warna pilihan guru di Pengaturan tetap berlaku lewat `--red`). Status: Hadir `#2a7349`, Izin `#a65510`, Alpa `#b0263f`, info tinta biru `#2f5a8a`. Semua pasangan teks lolos WCAG AA (≥4.5:1).
+- **Font:** Fraunces (judul & angka) + Plus Jakarta Sans (UI, dirancang di Jakarta). Invoice (canvas) ikut Plus Jakarta Sans.
+- **Token di `:root`** (`index.html` blok `<style>` pertama): warna, spasi 4px, radius (`--r-sm..xl`), bayangan hanya untuk elemen mengambang, motion (`--ease-out`, `--d1..d4` = 150–400ms). Nama variabel lama (`--red`, `--bg`, `--card`, `--hadir`, …) dipertahankan karena dipakai JS/inline style.
+- **Ikon:** satu set SVG custom (grid 24px, garis 1.75, ujung membulat) sebagai sprite di awal `<body>`; dipakai lewat `llkI('nama')`. Avatar murid pakai `llkSubjectIcon()` (memetakan hasil `getInstrumentIcon()`; emoji aslinya tetap dipakai untuk teks WA/share). Ikon tautan Materi bawaan dipetakan lewat `llkLinkGlyph()` (data tetap emoji, emoji ketikan guru tampil apa adanya).
+- **Ilustrasi empty state:** `llkIll('notebook'|'students'|'search'|'folder'|'calendar')`.
+- **Motion:** transisi masuk halaman + stagger daftar (`llkPageEnter()` di `setTab` & navigasi sub-halaman), skeleton loading sebelum render pertama & saat menyiapkan invoice, feedback tekan (scale), toast berstatus (sukses/gagal/peringatan/proses — dibaca dari emoji di awal pesan, `toast()` tetap dipanggil sama), dialog berikon. Hanya transform & opacity; `prefers-reduced-motion` dihormati. Glow/blur (glassmorphism) dihapus.
+- **Komponen baru (CSS):** `.llk-btn`, `.llk-icon-btn`, `.llk-row`, `.llk-tile`, `.llk-choice`, `.llk-callout`, `.llk-note`, `.llk-check`, `.llk-section-label`, `.llk-income`, `.llk-statbox`, `.llk-dialog-ic`, `.llk-skel`.
+- **Semua halaman:** login, paywall/paket/selamat datang/naik paket, header, nav bawah & sidebar, Absensi, Siswa, profil murid, Track (per siswa & kalender), Kirim, Materi (tautan/folder/PR/kurikulum), Lainnya + semua sub-halaman (backup, pulihkan, notifikasi, pembayaran, progres, pengaturan aplikasi), semua modal & dialog, invoice, hapus akun. Juga `hapus-akun.html`, `privacy-policy.html`, dan V2 (`v2/app.css`, `v2/app.js` ikon, `v2/index.html` sprite+font).
+- **Laptop (≥900px):** skala font root 18px (pengganti `zoom:1.08`).
+- `manifest.json`: hanya `background_color` (layar splash) → krem `#f6f1e9`; `theme_color` tetap.
+- Diuji dengan Playwright (HP 390px & laptop 1366px, tanpa error JS) + uji fungsional: tambah murid, absen + catatan, cari siswa, profil, Track, Kirim, tautan/PR/kurikulum, simpan warna tema, backup, reschedule, gembok batas murid — semua lulus.
+- Setelah di-merge: Ctrl+Shift+R di HP & laptop, cek tampilan dengan data asli (50+ murid).
 
 ## 🎨 Poles tampilan & perbaikan scroll (PR #21, 29 Sep 2026)
 1. **Kartu login:** teks dirapikan jadi 2 baris ("Login dengan akun Google untuk mulai." / "Data absensi & siswa tersimpan otomatis, plus **trial gratis 31 hari**."), `text-wrap:balance`, frasa trial tidak terpotong (`index.html`, `#loginGateMsg`).

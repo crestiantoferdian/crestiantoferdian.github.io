@@ -6,7 +6,7 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f5f5f7",
+  "background_color": "#f6f1e9",
   "theme_color": "#000000",
   "orientation": "portrait",
   "lang": "id",
