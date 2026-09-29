@@ -555,6 +555,12 @@ body{
   50%{ box-shadow:0 6px 22px rgba(0,0,0,0.35), 0 0 0 8px rgba(212,175,55,0); }
 }
 @keyframes llkProShimmer{ 0%{ background-position:-150% 0; } 100%{ background-position:250% 0; } }
+.llk-plan-btns{ flex:1; display:flex; flex-direction:column; justify-content:center; }
+.llk-plan-btn{ transition:transform .18s ease, box-shadow .18s ease, filter .18s ease; -webkit-tap-highlight-color:transparent; }
+@media (hover:hover){
+  .llk-plan-btn:hover{ transform:translateY(-3px) scale(1.02); box-shadow:0 8px 20px rgba(0,0,0,0.18); filter:brightness(1.06); }
+}
+.llk-plan-btn:active{ transform:translateY(1px) scale(0.96); box-shadow:0 2px 6px rgba(0,0,0,0.2); filter:brightness(0.92); transition-duration:.06s; }
 .llk-pro-btn{ position:relative; overflow:hidden; animation:llkProGlowGold 2.2s ease-in-out infinite; border-color:#d4af37 !important; }
 .llk-pro-btn::after{
   content:''; position:absolute; inset:0;
@@ -652,7 +658,6 @@ body.llk-limit-reached button[onclick*="reactivateStudent"]::before{content:'�
 @media (min-width:900px){
   .llk-plan-row{display:flex;justify-content:center;align-items:stretch;gap:16px;max-width:1080px;margin:0 auto 8px}
   .llk-plan-row>div{flex:1 1 0;max-width:340px!important;margin:0!important;display:flex;flex-direction:column}
-  .llk-plan-row>div>button:first-of-type{margin-top:auto}
 }
 /* Layar laptop yang cukup lebar (≥1200px): daftar & menu jadi 2 kolom */
 @media (min-width:1200px){
@@ -8588,16 +8593,16 @@ function planCardsHtml(opts){
   return '<div class="llk-plan-row">'+tiers.map(function(t){
     const isFit=fit&&fit.id===t.id;
     const limitText=t.limit===Infinity?'Murid aktif <b>tanpa batas</b>':'Maks. <b>'+t.limit+' murid aktif</b>';
-    let btns='<button onclick="pickPlan(\''+t.monthly.plan+'\')" class="llk-pro-btn'+(isFit?' dark':'')+'" style="width:100%;padding:13px;background:'+(isFit?'#1c1c1e':'#fff')+';color:'+(isFit?'#fff':'#1c1c1e')+';border:'+(isFit?'none':'2px solid #1c1c1e')+';border-radius:12px;font-size:0.88rem;font-weight:700;cursor:pointer">Bulanan — '+formatRpPlan(t.monthly.price)+'</button>';
+    let btns='<button onclick="pickPlan(\''+t.monthly.plan+'\')" class="llk-plan-btn llk-pro-btn'+(isFit?' dark':'')+'" style="width:100%;padding:13px;background:'+(isFit?'#1c1c1e':'#fff')+';color:'+(isFit?'#fff':'#1c1c1e')+';border:'+(isFit?'none':'2px solid #1c1c1e')+';border-radius:12px;font-size:0.88rem;font-weight:700;cursor:pointer">Bulanan — '+formatRpPlan(t.monthly.price)+'</button>';
     if(t.yearly){
       const hemat=t.monthly.price*12-t.yearly.price;
-      btns+='<button onclick="pickPlan(\''+t.yearly.plan+'\')" style="width:100%;margin-top:8px;padding:13px;background:#fff;color:#1c1c1e;border:1.5px solid #d1d5db;border-radius:12px;font-size:0.85rem;font-weight:700;cursor:pointer">Tahunan — '+formatRpPlan(t.yearly.price)+(hemat>0?'<span style="display:block;color:#1c9e4e;font-size:0.76rem;margin-top:2px">hemat '+formatRpPlan(hemat)+'</span>':'')+'</button>';
+      btns+='<button onclick="pickPlan(\''+t.yearly.plan+'\')" class="llk-plan-btn" style="width:100%;margin-top:8px;padding:13px;background:#fff;color:#1c1c1e;border:1.5px solid #d1d5db;border-radius:12px;font-size:0.85rem;font-weight:700;cursor:pointer">Tahunan — '+formatRpPlan(t.yearly.price)+(hemat>0?'<span style="display:block;color:#1c9e4e;font-size:0.76rem;margin-top:2px">hemat '+formatRpPlan(hemat)+'</span>':'')+'</button>';
     }
     return '<div style="border:'+(isFit?'2px solid #1c1c1e':'1.5px solid #e5e7eb')+';border-radius:20px;padding:20px;max-width:360px;margin:0 auto 14px;text-align:left;position:relative;background:#fff;'+(isFit?'box-shadow:0 8px 24px rgba(0,0,0,0.08)':'')+'">'
       +(isFit?'<div style="position:absolute;top:-11px;right:16px;background:#1c1c1e;color:#fff;font-size:0.64rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.03em">COCOK UNTUKMU</div>':'')
       +'<div style="font-size:1.05rem;font-weight:800;color:#1c1c1e;margin-bottom:4px">'+(t.id==='unlimited'?'👑':t.id==='up'?'⭐':'✨')+' '+t.name+'</div>'
       +'<div style="font-size:0.82rem;color:#4b5563;margin-bottom:12px">'+limitText+' · semua fitur Pro</div>'
-      +btns+'</div>';
+      +'<div class="llk-plan-btns">'+btns+'</div></div>';
   }).join('')+'</div>';
 }
 
