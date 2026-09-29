@@ -4,15 +4,18 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Kebijakan Privasi — LesLesanKu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500..700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
   :root{
-    --red:#C0392B;
-    --red-dark:#96281B;
-    --ink:#1c1c1e;
-    --muted:#6b7280;
-    --bg:#faf9f7;
-    --card:#ffffff;
-    --border:#e8e5e0;
+    --red:#a8372a;
+    --red-dark:#7e291f;
+    --ink:#2b2420;
+    --muted:#6f6459;
+    --bg:#f6f1e9;
+    --card:#fffcf7;
+    --border:#e4d9c9;
   }
   *{box-sizing:border-box}
   body{
@@ -64,13 +67,24 @@
     max-width:680px;margin:0 auto;padding:0 24px 60px;
     color:var(--muted);font-size:0.82rem;
   }
+
+  /* Selaras dengan design system aplikasi ("Buku Catatan Guru") */
+  body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
+  .hero{background:#fffcf7 !important;color:var(--ink) !important;border-bottom:1px solid var(--border);position:relative;
+    background-image:repeating-linear-gradient(180deg,transparent 0,transparent 31px,rgba(111,100,89,0.08) 31px,rgba(111,100,89,0.08) 32px) !important}
+  .hero::before{content:'';position:absolute;left:0;right:0;top:0;height:4px;background:var(--red)}
+  .hero h1{font-family:'Fraunces',Georgia,serif;font-weight:600;letter-spacing:-0.01em;color:var(--ink)}
+  .hero p{color:var(--muted);opacity:1 !important}
+  h2{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:1.2rem;color:var(--ink)}
+  .card{border-radius:18px}
+  .btn{border-radius:14px}
+  a{text-underline-offset:3px}
 </style>
 </head>
 <body>
 
   <div class="hero">
     <div class="hero-inner">
-      <span class="hero-icon">🎵</span>
       <h1>Kebijakan Privasi LesLesanKu</h1>
       <p>Berlaku untuk aplikasi LesLesanKu (LLK) — aplikasi manajemen absensi, jadwal, dan progres siswa untuk tutor privat.</p>
     </div>

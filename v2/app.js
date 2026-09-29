@@ -10,6 +10,9 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signI
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, updateDoc, writeBatch, collection, query, where, serverTimestamp, Timestamp }
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 
+// Ikon garis dari sprite di index.html (satu set dengan V1)
+const I = (n, c) => `<svg class="ico${c ? ' ' + c : ''}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyAvD4ABTYIjCtPCYzUaRM8AHsjiOamHQLU',
   authDomain: 'leslesanku.com', // helper login di /__/auth/ (lihat __/README.md)
@@ -104,7 +107,7 @@ function closeModal() { const o = $('modalOverlay'); if (o) o.remove(); }
 // Konfirmasi dua langkah untuk aksi berbahaya
 function confirmDanger({ title, message, confirmText, typeWord }, onYes) {
   openModal(`
-    <div class="modal-t">⚠️ ${esc(title)}</div>
+    <div class="modal-t">${I('alert')} ${esc(title)}</div>
     <div class="modal-sub">${message}</div>
     ${typeWord ? `<div class="field"><label>Ketik ${esc(typeWord)} untuk konfirmasi</label><input id="cfWord" autocomplete="off"/></div>` : ''}
     <div class="btn-row">
@@ -187,25 +190,25 @@ function renderChooser() {
     <div class="sub">Pilih cara kamu memakai aplikasi ini</div>
     ${inOrg ? `
     <button class="role-card" id="rcBack" style="border-color:var(--green)">
-      <div class="role-ic" style="background:var(--green-bg)">🏫</div>
+      <div class="role-ic" style="background:var(--green-bg);color:var(--green)">${I('cap')}</div>
       <div><div class="role-t">Kembali ke ${esc(S.org.name)}</div><div class="role-d">Sebagai ${S.member.role === 'admin' ? 'Guru Admin' : 'Guru Mitra'}</div></div>
-      <div class="role-arrow">›</div>
+      <div class="role-arrow">${I('chevron-right')}</div>
     </button>` : ''}
     <button class="role-card" id="rcLepas">
-      <div class="role-ic" style="background:var(--amber-bg)">👤</div>
+      <div class="role-ic" style="background:var(--amber-bg);color:var(--amber)">${I('user')}</div>
       <div><div class="role-t">Guru Lepas</div><div class="role-d">Saya mengajar sendiri — atur murid, jadwal & tagihan sendiri</div></div>
-      <div class="role-arrow">›</div>
+      <div class="role-arrow">${I('chevron-right')}</div>
     </button>
     ${inOrg ? '' : `
     <button class="role-card" id="rcLembaga">
-      <div class="role-ic" style="background:var(--red-bg)">🏫</div>
+      <div class="role-ic" style="background:var(--red-bg);color:var(--red)">${I('users')}</div>
       <div><div class="role-t">Pemilik Lembaga Les</div><div class="role-d">Saya punya guru-guru — kelola jadwal, murid & honor guru</div></div>
-      <div class="role-arrow">›</div>
+      <div class="role-arrow">${I('chevron-right')}</div>
     </button>
     <button class="role-card" id="rcMitra">
-      <div class="role-ic" style="background:var(--blue-bg)">🎓</div>
+      <div class="role-ic" style="background:var(--blue-bg);color:var(--blue)">${I('user-plus')}</div>
       <div><div class="role-t">Guru Mitra</div><div class="role-d">Saya diundang lembaga — punya kode undangan</div></div>
-      <div class="role-arrow">›</div>
+      <div class="role-arrow">${I('chevron-right')}</div>
     </button>`}
     <div class="welcome-foot">
       ${S.user ? `Login sebagai <b>${esc(S.user.email)}</b> · <a href="#" id="lnkLogout" style="color:var(--red)">Keluar</a>` : 'Pilihanmu disimpan — layar ini hanya muncul sekali'}
@@ -240,13 +243,13 @@ function renderCreateOrg() {
   let logoData = null;
   root().innerHTML = `
   <div class="panel">
-    <button class="back" id="bk">‹ Kembali</button>
-    <h2>🏫 Daftarkan Lembaga Les</h2>
+    <button class="back" id="bk">${I('chevron-left')} Kembali</button>
+    <h2>Daftarkan Lembaga Les</h2>
     <div class="sub">Kamu akan menjadi <b>Guru Admin</b> — mengelola jadwal, murid, tagihan & honor Guru Mitra.</div>
     <div id="coMsg"></div>
     <div class="field"><label>Nama lembaga</label><input id="coName" maxlength="80" placeholder="cth: Les Musik Ceria"/></div>
     <div class="field"><label>Logo (opsional)</label>
-      <div class="logo-pick"><div class="logo-box" id="coLogoBox">🏫</div>
+      <div class="logo-pick"><div class="logo-box" id="coLogoBox">${I('image')}</div>
         <button class="btn btn-ghost" style="width:auto;padding:10px 16px" id="coLogoBtn">Pilih Gambar</button>
         <input type="file" id="coLogo" accept="image/*" style="display:none"/></div>
     </div>
@@ -289,8 +292,8 @@ function renderCreateOrg() {
 function renderJoin(prefill) {
   root().innerHTML = `
   <div class="panel">
-    <button class="back" id="bk">‹ Kembali</button>
-    <h2>🎓 Gabung sebagai Guru Mitra</h2>
+    <button class="back" id="bk">${I('chevron-left')} Kembali</button>
+    <h2>Gabung sebagai Guru Mitra</h2>
     <div class="sub">Masukkan kode undangan dari Guru Admin lembaga kamu.</div>
     <div id="jMsg"></div>
     <div class="field"><label>Kode undangan</label><input id="jCode" class="code-input" placeholder="LLK-XXXX-XXXX" maxlength="16" autocomplete="off" value="${esc(prefill || '')}"/></div>
@@ -322,7 +325,7 @@ async function checkCode() {
     }
     prev.innerHTML = `
       <div class="preview-card">
-        <div class="card-t" style="color:var(--green)">✓ Kode valid</div>
+        <div class="card-t" style="color:var(--green)">${I('check-circle','sm')} Kode valid</div>
         <div class="t-name" style="font-size:1.05rem">${esc(inv.orgName)}</div>
         <div class="t-meta" style="white-space:normal;margin-top:6px">Kamu diundang sebagai <b>${esc(inv.name)}</b><br>Honor: <b>${esc(rupiah(inv.honor))}</b> per pertemuan</div>
       </div>
@@ -360,16 +363,16 @@ async function joinOrg(code, inv) {
 // KERANGKA APLIKASI (Admin / Mitra)
 // ══════════════════════════════════════════════════════════════════════
 const ADMIN_TABS = [
-  { k: 'absensi', i: '📋', l: 'Absensi' },
-  { k: 'murid', i: '🎓', l: 'Murid' },
-  { k: 'guru', i: '👥', l: 'Guru' },
-  { k: 'keuangan', i: '💰', l: 'Keuangan' },
-  { k: 'lainnya', i: '⚙️', l: 'Lainnya' },
+  { k: 'absensi', i: 'absensi', l: 'Absensi' },
+  { k: 'murid', i: 'cap', l: 'Murid' },
+  { k: 'guru', i: 'users', l: 'Guru' },
+  { k: 'keuangan', i: 'wallet', l: 'Keuangan' },
+  { k: 'lainnya', i: 'grid', l: 'Lainnya' },
 ];
 const MITRA_TABS = [
-  { k: 'jadwal', i: '📅', l: 'Jadwal Saya' },
-  { k: 'honor', i: '💵', l: 'Honor' },
-  { k: 'lainnya', i: '⚙️', l: 'Lainnya' },
+  { k: 'jadwal', i: 'calendar', l: 'Jadwal Saya' },
+  { k: 'honor', i: 'wallet', l: 'Honor' },
+  { k: 'lainnya', i: 'grid', l: 'Lainnya' },
 ];
 function isAdmin() { return S.member && S.member.role === 'admin'; }
 function enterShell() {
@@ -382,7 +385,7 @@ function renderShell() {
   const logo = S.org.logo ? `<img src="${esc(S.org.logo)}" alt=""/>` : esc(initials(S.org.name));
   root().innerHTML = `
   <div class="shell">
-    <nav class="bottom-nav">${tabs.map(t => `<button class="bnav ${t.k === S.tab ? 'active' : ''}" data-tab="${t.k}"><span class="bi">${t.i}</span>${t.l}</button>`).join('')}</nav>
+    <nav class="bottom-nav">${tabs.map(t => `<button class="bnav ${t.k === S.tab ? 'active' : ''}" data-tab="${t.k}"><span class="bi">${I(t.i)}</span>${t.l}</button>`).join('')}</nav>
     <div class="shell-main">
       <header class="app-header">
         <div class="h-logo">${logo}</div>
@@ -400,16 +403,16 @@ function renderTab() {
   if (isAdmin()) {
     if (S.tab === 'guru') return renderGuru(m);
     if (S.tab === 'lainnya') return renderAdminLainnya(m);
-    const info = { absensi: ['📋', 'Absensi Harian', 'Pantau absensi semua Guru Mitra — dibangun di Tahap 4.'], murid: ['🎓', 'Data Murid', 'Murid, pelajaran, tarif & jadwal — dibangun di Tahap 2.'], keuangan: ['💰', 'Keuangan', 'Tagihan per pelajaran & rekap honor guru — dibangun di Tahap 5.'] }[S.tab];
+    const info = { absensi: ['absensi', 'Absensi Harian', 'Pantau absensi semua Guru Mitra — dibangun di Tahap 4.'], murid: ['cap', 'Data Murid', 'Murid, pelajaran, tarif & jadwal — dibangun di Tahap 2.'], keuangan: ['wallet', 'Keuangan', 'Tagihan per pelajaran & rekap honor guru — dibangun di Tahap 5.'] }[S.tab];
     return placeholder(m, info);
   }
   if (S.tab === 'lainnya') return renderMitraLainnya(m);
   if (S.tab === 'honor') return renderMitraHonor(m);
-  return placeholder(m, ['📅', 'Jadwal Saya', 'Jadwal & absensi murid yang ditugaskan kepadamu akan muncul di sini (Tahap 3).']);
+  return placeholder(m, ['calendar', 'Jadwal Saya', 'Jadwal & absensi murid yang ditugaskan kepadamu akan muncul di sini (Tahap 3).']);
 }
 function placeholder(m, [ic, t, d]) {
   m.innerHTML = `<div class="page-title">${t}</div><div class="page-sub">Segera hadir</div>
-    <div class="card"><div class="empty"><div class="empty-ic">${ic}</div><div class="empty-t">Sedang dibangun</div><div class="empty-d">${esc(d)}</div></div></div>`;
+    <div class="card"><div class="empty"><div class="empty-ic">${I(ic)}</div><div class="empty-t">Sedang dibangun</div><div class="empty-d">${esc(d)}</div></div></div>`;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -441,10 +444,10 @@ async function renderGuru(m) {
         <div class="grow"><div class="t-name">${esc(x.name)}</div><div class="t-meta">${esc(x.email)}</div></div>
         <span class="pill pill-green">AKTIF</span>
       </div>
-      <div class="t-meta" style="margin-top:10px;white-space:normal">💵 Honor <b style="color:var(--text)">${esc(rupiah(x.honor))}</b> / pertemuan · 📄 Spreadsheet absensi: ${x.sheetLink ? '<b style="color:var(--green)">sudah diisi</b>' : 'belum diisi'}</div>
+      <div class="t-meta" style="margin-top:10px;white-space:normal">${I('wallet','sm')} Honor <b style="color:var(--text)">${esc(rupiah(x.honor))}</b> / pertemuan · ${I('table','sm')} Spreadsheet absensi: ${x.sheetLink ? '<b style="color:var(--green)">sudah diisi</b>' : 'belum diisi'}</div>
       <div class="mini-btns">
-        <button class="mini" data-honor="${esc(x.id)}">✏️ Ubah Honor</button>
-        ${x.sheetLink ? `<button class="mini" data-sheet="${esc(x.id)}">📄 Buka Spreadsheet</button>` : ''}
+        <button class="mini" data-honor="${esc(x.id)}">${I('edit','sm')} Ubah Honor</button>
+        ${x.sheetLink ? `<button class="mini" data-sheet="${esc(x.id)}">${I('table','sm')} Buka Spreadsheet</button>` : ''}
         <button class="mini mini-red" data-kick="${esc(x.id)}">Keluarkan</button>
       </div>
     </div>`).join('') : '';
@@ -453,15 +456,15 @@ async function renderGuru(m) {
     return `
     <div class="card" style="${exp ? 'opacity:0.8' : ''}">
       <div class="row">
-        <div class="avatar" style="background:var(--blue-bg);color:var(--blue)">✉️</div>
-        <div class="grow"><div class="t-name">${esc(x.name)}</div><div class="t-meta">${esc(rupiah(x.honor))} / pertemuan${x.emailLock ? ' · 🔒 ' + esc(x.emailLock) : ''}</div></div>
+        <div class="avatar" style="background:var(--blue-bg);color:var(--blue)">${I('mail')}</div>
+        <div class="grow"><div class="t-name">${esc(x.name)}</div><div class="t-meta">${esc(rupiah(x.honor))} / pertemuan${x.emailLock ? ' · ' + I('lock','sm') + ' ' + esc(x.emailLock) : ''}</div></div>
         <span class="pill ${exp ? 'pill-red' : 'pill-amber'}">${exp ? 'KEDALUWARSA' : 'MENUNGGU'}</span>
       </div>
       <div class="code-box">${esc(x.id)}</div>
       <div class="t-meta" style="text-align:center;margin-top:6px">${exp ? 'Kedaluwarsa ' : 'Berlaku sampai '}${esc(fmtDate(x.expiresAt))}</div>
       <div class="mini-btns">
-        ${exp ? `<button class="mini" data-renew="${esc(x.id)}">🔄 Buat Kode Baru</button>`
-              : `<button class="mini mini-green" data-wa="${esc(x.id)}">💬 Kirim via WA</button><button class="mini" data-copy="${esc(x.id)}">📋 Salin</button>`}
+        ${exp ? `<button class="mini" data-renew="${esc(x.id)}">${I('refresh','sm')} Buat Kode Baru</button>`
+              : `<button class="mini mini-green" data-wa="${esc(x.id)}">${I('chat','sm')} Kirim via WA</button><button class="mini" data-copy="${esc(x.id)}">${I('copy','sm')} Salin</button>`}
         <button class="mini mini-red" data-revoke="${esc(x.id)}">Cabut</button>
       </div>
     </div>`; }).join('') : '';
@@ -476,7 +479,7 @@ async function renderGuru(m) {
     <button class="btn btn-primary" id="addMitra" ${full ? 'disabled' : ''} style="margin-bottom:18px">＋ Tambah Guru Mitra</button>
     ${g.invites.length ? `<div class="card-t">Undangan belum dipakai (${g.invites.length})</div>${invHtml}` : ''}
     <div class="card-t" style="margin-top:6px">Guru Mitra aktif (${g.mitras.length})</div>
-    ${mitraHtml || '<div class="card"><div class="empty"><div class="empty-ic">👥</div><div class="empty-t">Belum ada Guru Mitra</div><div class="empty-d">Tekan “Tambah Guru Mitra”, lalu kirim kodenya lewat WA.</div></div></div>'}`;
+    ${mitraHtml || '<div class="card"><div class="empty"><div class="empty-ic">'+I('users')+'</div><div class="empty-t">Belum ada Guru Mitra</div><div class="empty-d">Tekan “Tambah Guru Mitra”, lalu kirim kodenya lewat WA.</div></div></div>'}`;
   $('addMitra').onclick = openAddMitra;
   m.querySelectorAll('[data-wa]').forEach(b => b.onclick = () => shareInvite(g.invites.find(x => x.id === b.dataset.wa)));
   m.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyInvite(g.invites.find(x => x.id === b.dataset.copy)));
@@ -555,12 +558,12 @@ async function copyInvite(inv) {
 }
 function showInviteCreated(inv) {
   openModal(`
-    <div class="modal-t">✅ Undangan untuk ${esc(inv.name)}</div>
+    <div class="modal-t">${I('check-circle')} Undangan untuk ${esc(inv.name)}</div>
     <div class="modal-sub">Kirim kode ini ke guru. Berlaku ${INVITE_DAYS} hari & hanya bisa dipakai sekali.</div>
     <div class="code-box" style="font-size:1.3rem;padding:14px">${esc(inv.id)}</div>
     <div class="t-meta" style="text-align:center;margin:8px 0 16px;white-space:normal;word-break:break-all">${esc(inviteLink(inv.id))}</div>
-    <button class="btn btn-green" id="icWa">💬 Kirim via WhatsApp</button>
-    <button class="btn btn-ghost" id="icCopy">📋 Salin Pesan</button>
+    <button class="btn btn-green" id="icWa">${I('chat')} Kirim via WhatsApp</button>
+    <button class="btn btn-ghost" id="icCopy">${I('copy')} Salin Pesan</button>
     <button class="btn btn-ghost" id="icClose">Tutup</button>`);
   $('icWa').onclick = () => shareInvite(inv);
   $('icCopy').onclick = () => copyInvite(inv);
@@ -592,7 +595,7 @@ async function renewInvite(inv) {
 function editHonor(x) {
   if (!x) return;
   openModal(`
-    <div class="modal-t">✏️ Honor ${esc(x.name)}</div>
+    <div class="modal-t">${I('edit')} Honor ${esc(x.name)}</div>
     <div class="modal-sub">Berlaku untuk pertemuan berikutnya.</div>
     <div class="field"><label>Honor per pertemuan (Rp)</label><input id="ehVal" type="number" min="0" step="1000" value="${esc(x.honor)}"/></div>
     <div class="btn-row"><button class="btn btn-ghost" id="ehNo">Batal</button><button class="btn btn-primary" id="ehGo">Simpan</button></div>`);
@@ -625,7 +628,7 @@ function kickMitra(x) {
 // ADMIN — LAINNYA
 // ══════════════════════════════════════════════════════════════════════
 function renderAdminLainnya(m) {
-  const logo = S.org.logo ? `<img src="${esc(S.org.logo)}" alt=""/>` : '🏫';
+  const logo = S.org.logo ? `<img src="${esc(S.org.logo)}" alt=""/>` : I('image');
   m.innerHTML = `
     <div class="page-title">Lainnya</div><div class="page-sub">Pengaturan lembaga & akun</div>
     <div class="card">
@@ -634,15 +637,15 @@ function renderAdminLainnya(m) {
       <div class="field"><label>Logo</label><div class="logo-pick"><div class="logo-box" id="olLogoBox">${logo}</div>
         <button class="btn btn-ghost" style="width:auto;padding:10px 16px" id="olLogoBtn">Ganti Logo</button>
         <input type="file" id="olLogo" accept="image/*" style="display:none"/></div></div>
-      <button class="btn btn-primary" id="olSave">💾 Simpan</button>
+      <button class="btn btn-primary" id="olSave">${I('check')} Simpan</button>
     </div>
     <div class="card">
       <div class="card-t">Paket</div>
       <div class="t-meta" style="white-space:normal">Masa uji coba · <b style="color:var(--text)">${esc(S.org.seats)} kursi Guru Mitra</b>. Pilihan paket berbayar menyusul.</div>
     </div>
     <div class="card" style="padding:4px 14px">
-      <button class="menu-item" id="olMode"><div class="menu-ic">🔀</div><div><div class="menu-l">Ganti Mode</div><div class="menu-d">Pindah ke Guru Lepas (data pribadi terpisah)</div></div></button>
-      <button class="menu-item" id="olOut"><div class="menu-ic">🚪</div><div><div class="menu-l" style="color:var(--danger)">Keluar (Logout)</div><div class="menu-d">${esc(S.user.email)}</div></div></button>
+      <button class="menu-item" id="olMode"><div class="menu-ic">${I('repeat')}</div><div><div class="menu-l">Ganti Mode</div><div class="menu-d">Pindah ke Guru Lepas (data pribadi terpisah)</div></div></button>
+      <button class="menu-item" id="olOut"><div class="menu-ic" style="color:var(--danger)">${I('logout')}</div><div><div class="menu-l" style="color:var(--danger)">Keluar (Logout)</div><div class="menu-d">${esc(S.user.email)}</div></div></button>
     </div>`;
   let newLogo;
   $('olLogoBtn').onclick = () => $('olLogo').click();
@@ -667,7 +670,7 @@ function renderMitraHonor(m) {
       <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.06em;opacity:0.85">HONOR PER PERTEMUAN</div>
       <div style="font-size:1.8rem;font-weight:800;margin-top:4px">${esc(rupiah(S.member.honor))}</div>
     </div>
-    <div class="card"><div class="empty"><div class="empty-ic">📊</div><div class="empty-t">Rekap honor bulanan</div><div class="empty-d">Muncul otomatis setelah kamu mulai mengisi absensi (Tahap 3 & 5).</div></div></div>`;
+    <div class="card"><div class="empty"><div class="empty-ic">${I('chart')}</div><div class="empty-t">Rekap honor bulanan</div><div class="empty-d">Muncul otomatis setelah kamu mulai mengisi absensi (Tahap 3 & 5).</div></div></div>`;
 }
 function renderMitraLainnya(m) {
   m.innerHTML = `
@@ -676,15 +679,15 @@ function renderMitraLainnya(m) {
       <div class="row"><div class="avatar">${esc(initials(S.member.name))}</div><div class="grow"><div class="t-name">${esc(S.member.name)}</div><div class="t-meta">${esc(S.user.email)}</div></div></div>
     </div>
     <div class="card">
-      <div class="card-t">📄 Spreadsheet absensi guru</div>
-      <div class="t-meta" style="white-space:normal;margin-bottom:10px">Link Google Sheet tempat kamu mencatat absensi mengajar. Tombol 📨 di jadwal akan membuka link ini.</div>
+      <div class="card-t">${I('table','sm')} Spreadsheet absensi guru</div>
+      <div class="t-meta" style="white-space:normal;margin-bottom:10px">Link Google Sheet tempat kamu mencatat absensi mengajar. Tombol amplop di jadwal akan membuka link ini.</div>
       <div class="field"><input id="mlSheet" type="url" placeholder="https://docs.google.com/spreadsheets/..." value="${esc(S.member.sheetLink || '')}"/></div>
-      <button class="btn btn-primary" id="mlSave">💾 Simpan Link</button>
+      <button class="btn btn-primary" id="mlSave">${I('check')} Simpan Link</button>
     </div>
     <div class="card" style="padding:4px 14px">
-      <button class="menu-item" id="mlMode"><div class="menu-ic">🔀</div><div><div class="menu-l">Ganti Mode</div><div class="menu-d">Pindah ke Guru Lepas untuk murid pribadimu</div></div></button>
-      <button class="menu-item" id="mlLeave"><div class="menu-ic">🚪</div><div><div class="menu-l" style="color:var(--danger)">Keluar dari ${esc(S.org.name)}</div><div class="menu-d">Berhenti menjadi Guru Mitra di lembaga ini</div></div></button>
-      <button class="menu-item" id="mlOut"><div class="menu-ic">🔒</div><div><div class="menu-l">Logout</div><div class="menu-d">${esc(S.user.email)}</div></div></button>
+      <button class="menu-item" id="mlMode"><div class="menu-ic">${I('repeat')}</div><div><div class="menu-l">Ganti Mode</div><div class="menu-d">Pindah ke Guru Lepas untuk murid pribadimu</div></div></button>
+      <button class="menu-item" id="mlLeave"><div class="menu-ic" style="color:var(--danger)">${I('logout')}</div><div><div class="menu-l" style="color:var(--danger)">Keluar dari ${esc(S.org.name)}</div><div class="menu-d">Berhenti menjadi Guru Mitra di lembaga ini</div></div></button>
+      <button class="menu-item" id="mlOut"><div class="menu-ic">${I('lock')}</div><div><div class="menu-l">Logout</div><div class="menu-d">${esc(S.user.email)}</div></div></button>
     </div>`;
   $('mlSave').onclick = async () => {
     const v = $('mlSheet').value.trim();
