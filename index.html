@@ -72,6 +72,17 @@
   }
 </script>
 
+<script>
+  // Tema tampilan (Caffe Latte / Happy Time / Dark Mode) dipasang sebelum halaman
+  // digambar supaya tidak berkedip. Lihat llkApplyTheme().
+  (function(){try{
+    var t=localStorage.getItem('llk_theme');
+    if(t==='happy'||t==='dark'){
+      document.documentElement.setAttribute('data-theme',t);
+      if(t==='happy') document.write('<link id="llkHappyFont" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"/>');
+    }
+  }catch(e){}})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500..700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -116,6 +127,17 @@
   --plum:#6b4e9b;--plum-bg:rgba(107,78,155,0.11);
   --blue:#2f5a8a;--blue-bg:rgba(47,90,138,0.10);   /* tinta biru pena */
   --wa:#1b7a43;
+  /* Warna status sebagai LATAR tombol/lencana berteks putih (di Dark Mode status
+     teksnya lebih terang, jadi latar solid dipisah) */
+  --hadir-solid:#2a7349;--izin-solid:#a65510;--alpa-solid:#b0263f;
+  --blue-solid:#2f5a8a;--plum-solid:#6b4e9b;--amber-solid:#8a620b;
+  /* Kartu murid per status */
+  --st-hadir-bg:rgba(42,115,73,0.09);--st-izin-bg:rgba(166,85,16,0.10);--st-alpa-bg:rgba(176,38,63,0.08);
+  /* Permukaan "tinta" (tombol hitam, toast, kartu penghasilan, hari terpilih) */
+  --ink:#2b2420;--on-ink:#fffcf7;
+  --input-focus:#ffffff;
+  --nb-paper:#fbf7f0;        /* latar buku tulis (login, paket) */
+  --banner-warn:#f3e6c9;
 
   /* Bayangan: hanya untuk elemen yang benar-benar mengambang */
   --shadow-xs:0 1px 0 rgba(43,36,32,0.04);
@@ -147,6 +169,77 @@
     --red-glow:color-mix(in srgb,var(--red) 22%,transparent);
   }
 }
+/* ══════════════════════════════════════════════════════════════════════
+   TEMA TAMPILAN — dipilih di Pengaturan Aplikasi (localStorage llk_theme)
+   · Caffe Latte (bawaan, :root di atas): kertas hangat, Fraunces + Plus Jakarta Sans
+   · Happy Time : tampilan LLK sebelum dirombak (abu terang ala Apple, DM Sans,
+                  kartu putih berbayang, sudut lebih bulat, ikon emoji)
+   · Dark Mode  : kopi gelap, teks terang, warna status dibuat lebih terang
+   Warna aksen sekolah (--red) tetap dari Pengaturan di semua tema.
+   ══════════════════════════════════════════════════════════════════════ */
+:root[data-theme="happy"]{
+  --bg:#f5f5f7;--paper-2:#f0f0f3;--card:#ffffff;--card2:#fafafa;
+  --border:#e3e3e8;--border2:#ececf0;
+  --text:#1d1d1f;--text2:#424245;--muted:#6e6e73;--muted2:#6e6e73;
+  --hadir:#16803f;--hadir-bg:rgba(22,128,63,0.10);--hadir-text:#0f5f2e;--hadir-solid:#16803f;
+  --izin:#a55400;--izin-bg:rgba(217,119,6,0.11);--izin-text:#7c4e00;--izin-solid:#a55400;
+  --alpa:#d0232e;--alpa-bg:rgba(220,38,38,0.09);--alpa-text:#991b1b;--alpa-solid:#d0232e;
+  --amber:#946300;--amber-bg:rgba(217,160,6,0.13);--amber-solid:#946300;
+  --plum:#7a3fc2;--plum-bg:rgba(122,63,194,0.10);--plum-solid:#7a3fc2;
+  --blue:#0066cc;--blue-bg:rgba(0,113,227,0.09);--blue-solid:#0066cc;
+  --st-hadir-bg:rgba(29,158,78,0.08);--st-izin-bg:rgba(217,119,6,0.08);--st-alpa-bg:rgba(220,38,38,0.07);
+  --ink:#1d1d1f;--on-ink:#ffffff;--input-focus:#ffffff;--nb-paper:#f5f5f7;--banner-warn:#fdf0d5;
+  --shadow-xs:0 1px 3px rgba(0,0,0,0.07);
+  --shadow-sm:0 2px 12px rgba(0,0,0,0.07),0 1px 3px rgba(0,0,0,0.04);
+  --shadow-md:0 6px 24px rgba(0,0,0,0.09),0 2px 6px rgba(0,0,0,0.04);
+  --shadow-float:0 18px 48px -18px rgba(0,0,0,0.30),0 2px 6px rgba(0,0,0,0.06);
+  --font-ui:'DM Sans',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --font-display:'DM Sans',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --r-sm:12px;--r-md:16px;--r-lg:22px;--r-xl:28px;
+}
+:root[data-theme="happy"] .page-title{font-weight:800;letter-spacing:-0.035em}
+:root[data-theme="happy"] [style*="font-display"],:root[data-theme="happy"] .modal-title,:root[data-theme="happy"] .list-title{font-weight:800!important;letter-spacing:-0.02em}
+:root[data-theme="happy"] .list-wrap,:root[data-theme="happy"] .siswa-card,:root[data-theme="happy"] .menu-card,:root[data-theme="happy"] .stat-card,:root[data-theme="happy"] .stats-row{box-shadow:var(--shadow-sm);border-color:transparent}
+:root[data-theme="happy"] .day-pill.active{background:var(--red);border-color:var(--red);color:var(--on-red);box-shadow:0 4px 14px var(--red-glow)}
+:root[data-theme="happy"] .date-pill{border-radius:18px}
+.llk-subj-emo{font-size:1.45rem;line-height:1}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#15120f;--paper-2:#27211c;--card:#1e1a16;--card2:#262019;
+  --border:#3a3129;--border2:#2d2620;
+  --text:#f3ebe1;--text2:#d8ccbf;--muted:#ab9d8f;--muted2:#9c8f82;
+  --hadir:#6cc793;--hadir-bg:rgba(108,199,147,0.15);--hadir-text:#96dcb3;
+  --izin:#f0a35e;--izin-bg:rgba(240,163,94,0.15);--izin-text:#f5c08f;
+  --alpa:#f47a8e;--alpa-bg:rgba(244,122,142,0.15);--alpa-text:#f8a5b3;
+  --amber:#e0b75a;--amber-bg:rgba(224,183,90,0.15);
+  --plum:#bba3ea;--plum-bg:rgba(187,163,234,0.15);
+  --blue:#8ab8ec;--blue-bg:rgba(138,184,236,0.14);
+  --st-hadir-bg:rgba(108,199,147,0.10);--st-izin-bg:rgba(240,163,94,0.10);--st-alpa-bg:rgba(244,122,142,0.09);
+  --ink:#3a3029;--on-ink:#f6eee5;--input-focus:#2e2721;--nb-paper:#1b1713;--banner-warn:#3b2f1c;
+  --shadow-xs:0 1px 0 rgba(0,0,0,0.3);--shadow-sm:0 1px 0 rgba(0,0,0,0.35);
+  --shadow-md:0 10px 30px -12px rgba(0,0,0,0.7);
+  --shadow-float:0 18px 48px -18px rgba(0,0,0,0.8),0 2px 6px rgba(0,0,0,0.4);
+}
+/* Ilustrasi (kertas, garis) ikut warna tema */
+:root[data-theme] symbol [fill="#fffcf7"]{fill:var(--card)}
+:root[data-theme] symbol [fill="#efe8dc"],:root[data-theme] symbol [fill="#f6f1e9"],:root[data-theme] symbol [fill="#e4d9c9"]{fill:var(--paper-2)}
+:root[data-theme] symbol [fill="#d6c9b6"]{fill:var(--border)}
+:root[data-theme] symbol [stroke="#6f6459"]{stroke:var(--muted)}
+:root[data-theme] symbol [stroke="#d6c9b6"]{stroke:var(--border)}
+/* Pemilih tema di Pengaturan */
+.llk-theme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+.llk-theme-opt{display:flex;flex-direction:column;gap:8px;padding:8px 8px 10px;border-radius:var(--r-md);border:1.5px solid var(--border);background:var(--card);color:var(--text);font:inherit;text-align:left;cursor:pointer;transition:transform var(--d1) var(--ease-out),border-color var(--d1) var(--ease-out)}
+.llk-theme-opt:active{transform:scale(0.97)}
+.llk-theme-opt.on{border-color:var(--red);box-shadow:0 0 0 3px var(--accent-soft)}
+.llk-theme-prev{position:relative;display:block;height:64px;border-radius:10px;overflow:hidden;background:var(--tb);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06)}
+.llk-theme-prev i{position:absolute;display:block}
+.llk-theme-prev .hd{left:0;right:0;top:0;height:14px;background:var(--red)}
+.llk-theme-prev .cd{left:8px;right:8px;top:21px;bottom:8px;border-radius:7px;background:var(--tc)}
+.llk-theme-prev .l1{left:15px;top:28px;width:52%;height:5px;border-radius:3px;background:var(--tt)}
+.llk-theme-prev .l2{left:15px;top:38px;width:34%;height:5px;border-radius:3px;background:var(--tt);opacity:0.45}
+.llk-theme-prev .dot{right:14px;top:29px;width:12px;height:12px;border-radius:50%;background:var(--tg)}
+.llk-theme-nm{font-weight:700;font-size:0.84rem;line-height:1.2;display:flex;align-items:center;gap:5px}
+.llk-theme-ds{font-size:0.72rem;color:var(--muted);line-height:1.3}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{scroll-behavior:smooth;color-scheme:light}
 body{
@@ -181,7 +274,7 @@ button:disabled{opacity:.55;cursor:default}
 .llk-press:active:not(:disabled){transform:scale(0.96)}
 .llk-press:disabled{cursor:default;opacity:1}
 .llk-busy{opacity:0.92}
-.llk-ok{background:var(--hadir) !important;color:#fff !important;border-color:var(--hadir) !important;animation:llkPop var(--d3) var(--ease-spring)}
+.llk-ok{background:var(--hadir-solid) !important;color:#fff !important;border-color:var(--hadir) !important;animation:llkPop var(--d3) var(--ease-spring)}
 .llk-fail{background:var(--alpa-bg) !important;color:var(--alpa-text) !important;border-color:var(--alpa) !important;animation:llkShake var(--d4) var(--ease-out)}
 .llk-btn-spin{display:inline-block;width:16px;height:16px;border-radius:50%;border:2.25px solid rgba(43,36,32,0.15);border-top-color:var(--red);animation:llkSpin .8s linear infinite;flex-shrink:0;vertical-align:middle;margin-right:8px}
 .llk-btn-spin.light{border-color:rgba(255,255,255,0.35);border-top-color:#fff}
@@ -246,7 +339,7 @@ button:disabled{opacity:.55;cursor:default}
   background:var(--card);color:var(--text2);
   white-space:nowrap;scroll-snap-align:center;
 }
-.day-pill.active{background:var(--text);border-color:var(--text);color:#fffcf7;font-weight:700}
+.day-pill.active{background:var(--ink);border-color:var(--text);color:var(--on-ink);font-weight:700}
 .day-pill.today{border-color:var(--accent-line);color:var(--red-text)}
 .day-pill.today::after{content:'';position:absolute;top:6px;right:8px;width:5px;height:5px;border-radius:50%;background:var(--red)}
 .day-pill.today.active{color:#fff}
@@ -269,9 +362,9 @@ button:disabled{opacity:.55;cursor:default}
 .stat-label{display:flex;align-items:center;justify-content:center;gap:5px;font-size:0.7rem;font-weight:600;color:var(--muted);margin-bottom:3px;letter-spacing:0.01em}
 .stat-label::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--muted2)}
 .stat-num{font-family:var(--font-display);font-size:1.7rem;font-weight:600;line-height:1.05;font-variant-numeric:lining-nums tabular-nums;color:var(--text)}
-.s-hadir .stat-num{color:var(--hadir)} .s-hadir .stat-label::before{background:var(--hadir)}
-.s-izin .stat-num{color:var(--izin)}   .s-izin .stat-label::before{background:var(--izin)}
-.s-alpa .stat-num{color:var(--alpa)}   .s-alpa .stat-label::before{background:var(--alpa)}
+.s-hadir .stat-num{color:var(--hadir)} .s-hadir .stat-label::before{background:var(--hadir-solid)}
+.s-izin .stat-num{color:var(--izin)}   .s-izin .stat-label::before{background:var(--izin-solid)}
+.s-alpa .stat-num{color:var(--alpa)}   .s-alpa .stat-label::before{background:var(--alpa-solid)}
 
 /* ── LIST WRAP ── */
 .list-wrap{
@@ -300,12 +393,10 @@ button:disabled{opacity:.55;cursor:default}
 .s-item:last-child{border-bottom:none}
 .s-item:active{background:var(--card2)}
 /* Kartu murid diberi warna latar sesuai status supaya Hadir / Izin / Alpa langsung terbedakan */
-.s-item.status-hadir{border-left:4px solid var(--hadir);background:rgba(42,115,73,0.09)}
-.s-item.status-izin{border-left:4px solid var(--izin);background:rgba(166,85,16,0.10)}
-.s-item.status-alpa{border-left:4px solid var(--alpa);background:rgba(176,38,63,0.08)}
-.s-item.status-hadir:active{background:rgba(42,115,73,0.15)}
-.s-item.status-izin:active{background:rgba(166,85,16,0.16)}
-.s-item.status-alpa:active{background:rgba(176,38,63,0.14)}
+.s-item.status-hadir{border-left:4px solid var(--hadir);background:var(--st-hadir-bg)}
+.s-item.status-izin{border-left:4px solid var(--izin);background:var(--st-izin-bg)}
+.s-item.status-alpa{border-left:4px solid var(--alpa);background:var(--st-alpa-bg)}
+.s-item.status-hadir:active,.s-item.status-izin:active,.s-item.status-alpa:active{filter:brightness(0.96)}
 .s-item.status-belum{border-left:3px solid transparent}
 .s-avatar{position:relative;
   width:46px;height:46px;border-radius:14px;
@@ -358,9 +449,9 @@ button:disabled{opacity:.55;cursor:default}
 .att-btn.a-hadir{color:var(--hadir)}
 .att-btn.a-izin{color:var(--izin)}
 .att-btn.a-alpa{color:var(--alpa)}
-.att-btn.a-hadir.on{background:var(--hadir);border-color:var(--hadir);color:#fff}
-.att-btn.a-izin.on{background:var(--izin);border-color:var(--izin);color:#fff}
-.att-btn.a-alpa.on{background:var(--alpa);border-color:var(--alpa);color:#fff}
+.att-btn.a-hadir.on{background:var(--hadir-solid);border-color:var(--hadir);color:#fff}
+.att-btn.a-izin.on{background:var(--izin-solid);border-color:var(--izin);color:#fff}
+.att-btn.a-alpa.on{background:var(--alpa-solid);border-color:var(--alpa);color:#fff}
 .att-btn.on .ico{animation:llkPop var(--d3) var(--ease-spring)}
 .att-btn.is-sent{background:var(--hadir-bg);border-color:transparent;color:var(--hadir)}
 .att-btn.is-send{background:var(--blue-bg);border-color:transparent;color:var(--blue)}
@@ -405,9 +496,9 @@ button:disabled{opacity:.55;cursor:default}
 }
 .cal-day.has-data{color:var(--text);font-weight:700;background:var(--paper-2)}
 @media (hover:hover){.cal-day.has-data:hover{background:var(--accent-soft)}}
-.cal-day.selected{background:var(--text)!important;color:#fffcf7!important;border-color:transparent!important}
+.cal-day.selected{background:var(--ink)!important;color:var(--on-ink)!important;border-color:transparent!important}
 .cal-day.today-dot::after{content:'';position:absolute;bottom:4px;left:50%;margin-left:-2px;width:4px;height:4px;border-radius:50%;background:var(--red)}
-.cal-day.selected.today-dot::after{background:#fff}
+.cal-day.selected.today-dot::after{background:var(--on-ink)}
 .cal-day.empty{cursor:default;height:0;overflow:hidden;padding:0;margin:0}
 
 /* ── DATE DETAIL ── */
@@ -575,7 +666,7 @@ button:disabled{opacity:.55;cursor:default}
   outline:none;width:100%;
 }
 .mfield input:focus,.mfield select:focus,.mfield textarea:focus{
-  border-color:var(--red);background:#fff;
+  border-color:var(--red);background:var(--input-focus);
   box-shadow:0 0 0 3px var(--accent-soft);
 }
 .mfield input::placeholder,.mfield textarea::placeholder{color:var(--muted2)}
@@ -592,7 +683,7 @@ button:disabled{opacity:.55;cursor:default}
 .llk-choice input{accent-color:var(--red);width:18px;height:18px;flex-shrink:0}
 .llk-choice .menu-icon{width:34px;height:34px;border-radius:10px}
 .llk-textarea{width:100%;font-family:inherit;font-size:0.92rem;line-height:1.55;border:1px solid var(--border);border-radius:var(--r-md);padding:12px;background:var(--bg);color:var(--text);resize:vertical;outline:none}
-.llk-textarea:focus{border-color:var(--red);background:#fff;box-shadow:0 0 0 3px var(--accent-soft)}
+.llk-textarea:focus{border-color:var(--red);background:var(--input-focus);box-shadow:0 0 0 3px var(--accent-soft)}
 .llk-code{font-family:var(--font-mono);font-size:0.8em;background:var(--paper-2);color:var(--text2);padding:2px 6px;border-radius:6px}
 .llk-row{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 10px 10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;min-height:62px}
 .llk-row-main{flex:1;min-width:0;display:flex;align-items:center;gap:12px;background:none;border:none;text-align:left;cursor:pointer;padding:4px 0;color:inherit}
@@ -615,7 +706,7 @@ button:disabled{opacity:.55;cursor:default}
 .llk-callout.ok{background:var(--hadir-bg);color:var(--hadir-text)}
 .llk-callout.danger{background:var(--alpa-bg);color:var(--alpa-text)}
 .llk-check{width:24px;height:24px;border-radius:8px;border:1.75px solid var(--muted2);background:var(--card);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
-.llk-check.on{background:var(--hadir);border-color:var(--hadir)}
+.llk-check.on{background:var(--hadir-solid);border-color:var(--hadir)}
 .llk-logout-btn.is-leaving{background:var(--alpa-bg);border-color:var(--alpa);animation:llkLogoutPress 420ms var(--ease-out)}
 .llk-logout-btn.is-leaving .ico{animation:llkLogoutNudge 520ms var(--ease-out)}
 @keyframes llkLogoutPress{0%{transform:scale(1)}35%{transform:scale(0.9)}100%{transform:scale(1)}}
@@ -628,23 +719,23 @@ button:disabled{opacity:.55;cursor:default}
 .llk-cp-row .l{font-size:0.78rem;color:var(--muted);margin-top:1px}
 .llk-cp-chip{display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--card);color:var(--text2);font:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:transform var(--d1) var(--ease-out)}
 .llk-cp-chip:active{transform:scale(0.96)}
-.llk-cp-chip.on{background:var(--text);border-color:var(--text);color:var(--card)}
+.llk-cp-chip.on{background:var(--ink);border-color:var(--text);color:var(--card)}
 .llk-check .ico{width:15px;height:15px;animation:llkPop var(--d3) var(--ease-spring)}
 /* Kartu estimasi penghasilan (Track) — "halaman buku kas" bertinta gelap */
-.llk-income{position:relative;overflow:hidden;background:var(--text);color:#fffcf7;border-radius:var(--r-lg);padding:18px 18px 16px;margin-bottom:14px}
+.llk-income{position:relative;overflow:hidden;background:var(--ink);color:var(--on-ink);border-radius:var(--r-lg);padding:18px 18px 16px;margin-bottom:14px}
 .llk-income::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--red)}
 .llk-income::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(180deg,transparent 0,transparent 27px,rgba(255,252,247,0.05) 27px,rgba(255,252,247,0.05) 28px)}
 .llk-income>*{position:relative;z-index:1}
-.llk-income-btn{background:rgba(255,255,255,0.14);border:none;width:38px;height:38px;border-radius:11px;color:#fffcf7;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.llk-income-btn{background:rgba(255,255,255,0.14);border:none;width:38px;height:38px;border-radius:11px;color:var(--on-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .llk-income-btn .ico{width:19px;height:19px}
 .llk-statbox{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 8px;text-align:center;cursor:pointer;transition:transform var(--d1) var(--ease-out)}
 .llk-statbox:active{transform:scale(0.97)}
 .llk-statbox .n{font-family:var(--font-display);font-size:1.55rem;font-weight:600;line-height:1.1;font-variant-numeric:lining-nums tabular-nums}
 .llk-statbox .l{display:flex;align-items:center;justify-content:center;gap:5px;font-size:0.74rem;font-weight:600;color:var(--muted);margin-top:3px}
 .llk-statbox .l::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--muted2)}
-.llk-statbox.h .n{color:var(--hadir)} .llk-statbox.h .l::before{background:var(--hadir)}
-.llk-statbox.i .n{color:var(--izin)}  .llk-statbox.i .l::before{background:var(--izin)}
-.llk-statbox.a .n{color:var(--alpa)}  .llk-statbox.a .l::before{background:var(--alpa)}
+.llk-statbox.h .n{color:var(--hadir)} .llk-statbox.h .l::before{background:var(--hadir-solid)}
+.llk-statbox.i .n{color:var(--izin)}  .llk-statbox.i .l::before{background:var(--izin-solid)}
+.llk-statbox.a .n{color:var(--alpa)}  .llk-statbox.a .l::before{background:var(--alpa-solid)}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .mactions{
   display:flex;gap:8px;margin-top:20px;
@@ -671,11 +762,11 @@ button:disabled{opacity:.55;cursor:default}
 .llk-btn .ico{width:18px;height:18px}
 .llk-btn.block{width:100%}
 .llk-btn.primary{background:var(--red);color:var(--on-red)}
-.llk-btn.ink{background:var(--text);color:#fffcf7}
+.llk-btn.ink{background:var(--ink);color:var(--on-ink)}
 .llk-btn.secondary{background:var(--card);color:var(--text);border-color:var(--border)}
 .llk-btn.soft{background:var(--paper-2);color:var(--text2)}
 .llk-btn.wa{background:var(--wa);color:#fff}
-.llk-btn.success{background:var(--hadir);color:#fff}
+.llk-btn.success{background:var(--hadir-solid);color:#fff}
 .llk-btn.outline-success{background:var(--card);color:var(--hadir);border-color:var(--hadir)}
 .llk-btn.danger{background:var(--alpa-bg);color:var(--alpa-text)}
 .llk-btn.info{background:var(--blue-bg);color:var(--blue)}
@@ -685,7 +776,7 @@ button:disabled{opacity:.55;cursor:default}
 .llk-tut-highlight{position:relative;z-index:10001;border-radius:var(--r-md)!important;box-shadow:0 0 0 3px var(--red),0 0 0 8px var(--accent-soft)}
 .llk-tut-highlight::after{content:'';position:absolute;inset:-8px;border-radius:18px;border:2px solid var(--red);pointer-events:none;animation:llkTutRing 1.6s var(--ease-out) infinite}
 @keyframes llkTutRing{0%{opacity:.7;transform:scale(0.98)}100%{opacity:0;transform:scale(1.04)}}
-#llkTutCard{position:fixed;left:0;right:0;top:0;z-index:10002;background:var(--text);color:#fffcf7;padding:calc(16px + env(safe-area-inset-top)) 20px 18px;border-radius:0 0 var(--r-xl) var(--r-xl);box-shadow:var(--shadow-float);font-family:var(--font-ui);animation:llkSheetDown var(--d3) var(--ease-out)}
+#llkTutCard{position:fixed;left:0;right:0;top:0;z-index:10002;background:var(--ink);color:var(--on-ink);padding:calc(16px + env(safe-area-inset-top)) 20px 18px;border-radius:0 0 var(--r-xl) var(--r-xl);box-shadow:var(--shadow-float);font-family:var(--font-ui);animation:llkSheetDown var(--d3) var(--ease-out)}
 @keyframes llkSheetUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
 @keyframes llkSheetDown{from{transform:translateY(-16px);opacity:0}to{transform:none;opacity:1}}
 #llkTutCard .tut-progress{font-size:0.72rem;font-weight:700;color:#f0b98f;letter-spacing:0.06em;margin-bottom:6px}
@@ -693,7 +784,7 @@ button:disabled{opacity:.55;cursor:default}
 #llkTutCard .tut-desc{font-size:0.86rem;color:#e6dccf;line-height:1.55;margin-bottom:14px}
 #llkTutCard .tut-btns{display:flex;gap:10px}
 #llkTutCard .tut-skip{background:none;border:none;color:#cbbfb1;font-size:0.86rem;font-weight:600;padding:12px 6px}
-#llkTutCard .tut-next{flex:1;background:#fffcf7;color:var(--text);border:none;border-radius:var(--r-md);height:46px;font-size:0.92rem;font-weight:800}
+#llkTutCard .tut-next{flex:1;background:var(--on-ink);color:var(--ink);border:none;border-radius:var(--r-md);height:46px;font-size:0.92rem;font-weight:800}
 
 /* Akordeon di form (jadwal rutin, tambahan kelas) */
 .llk-acc{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;min-height:48px;text-align:left;user-select:none;cursor:pointer}
@@ -732,7 +823,7 @@ button:disabled{opacity:.55;cursor:default}
   transform:translate(-50%,12px) scale(0.98);
   z-index:999;
   width:max-content;max-width:calc(100% - 32px);
-  background:var(--text);color:#fffcf7;border-radius:var(--r-md);
+  background:var(--ink);color:var(--on-ink);border-radius:var(--r-md);
   padding:12px 16px;font-size:0.88rem;font-weight:600;line-height:1.45;
   opacity:0;pointer-events:none;
   transition:opacity var(--d2) var(--ease-out),transform var(--d3) var(--ease-spring);
@@ -746,7 +837,7 @@ button:disabled{opacity:.55;cursor:default}
 #toast.is-err .llk-toast-ic{background:#e7788b;color:#3d0a14}
 #toast.is-warn .llk-toast-ic{background:#e8b04f;color:#3a2502}
 #toast.is-info .llk-toast-ic{background:#9dbbe0;color:#102742}
-#toast.is-busy .llk-toast-ic{background:transparent;border:2px solid rgba(255,252,247,0.3);border-top-color:#fffcf7;animation:llkSpin .8s linear infinite}
+#toast.is-busy .llk-toast-ic{background:transparent;border:2px solid rgba(255,252,247,0.3);border-top-color:var(--on-ink);animation:llkSpin .8s linear infinite}
 #toast.show .llk-toast-ic{animation:llkPop var(--d3) var(--ease-spring)}
 #toast.is-busy.show .llk-toast-ic{animation:llkSpin .8s linear infinite}
 
@@ -864,7 +955,7 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
 }
 /* Latar halaman paket & login: kertas bergaris dengan garis margin (motif buku tulis) */
 .llk-pricing-bg,.llk-notebook-bg{
-  background-color:#fbf7f0;
+  background-color:var(--nb-paper);
   background-image:repeating-linear-gradient(180deg,transparent 0,transparent 31px,rgba(111,100,89,0.09) 31px,rgba(111,100,89,0.09) 32px);
   background-attachment:local;
 }
@@ -1107,7 +1198,7 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
   </button>
 </div>
 
-<div id="trialBanner" style="display:none;position:sticky;top:0;z-index:500;background:#f3e6c9;color:var(--izin-text);text-align:center;padding:8px 14px;font-size:0.82rem;font-weight:600;border-bottom:1px solid rgba(138,98,11,0.2)"></div>
+<div id="trialBanner" style="display:none;position:sticky;top:0;z-index:500;background:var(--banner-warn);color:var(--izin-text);text-align:center;padding:8px 14px;font-size:0.82rem;font-weight:600;border-bottom:1px solid rgba(138,98,11,0.2)"></div>
 
 <div class="app-header">
   <div class="header-logo" id="schoolLogo">LLK</div>
@@ -1121,7 +1212,7 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
   </div>
 </div>
 
-<div id="offlineBanner" style="display:none;background:#f3e6c9;color:var(--izin-text);font-size:0.82rem;font-weight:600;line-height:1.45;text-align:center;padding:10px 16px;border-bottom:1px solid rgba(138,98,11,0.25)">
+<div id="offlineBanner" style="display:none;background:var(--banner-warn);color:var(--izin-text);font-size:0.82rem;font-weight:600;line-height:1.45;text-align:center;padding:10px 16px;border-bottom:1px solid rgba(138,98,11,0.25)">
   <svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg> Internet mati — sehingga aplikasi bisa berjalan tidak semestinya (tombol/data mungkin tidak sesuai). Sambungkan internet & refresh untuk memuat versi terbaru.
 </div>
 
@@ -1484,6 +1575,9 @@ function llkSubjectIcon(instrument){
   if(!n && /\uD83C[\uDDE6-\uDDFF]/.test(e)) n='lang';   // bendera negara → bahasa
   if(!n && e && e.indexOf('‍')>=0) n='users';       // sosiologi
   n=n||'music';
+  const theme=document.documentElement.getAttribute('data-theme');
+  // Happy Time: ikon emoji seperti tampilan lama
+  if(theme==='happy') return '<span class="llk-subj llk-subj-emo" style="'+llkSubjectStyle(n)+'">'+escapeHtml(e||'🎵')+'</span>';
   // Tiap jenis ikon punya warna sendiri (tidak ada yang sama) — lihat llkSubjectHue
   return '<span class="llk-subj" style="'+llkSubjectStyle(n)+'">'+llkI(n)+'</span>';
 }
@@ -1499,6 +1593,8 @@ function llkSubjectHue(n){
 // Hue ganjil/genap diberi kecerahan berbeda supaya dua warna bertetangga tetap mudah dibedakan
 function llkSubjectStyle(n){
   const h=llkSubjectHue(n), odd=(h/18)%2===1;
+  if(document.documentElement.getAttribute('data-theme')==='dark')
+    return odd?'background:hsl('+h+',32%,26%);color:hsl('+h+',70%,80%)':'background:hsl('+h+',26%,20%);color:hsl('+h+',62%,74%)';
   return odd?'background:hsl('+h+',56%,83%);color:hsl('+h+',58%,24%)':'background:hsl('+h+',48%,91%);color:hsl('+h+',52%,30%)';
 }
 // Ikon tautan Materi: pilihan bawaan (disimpan sebagai emoji di data) ditampilkan
@@ -1558,9 +1654,51 @@ function llkHslToHex(h,s,l){
 function llkOnColor(hex){ return llkContrast(hex,'#ffffff')>=llkContrast(hex,'#2b2420')?'#ffffff':'#2b2420'; }
 // Versi warna tema yang tetap terbaca sebagai teks di atas kertas (>=4.5:1)
 function llkReadableOnPaper(hex){
+  // Kertas = warna kartu tema aktif. Tema gelap → aksen DIterangkan, tema terang → digelapkan.
+  let paper='#fffcf7';
+  try{ const c=getComputedStyle(document.documentElement).getPropertyValue('--card').trim(); if(/^#[0-9a-f]{6}$/i.test(c)) paper=c; }catch(e){}
+  const dark=llkLum(paper)<0.2;
   const hsl=llkHexToHsl(hex); let l=hsl[2], out=hex;
-  while(llkContrast(out,'#fffcf7')<4.5 && l>0){ l-=3; out=llkHslToHex(hsl[0],hsl[1],Math.max(l,0)); }
+  while(llkContrast(out,paper)<4.5 && l>0 && l<100){ l+=dark?3:-3; out=llkHslToHex(hsl[0],hsl[1],Math.min(100,Math.max(l,0))); }
   return out;
+}
+// ── TEMA TAMPILAN ──
+const LLK_THEMES=[
+  {id:'latte', name:'Caffe Latte', desc:'Hangat & tenang', tb:'#f6f1e9', tc:'#fffcf7', tt:'#2b2420', tg:'#2a7349'},
+  {id:'happy', name:'Happy Time',  desc:'Tampilan klasik LLK', tb:'#f5f5f7', tc:'#ffffff', tt:'#1d1d1f', tg:'#1d9e4e'},
+  {id:'dark',  name:'Dark Mode',   desc:'Nyaman di malam hari', tb:'#15120f', tc:'#1e1a16', tt:'#f3ebe1', tg:'#6cc793'}
+];
+function llkGetTheme(){
+  let t='latte'; try{ t=localStorage.getItem('llk_theme')||'latte'; }catch(e){}
+  return LLK_THEMES.some(x=>x.id===t)?t:'latte';
+}
+function llkApplyTheme(id, persist){
+  if(!LLK_THEMES.some(x=>x.id===id)) id='latte';
+  const root=document.documentElement;
+  if(id==='latte') root.removeAttribute('data-theme'); else root.setAttribute('data-theme',id);
+  if(id==='happy' && !document.getElementById('llkHappyFont')){
+    const l=document.createElement('link'); l.id='llkHappyFont'; l.rel='stylesheet';
+    l.href='https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap';
+    document.head.appendChild(l);
+  }
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute('content', id==='dark'?'#15120f':(localStorage.getItem('rms_school_color')||'#a8372a'));
+  if(persist){ try{ localStorage.setItem('llk_theme',id); }catch(e){} if(typeof scheduleCloudSync==='function') scheduleCloudSync(); }
+  const c=localStorage.getItem('rms_school_color'); llkApplyAccentVars(c||'#a8372a'); // hitung ulang warna aksen terbaca
+  document.querySelectorAll('.llk-theme-opt').forEach(b=>b.classList.toggle('on',b.dataset.theme===id));
+}
+function llkPickTheme(id){
+  llkApplyTheme(id, true);
+  const t=LLK_THEMES.find(x=>x.id===id);
+  toast('✅ Tema '+(t?t.name:'')+' dipakai');
+}
+function llkThemePickerHtml(){
+  const cur=llkGetTheme();
+  return '<div class="llk-section-label">'+llkI('palette')+'Tema tampilan</div><div class="llk-theme-grid" id="llkThemeGrid">'
+    +LLK_THEMES.map(t=>'<button class="llk-theme-opt'+(t.id===cur?' on':'')+'" data-theme="'+t.id+'" onclick="llkPickTheme(\''+t.id+'\')" aria-label="Tema '+t.name+'" style="--tb:'+t.tb+';--tc:'+t.tc+';--tt:'+t.tt+';--tg:'+t.tg+'">'
+      +'<span class="llk-theme-prev"><i class="hd"></i><i class="cd"></i><i class="l1"></i><i class="l2"></i><i class="dot"></i></span>'
+      +'<span><span class="llk-theme-nm">'+t.name+'</span><span class="llk-theme-ds">'+t.desc+'</span></span></button>').join('')
+    +'</div>';
 }
 function llkApplyAccentVars(hex){
   const root=document.documentElement;
@@ -2817,15 +2955,15 @@ function renderAbsensi(){
       :''; // Hadir / Izin / Alpa: warna dari class .status-* (CSS)
     const avatarOpacity=samedayRs||hasActiveReschedule||isIzin||isAlpa?'opacity:0.5;':'';
     const badgeHtml=samedayRs
-      ?'<span class="llk-av-badge" style="background:var(--plum)">'+llkI('repeat')+'</span>'
+      ?'<span class="llk-av-badge" style="background:var(--plum-solid)">'+llkI('repeat')+'</span>'
       :hasActiveReschedule
-      ?'<span class="llk-av-badge" style="background:var(--amber)">'+llkI('arrow-right')+'</span>'
+      ?'<span class="llk-av-badge" style="background:var(--amber-solid)">'+llkI('arrow-right')+'</span>'
       :isIzin
-      ?'<span class="llk-av-badge" style="background:var(--izin)">'+llkI('minus')+'</span>'
+      ?'<span class="llk-av-badge" style="background:var(--izin-solid)">'+llkI('minus')+'</span>'
       :isAlpa
-      ?'<span class="llk-av-badge" style="background:var(--alpa)">'+llkI('x')+'</span>'
+      ?'<span class="llk-av-badge" style="background:var(--alpa-solid)">'+llkI('x')+'</span>'
       :isHadir
-      ?'<span class="llk-av-badge" style="background:var(--hadir)">'+llkI('check')+'</span>'
+      ?'<span class="llk-av-badge" style="background:var(--hadir-solid)">'+llkI('check')+'</span>'
       :'';
     const nameColor=samedayRs||hasActiveReschedule||isIzin||isAlpa?'color:var(--muted);':'';
     const timeColor=hasActiveReschedule?'var(--amber)':isIzin?'var(--izin)':isAlpa?'var(--alpa)':status==='hadir'?'var(--hadir)':'var(--text)';
@@ -3742,7 +3880,7 @@ async function showInvoiceModal(){
       ${inv.items.length?'':'<div class="llk-callout danger" style="margin-bottom:10px;font-size:0.84rem">'+llkI('alert')+'<div>Belum ada pertemuan yang perlu ditagih untuk murid ini.</div></div>'}
       <div style="display:grid;grid-template-columns:1fr;gap:8px">
         ${btn('invoiceSendWA()', llkI('chat')+(phone?' Kirim Rincian ke WA '+escapeHtml(s.phone):' Kirim Rincian ke WA (nomor belum diisi)'), 'background:var(--wa);color:#fff;border:none')}
-        ${btn('invoiceShareFile()',llkI('share')+' Bagikan File PDF (lampirkan ke WA)','background:var(--blue);color:#fff;border:none')}
+        ${btn('invoiceShareFile()',llkI('share')+' Bagikan File PDF (lampirkan ke WA)','background:var(--blue-solid);color:#fff;border:none')}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
         ${btn('invoiceDownloadPdf()',llkI('download')+' Download PDF','background:var(--card);color:var(--text);border:1px solid var(--border)')}
@@ -4345,7 +4483,7 @@ function showConfirmReset(msg){
         <div id="resetConfirmMsg" style="font-size:0.92rem;color:var(--text2);text-align:center;margin-bottom:20px;line-height:1.6"></div>
         <div style="display:flex;gap:10px">
           <button onclick="cancelResetAttendance()" class="mbtn mbtn-cancel">Batal</button>
-          <button onclick="confirmResetAttendance()" class="mbtn" style="background:var(--alpa);color:#fff">Ya, Reset</button>
+          <button onclick="confirmResetAttendance()" class="mbtn" style="background:var(--alpa-solid);color:#fff">Ya, Reset</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -4848,7 +4986,7 @@ function showGenericConfirm(title, msg, confirmLabel, onConfirm, danger, icon){
         <div id="genericConfirmMsg" style="font-size:0.92rem;color:var(--text2);text-align:center;margin-bottom:20px;line-height:1.6"></div>
         <div style="display:flex;gap:10px">
           <button onclick="cancelGenericConfirm()" class="mbtn mbtn-cancel">Batal</button>
-          <button id="genericConfirmYesBtn" onclick="confirmGenericConfirm()" class="mbtn" style="background:var(--hadir);color:#fff"></button>
+          <button id="genericConfirmYesBtn" onclick="confirmGenericConfirm()" class="mbtn" style="background:var(--hadir-solid);color:#fff"></button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -4916,7 +5054,7 @@ function teacherTasksHtml(){
       <div style="display:flex;gap:8px;margin-bottom:${teacherTasks.length?'14':'0'}px">
         <input id="taskInput" type="text" placeholder="cth: Buat materi lagu untuk Rere" onkeydown="if(event.key==='Enter')addTeacherTask()"
           style="flex:1;min-width:0;height:48px;background:var(--bg);border:1px solid ${editingTaskId?'var(--blue)':'var(--border)'};color:var(--text);font-family:inherit;font-size:16px;padding:0 14px;border-radius:var(--r-md);outline:none"/>
-        <button onclick="addTeacherTask()" aria-label="${editingTaskId?'Simpan':'Tambah'}" class="llk-btn ${editingTaskId?'info':'primary'}" style="width:48px;height:48px;padding:0;${editingTaskId?'background:var(--blue);color:#fff':''}">${editingTaskId?llkI('check','bold'):llkI('plus','bold')}</button>
+        <button onclick="addTeacherTask()" aria-label="${editingTaskId?'Simpan':'Tambah'}" class="llk-btn ${editingTaskId?'info':'primary'}" style="width:48px;height:48px;padding:0;${editingTaskId?'background:var(--blue-solid);color:#fff':''}">${editingTaskId?llkI('check','bold'):llkI('plus','bold')}</button>
       </div>
       ${pending.length?'<div class="llk-stagger">'+pending.map(rowHtml).join('')+'</div>':(teacherTasks.length===0?'<div class="empty" style="padding:20px 10px 8px">'+llkIll('notebook')+'<div class="empty-t">Belum ada PR</div><div class="empty-d">Tambahkan tugas di atas biar nggak lupa.</div></div>':'<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:0.86rem;color:var(--hadir);font-weight:600;padding:8px 0">'+llkI('check-circle')+' Semua PR sudah beres</div>')}
       ${done.length?`<button onclick="window._showDoneTasks=!window._showDoneTasks;renderLinks()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:0.84rem;color:var(--text2);font-weight:600;cursor:pointer;margin-top:${pending.length?'6':'0'}px;padding:12px 0 4px;border:none;border-top:1px solid var(--border2);background:none">${window._showDoneTasks?'Sembunyikan '+llkI('chevron-up','sm'):'Tampilkan '+llkI('chevron-down','sm')} ${done.length} selesai</button>`:''}
@@ -7238,7 +7376,8 @@ const BACKUP_SETTINGS_KEYS=[
   'llk_notif_sound','llk_notif_volume','llk_notif_custom_mp3','llk_notif_custom_name',
   'llk_notif_sheet_time','llk_notif_kirim_time','llk_income_hidden','llk_payment_mode',
   'llk_tpl_session','llk_tpl_monthly','llk_progress_dest','llk_progress_fields','llk_tpl_progress',
-  'llk_tpl_admin','llk_pay_timing','llk_pay_info','llk_tpl_prepaid_session','llk_tpl_prepaid_monthly'
+  'llk_tpl_admin','llk_pay_timing','llk_pay_info','llk_tpl_prepaid_session','llk_tpl_prepaid_monthly',
+  'llk_theme'
 ];
 function collectSettingsData(){
   const out={};
@@ -8457,6 +8596,9 @@ function renderPengaturan(){
     </div>
     <div style="padding:10px 20px 80px">
 
+      <!-- TEMA TAMPILAN -->
+      ${llkThemePickerHtml()}
+
       <!-- PREVIEW (meniru header aplikasi) -->
       <div class="llk-section-label">${llkI('eye')}Pratinjau header</div>
       <div id="settingPreview" style="background:${color};color:${llkOnColor(color)};border-radius:var(--r-lg);padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:16px;box-shadow:inset 0 0 0 1px rgba(43,36,32,0.08)">
@@ -9487,7 +9629,7 @@ function showWelcomePricing(){
     <div style="font-size:0.9rem;color:var(--text2);margin-bottom:16px;max-width:340px;margin-left:auto;margin-right:auto;font-weight:700">Pilih cara mulainya:</div>
 
     <div style="border:2px solid var(--hadir);border-radius:var(--r-lg);padding:22px 20px;max-width:360px;margin:0 auto 18px;text-align:left;position:relative;background:var(--card);box-shadow:var(--shadow-md)">
-      <div style="position:absolute;top:-11px;right:16px;background:var(--hadir);color:#fff;font-size:0.68rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.04em">DIREKOMENDASIKAN</div>
+      <div style="position:absolute;top:-11px;right:16px;background:var(--hadir-solid);color:#fff;font-size:0.68rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.04em">DIREKOMENDASIKAN</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
         <span style="width:36px;height:36px;border-radius:11px;background:var(--hadir-bg);color:var(--hadir);display:inline-flex;align-items:center;justify-content:center">${llkI('gift')}</span>
         <span style="font-family:var(--font-display);font-size:1.3rem;font-weight:600;color:var(--text)">Coba Gratis 31 Hari</span>
@@ -9552,7 +9694,7 @@ function planCardsHtml(opts){
       btns+='<button onclick="pickPlan(\''+t.yearly.plan+'\')" class="llk-plan-btn" style="width:100%;margin-top:8px;min-height:50px;padding:10px 12px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:0.92rem;font-weight:700;cursor:pointer">Tahunan — '+formatRpPlan(t.yearly.price)+(hemat>0?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">hemat '+formatRpPlan(hemat)+'</span>':'')+'</button>';
     }
     return '<div style="border:'+(isFit?'2px solid var(--text)':'1px solid var(--border)')+';border-radius:var(--r-lg);padding:20px;max-width:360px;margin:0 auto 16px;text-align:left;position:relative;background:var(--card);'+(isFit?'box-shadow:var(--shadow-md)':'')+'">'
-      +(isFit?'<div style="position:absolute;top:-11px;right:16px;background:var(--text);color:#fffcf7;font-size:0.68rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.04em">COCOK UNTUKMU</div>':'')
+      +(isFit?'<div style="position:absolute;top:-11px;right:16px;background:var(--ink);color:var(--on-ink);font-size:0.68rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.04em">COCOK UNTUKMU</div>':'')
       +'<div style="display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:1.3rem;font-weight:600;color:var(--text);margin-bottom:4px"><span style="width:36px;height:36px;border-radius:11px;background:'+(t.id==='unlimited'?'rgba(185,138,46,0.16);color:#8a6414':t.id==='up'?'var(--accent-soft);color:var(--red-text)':'var(--blue-bg);color:var(--blue)')+';display:inline-flex;align-items:center;justify-content:center">'+llkI(t.id==='unlimited'?'crown':t.id==='up'?'star':'sparkle')+'</span>'+t.name+'</div>'
       +'<div style="font-size:0.88rem;color:var(--text2);margin-bottom:14px">'+limitText+' · semua fitur Pro</div>'
       +'<div class="llk-plan-btns">'+btns+'</div></div>';
@@ -10384,7 +10526,7 @@ function renderAccountSection(){
     }
     el.innerHTML=
       '<div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:0">'+
-        (currentUser.photoURL?'<img src="'+currentUser.photoURL+'" style="width:44px;height:44px;border-radius:50%;flex-shrink:0" alt="">':'<div style="width:44px;height:44px;border-radius:50%;background:var(--text);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+(currentUser.displayName||'U').charAt(0)+'</div>')+
+        (currentUser.photoURL?'<img src="'+currentUser.photoURL+'" style="width:44px;height:44px;border-radius:50%;flex-shrink:0" alt="">':'<div style="width:44px;height:44px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+(currentUser.displayName||'U').charAt(0)+'</div>')+
         '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:0.96rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(currentUser.displayName||'')+'</div>'+
         '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0;margin-top:2px"><span style="font-size:0.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:100%">'+escapeHtml(currentUser.email||'')+'</span>'+badgeHtml+upgradeBtnHtml+'</div>'+
         '<div id="cloudSyncStatus" style="font-size:0.76rem;color:var(--hadir);margin-top:4px">Tersinkron otomatis</div></div>'+
@@ -10465,7 +10607,7 @@ function startDeleteAccount(){
     '<button onclick="closeDeleteAccountModal();exportData()" class="llk-btn outline-success block" style="margin-bottom:8px">'+llkI('download')+' Backup Data Dulu</button>'+
     '<div style="display:flex;gap:8px">'+
       '<button onclick="closeDeleteAccountModal()" class="mbtn mbtn-cancel">Batal</button>'+
-      '<button onclick="deleteAccountStep2()" class="mbtn" style="background:var(--alpa);color:#fff">Lanjut Hapus</button>'+
+      '<button onclick="deleteAccountStep2()" class="mbtn" style="background:var(--alpa-solid);color:#fff">Lanjut Hapus</button>'+
     '</div>'
   );
 }
