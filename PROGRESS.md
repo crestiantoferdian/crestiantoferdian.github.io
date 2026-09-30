@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 30 Sep 2026 (Pembayaran Custom, kirim ulang kuitansi)_
+_Terakhir diperbarui: 30 Sep 2026 (3 tema tampilan: Caffe Latte, Happy Time, Dark Mode)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,15 @@ _Terakhir diperbarui: 30 Sep 2026 (Pembayaran Custom, kirim ulang kuitansi)_
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
+
+## 🎨 Tema tampilan: Caffe Latte · Happy Time · Dark Mode (30 Sep 2026)
+- Permintaan pemilik: tema hasil perombakan diberi nama **Caffe Latte** (pemilik menulis "Caffe late"), tampilan lama sebelum dirombak dimunculkan lagi sebagai **Happy Time**, plus tema **Dark Mode**. Dipilih di **Lainnya → Pengaturan Aplikasi → Tema tampilan** (3 kartu pratinjau), langsung dipakai tanpa tekan Simpan.
+- Disimpan di `localStorage.llk_theme` (`latte`/`happy`/`dark`, ikut `BACKUP_SETTINGS_KEYS`). Dipasang sedini mungkin lewat skrip kecil di `<head>` (atribut `data-theme` di `<html>`) supaya tidak berkedip. JS: `LLK_THEMES`, `llkGetTheme()`, `llkApplyTheme(id, persist)`, `llkPickTheme(id)`, `llkThemePickerHtml()`.
+- Tema = override token CSS di `:root[data-theme="happy"|"dark"]`. Token baru supaya tema gelap aman: `--ink/--on-ink` (tombol hitam, toast, kartu penghasilan, hari terpilih), `--hadir-solid/--izin-solid/--alpa-solid/--blue-solid/--plum-solid/--amber-solid` (latar tombol berteks putih), `--st-*-bg` (kartu status), `--input-focus`, `--nb-paper`, `--banner-warn`. Ilustrasi SVG ikut warna tema lewat selector atribut `symbol [fill=…]`.
+- **Happy Time** (dari index.html sebelum PR #22): latar #f5f5f7, kartu putih berbayang, DM Sans tebal (dimuat hanya saat tema ini dipakai), sudut lebih bulat, tombol hari terpilih merah, ikon mata pelajaran **emoji**. Warna status sedikit digelapkan dari aslinya supaya lolos kontras 4.5:1.
+- **Dark Mode**: kopi gelap (#15120f/#1e1a16), teks #f3ebe1, status lebih terang (kontras ≥5:1), `color-scheme:dark`. `llkReadableOnPaper()` kini mengukur kontras terhadap warna kartu tema aktif (tema gelap → warna aksen diterangkan). Ikon mata pelajaran versi gelap di `llkSubjectStyle()`.
+- Warna aksen sekolah (header) tetap dari Pengaturan di semua tema. Invoice/PDF tetap putih (dokumen).
+- Diuji: `themetest.js` (11 cek), screenshot semua halaman di tiap tema (`themeshoot.js`), semua uji sebelumnya.
 
 ## 🟩 Kartu murid berwarna sesuai status (30 Sep 2026)
 - Kartu murid di Absensi & Kalender: `.s-item.status-hadir` latar hijau lembut, `status-izin` oranye, `status-alpa` merah muda (garis kiri 4px warna status); Belum tetap polos. Warna inline lama dipindah ke CSS class.
