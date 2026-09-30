@@ -9,6 +9,14 @@ _Terakhir diperbarui: 30 Sep 2026 (Pembayaran Custom, kirim ulang kuitansi)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 🗓️ Pertemuan Awal jadi tanggal Hadir + kirim progres ke WA (30 Sep 2026)
+- **Bug:** "Pertemuan Awal = 3" dulu hanya angka (`initialSessions`). Kalau guru lalu menandai Hadir pertemuan kemarin untuk menulis progres, pertemuan itu terhitung dobel (3+1=4 → langsung ditagih).
+- **Perbaikan (usulan pemilik):** `llkApplyInitialSessions()` menandai **Hadir** di N tanggal jadwal rutin terakhir **sebelum hari ini** (tanggal yang sudah Hadir/Alpa ikut dihitung, Izin dilewati). Jika murid sudah punya riwayat lebih lama, tanggalnya diambil sebelum pertemuan tercatat pertama (total tidak berkurang). Tanggal otomatis disimpan di `s.initialDates`, angka yang diisi di `s.initialCount`, `initialSessions` jadi 0. Murid tanpa jadwal rutin tetap memakai angka seperti dulu.
+- Berlaku untuk **murid baru**, atau di Edit Murid bila angka Pertemuan Awal **diubah / diketik ulang**. Murid lama yang tidak disentuh tidak berubah. Mengubah angka menghapus tanda Hadir otomatis sebelumnya yang belum berisi catatan.
+- Untuk menulis progres di tanggal yang sudah Hadir: pakai tombol pensil (Edit catatan) di Kalender/profil, bukan tombol Hadir (itu mereset).
+- **Kirim progres ke WA:** tombol amplop muncul kalau murid punya No. WA **atau** Link Sheet (dulu hanya sesuai setelan). Popup menampilkan **Kirim ke WA** dan **Buka Sheet** sekaligus; setelan "Tujuan utama" hanya mengatur urutan. Tab Kirim punya tombol kirim progres per murid. Nomor WA yang sudah diawali 62 tidak lagi jadi 6262. Tombol "Sudah Tercatat" → "Sudah Terkirim".
+- Diuji: `inittest.js` (20 cek), paytest, func.js 20/20, colortest 10/10, logouttest.
+
 ## 🔧 Slider warna di HP + konfirmasi logout (30 Sep 2026)
 - **Bug (Android):** setelah mengetik Nama Kursus, menyentuh slider warna membuat halaman menggulir balik ke kolom nama (keyboard menutup, Chrome menggulir ke kolom yang masih fokus). Perbaikan: `llkSliderTouchStart()` di `onpointerdown/ontouchstart` slider melepas fokus kolom teks lebih dulu. Keyboard sungguhan tidak bisa ditiru di Playwright — **cek langsung di HP**.
 - **Logout:** tombol logout (kartu akun di Lainnya & layar paket) kini beranimasi lalu menampilkan dialog "Keluar dari akun? Anda yakin mau keluar dari [email]?" lewat `confirmLogout()` → `logoutFirebase()` (tidak berubah). `showGenericConfirm` dapat parameter ikon opsional; dialognya kini `z-index:10001` supaya tampil di atas layar paket & lembar invoice.

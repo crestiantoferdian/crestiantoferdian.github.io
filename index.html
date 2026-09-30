@@ -1259,8 +1259,8 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
     <div class="mrow" id="tut-step-initial">
       <div class="mfield">
         <label>Pertemuan Awal</label>
-        <input id="f_initial_sessions" type="number" min="0" placeholder="cth: 3"/>
-        <div class="llk-hint">Sesi sebelum pakai app (opsional)</div>
+        <input id="f_initial_sessions" type="number" min="0" placeholder="cth: 3" oninput="this.dataset.touched='1'"/>
+        <div class="llk-hint">Sesi sebelum pakai app (opsional) — otomatis ditandai Hadir di jadwal sebelum hari ini</div>
       </div>
     </div>
     <div class="mfield" id="tut-step-sheet">
@@ -2812,7 +2812,7 @@ function renderAbsensi(){
             <button class="att-btn a-alpa ${status==='alpa'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','alpa','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Alpa" title="Alpa">${llkI('x','bold')}</button>
             <button class="att-btn" onclick="openRescheduleModal('${jsAttr(s.name)}','${s.day}',${sidx},${s._isExtra?s._extraIdx:'null'},'${s._isExtra?s._extraDate:''}');event.stopPropagation()" title="Reschedule" aria-label="Reschedule" style="${(s._hasActiveReschedule||s._isRescheduled)?'background:var(--amber-bg);border-color:transparent;color:var(--amber)':''}">${llkI('repeat')}</button>`
             }
-            ${(getProgressSettings().dest==='wa'?!!(s.phone&&s.phone.replace(/\D/g,'')):!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${jsAttr(s.name)}','${attDateKey}','${jsAttr(attKey)}')" aria-label="Kirim progres" title="Kirim progres" style="${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:var(--hadir-bg);border-color:transparent;color:var(--hadir)':'background:var(--blue-bg);border-color:transparent;color:var(--blue)'}">
+            ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${jsAttr(s.name)}','${attDateKey}','${jsAttr(attKey)}')" aria-label="Kirim progres" title="Kirim progres" style="${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:var(--hadir-bg);border-color:transparent;color:var(--hadir)':'background:var(--blue-bg);border-color:transparent;color:var(--blue)'}">
               ${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?llkI('mail-check'):llkI('mail')}
             </button>`:''}
         </div>
@@ -5407,7 +5407,7 @@ function buildDateDetail(dk){
           <button class="att-btn a-izin ${status==='izin'?'on':''}" aria-label="Izin" title="Izin" onclick="openNoteModal('${safeKey}','izin','${safeName}','${safeDk}','${s.time||''}','${s.time2||''}');setTimeout(renderTrack,300)">${llkI('hand')}</button>
           <button class="att-btn a-alpa ${status==='alpa'?'on':''}" aria-label="Alpa" title="Alpa" onclick="openNoteModal('${safeKey}','alpa','${safeName}','${safeDk}','${s.time||''}','${s.time2||''}');setTimeout(renderTrack,300)">${llkI('x','bold')}</button>
           <button class="att-btn" aria-label="Edit catatan" title="Edit catatan" onclick="openTrackEditModal('${safeKey}','${status||'hadir'}','${safeName}','${safeDk}')">${llkI('edit')}</button>
-          ${(getProgressSettings().dest==='wa'?!!(s.phone&&s.phone.replace(/\D/g,'')):!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" aria-label="Kirim progres" title="Kirim progres" onclick="openSheetLinkByName('${safeName}','${safeDk}','${safeKey}')" style="${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:var(--hadir-bg);border-color:transparent;color:var(--hadir)':'background:var(--blue-bg);border-color:transparent;color:var(--blue)'}">${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?llkI('mail-check'):llkI('mail')}</button>`:''}
+          ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" aria-label="Kirim progres" title="Kirim progres" onclick="openSheetLinkByName('${safeName}','${safeDk}','${safeKey}')" style="${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:var(--hadir-bg);border-color:transparent;color:var(--hadir)':'background:var(--blue-bg);border-color:transparent;color:var(--blue)'}">${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?llkI('mail-check'):llkI('mail')}</button>`:''}
         </div>`;
 
     // Tap kartu untuk expand/collapse tombol aksi (Hadir/Izin/Alpa/Kirim Link),
@@ -6002,8 +6002,11 @@ function renderKirim(){
           background:${st==='hadir'?'var(--hadir-bg)':'var(--alpa-bg)'};
           color:${st==='hadir'?'var(--hadir-text)':'var(--alpa-text)'}">${st==='hadir'?llkI('check','sm')+'Hadir':llkI('x','sm')+'Alpa'}</span>
       </td>
+      <td style="padding:6px 10px;text-align:center">${(s.phone&&s.phone.replace(/\D/g,''))||(s.sheetLink&&s.sheetLink.trim())
+        ?`<button onclick="openSheetLinkByName('${jsAttr(s.name)}','${s._extraDate||dateKey}','${jsAttr(s._attKey||s.name)}')" class="llk-icon-btn sm" aria-label="Kirim progres ${escapeHtml(s.name)}" title="Kirim progres" style="color:${localStorage.getItem('sheet_sent_'+(s._extraDate||dateKey)+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'var(--hadir)':'var(--wa)'}">${llkI(localStorage.getItem('sheet_sent_'+(s._extraDate||dateKey)+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'mail-check':'chat')}</button>`
+        :'<span style="font-size:0.74rem;color:var(--muted2)">—</span>'}</td>
     </tr>`).join('')
-  :`<tr><td colspan="5">
+  :`<tr><td colspan="6">
     <div class="empty" style="padding:28px 20px">
       ${llkIll('notebook')}
       <div class="empty-t">Belum ada data ${isToday?'hari ini':'di tanggal ini'}</div>
@@ -6014,7 +6017,7 @@ function renderKirim(){
   document.getElementById('mainContent').innerHTML=`
     <div class="page-title-area">
       <div class="page-title">Kirim Laporan</div>
-      <div class="page-sub">Data Hadir & Alpa ${isToday?'hari ini':'tanggal ini'} — siap paste ke Google Sheets.</div>
+      <div class="page-sub">Data Hadir & Alpa ${isToday?'hari ini':'tanggal ini'} — salin ke Google Sheets, atau kirim progres tiap murid ke WA.</div>
     </div>
     <div style="padding:10px 20px 80px">
 
@@ -6045,6 +6048,7 @@ function renderKirim(){
                 <th style="${thS}">Nama</th>
                 <th style="${thS}">Mata Pelajaran</th>
                 <th style="${thS};text-align:center">Status</th>
+                <th style="${thS};text-align:center">Progres</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
@@ -6145,7 +6149,8 @@ function renderProgressSettings(){
     </div>
     <div class="lainnya-wrap">
       <div class="menu-card" style="padding:16px">
-        <div class="kirim-title">Kirim progres ke</div>
+        <div class="kirim-title">Tujuan utama kirim progres</div>
+        <div style="font-size:0.8rem;color:var(--muted);margin:-4px 0 10px;line-height:1.5">Tombol WA dan Buka Sheet dua-duanya tetap muncul kalau No. WA / Link Sheet murid diisi — ini hanya mengatur mana yang di depan.</div>
         <div style="display:flex;flex-direction:column;gap:10px">
           ${optionRow('sheet','link','Link Google Sheet','Buka link Sheet murid (dari data murid)')}
           ${optionRow('wa','chat','WhatsApp Ortu/Siswa','Kirim langsung ke nomor WA murid')}
@@ -6170,7 +6175,7 @@ function renderProgressSettings(){
         </div>
       </div>
       <div class="llk-callout info">
-        ${llkI('bulb')}<div>Tombol amplop di kartu murid (tab Absensi & Track) memakai pengaturan ini. Teks otomatis tersalin, tinggal klik Buka Sheet / Kirim WA.</div>
+        ${llkI('bulb')}<div>Tombol amplop di kartu murid (tab Absensi, Track & Kirim) memakai pengaturan ini. Teks otomatis tersalin, tinggal klik Kirim ke WA / Buka Sheet.</div>
       </div>
     </div>`;
 }
@@ -7476,6 +7481,7 @@ function openAdd(){
   const rsSectionAdd=document.getElementById('reschedule-section-form');
   if(rsSectionAdd) rsSectionAdd.style.display='none';
   ['f_name','f_inst','f_notes','f_phone','f_extra_note','f_initial_sessions','f_sheet_link','f_day2','f_time2a','f_time2b','f_day3','f_time3a','f_time3b','f_day4','f_time4a','f_time4b','f_rate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  delete document.getElementById('f_initial_sessions').dataset.touched;
   document.getElementById('f_pay_cycle').value='4';
   document.getElementById('f_pay_timing').value='';
   extraDates=[];
@@ -7618,7 +7624,9 @@ function openEdit(idx){
   document.getElementById('f_phone').value=s.phone||'';
   document.getElementById('f_notes').value=s.notes||'';
   document.getElementById('f_extra_note').value=s.extraNote||'';
-  document.getElementById('f_initial_sessions').value=s.initialSessions||'';
+  // Pertemuan Awal: tampilkan angka yang dulu diisi guru (initialCount), atau angka lama
+  document.getElementById('f_initial_sessions').value=(s.initialCount!=null?s.initialCount:s.initialSessions)||'';
+  delete document.getElementById('f_initial_sessions').dataset.touched;
   document.getElementById('f_pay_cycle').value=s.payCycle||4;
   document.getElementById('f_pay_timing').value=s.payTiming||'';
   document.getElementById('f_rate').value=s.rate||'';
@@ -7864,8 +7872,10 @@ function doSave(){
   }
   if(!s.day&&!s.extraDates.length){toast('❌ Isi jadwal rutin, atau tambahkan minimal 1 tanggal di "Tambahan Kelas"');return}
   if(editIdx===null && typeof isStudentLimitReached==='function' && isStudentLimitReached()){ closeModal(); showUpgradeOffer(true); return; }
+  window._llkEditInitSnap=null;
   if(editIdx!==null){
     const old=students[editIdx];
+    window._llkEditInitSnap={initialCount:old.initialCount, initialDates:old.initialDates, initialSessions:old.initialSessions};
     // Preserve lastPaidAt agar siklus bayar tidak hilang saat edit
     if(old.lastPaidAt) s.lastPaidAt=old.lastPaidAt;
     // BUGFIX: field-field ini nggak ada di form edit, jadi kalau nggak
@@ -7892,8 +7902,73 @@ function doSave(){
     }
     students[editIdx]=s;
   } else students.push(s);
+  // Pertemuan Awal: tandai Hadir di tanggal jadwal sebelum hari ini (murid baru,
+  // atau angkanya diubah/diketik ulang di Edit Murid). Angka lama yang tidak
+  // disentuh dibiarkan seperti semula.
+  const initInput=document.getElementById('f_initial_sessions');
+  const nInit=parseInt(initInput.value)||0;
+  let initMarked=0;
+  if(editIdx===null){
+    if(nInit>0) initMarked=llkApplyInitialSessions(s, nInit, []);
+  } else {
+    const prev=window._llkEditInitSnap||{};
+    const prevN=prev.initialCount!=null?prev.initialCount:(prev.initialSessions||0);
+    if(nInit!==prevN || initInput.dataset.touched==='1'){
+      initMarked=llkApplyInitialSessions(s, nInit, prev.initialDates||[]);
+    } else {
+      if(prev.initialCount!=null) s.initialCount=prev.initialCount;
+      if(prev.initialDates) s.initialDates=prev.initialDates;
+      s.initialSessions=prev.initialSessions||0;
+    }
+  }
   save();closeModal();render();
-  toast(editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`);
+  toast((editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`)+(initMarked?` · ${initMarked} pertemuan awal ditandai Hadir`:''));
+}
+
+// ── PERTEMUAN AWAL ────────────────────────────────────
+// "Pertemuan Awal = N" artinya N pertemuan sudah terjadi sebelum pakai app.
+// Dulu disimpan sebagai angka saja (initialSessions), sehingga kalau guru lalu
+// menandai Hadir pertemuan kemarin untuk menulis progres, pertemuan itu
+// terhitung dua kali. Sekarang N tanggal jadwal rutin terakhir sebelum hari ini
+// langsung ditandai Hadir (tanggal yang sudah Hadir/Alpa ikut dihitung, Izin
+// dilewati). Kalau murid sudah punya riwayat lebih lama, tanggalnya diambil
+// sebelum pertemuan tercatat pertama. Murid tanpa jadwal rutin tetap memakai
+// angka seperti dulu. Tanggal yang ditandai otomatis disimpan di
+// s.initialDates supaya bisa diganti kalau angkanya diubah.
+function llkNoteHasContent(n){ return !!(n&&(n.reason||n.progress||n.prSiswa||n.prGuru||n.photo||(n.photos&&n.photos.length))); }
+function llkApplyInitialSessions(s, n, oldAuto){
+  const name=s.name;
+  // 1. Hapus tanda Hadir otomatis sebelumnya (yang belum diberi catatan)
+  (oldAuto||[]).forEach(dk=>{
+    const a=attendance[dk];
+    if(a&&a[name]==='hadir'&&!llkNoteHasContent(attNotes[dk+'_'+name])){ delete a[name]; if(!Object.keys(a).length) delete attendance[dk]; }
+  });
+  delete s.initialDates; s.initialCount=n; s.initialSessions=0;
+  if(n<=0){ delete s.initialCount; return 0; }
+  const wd=new Set([s.day,s.day2,s.day3,s.day4].filter(Boolean).map(d=>DAYS_JS[DAYS.indexOf(d)]).filter(x=>x!==undefined));
+  if(!wd.size){ delete s.initialCount; s.initialSessions=n; return 0; } // tanpa jadwal rutin → angka seperti dulu
+  const today=todayStr();
+  const statusOn=dk=>(attendance[dk]||{})[name];
+  // Tanggal jadwal terakhir sebelum hari ini
+  const recent=[]; const d=new Date(today+'T00:00:00');
+  for(let i=0;i<730&&recent.length<n;i++){ d.setDate(d.getDate()-1); if(wd.has(d.getDay())&&statusOn(dateKeyOfDate(d))!=='izin') recent.push(dateKeyOfDate(d)); }
+  // Riwayat nyata murid (Hadir/Alpa) — kalau ada yang lebih lama dari jendela itu,
+  // pertemuan awal diletakkan SEBELUM pertemuan tercatat pertama.
+  const real=Object.keys(attendance).filter(dk=>dk<today&&(statusOn(dk)==='hadir'||statusOn(dk)==='alpa')).sort();
+  const windowStart=recent.length?recent[recent.length-1]:today;
+  const fromDk=(real.length&&real[0]<windowStart)?real[0]:today;
+  const countExisting=fromDk===today;
+  const auto=[]; let found=0; const c=new Date(fromDk+'T00:00:00');
+  for(let i=0;i<730&&found<n;i++){
+    c.setDate(c.getDate()-1);
+    if(!wd.has(c.getDay())) continue;
+    const dk=dateKeyOfDate(c), st=statusOn(dk);
+    if(st==='izin') continue;
+    if(st==='hadir'||st==='alpa'){ if(countExisting) found++; continue; }
+    attendance[dk]=attendance[dk]||{}; attendance[dk][name]='hadir'; auto.push(dk); found++;
+  }
+  if(auto.length) s.initialDates=auto.sort();
+  return auto.length;
 }
 
 function toggleInactiveFromModal(){
@@ -8450,8 +8525,9 @@ function openSheetLink(idx){
   const dest=settings.dest;
   const link=s.sheetLink?s.sheetLink.trim():'';
   const phone=(s.phone||'').replace(/\D/g,'');
-  if(dest==='wa'&&!phone){toast('Nomor WA belum diisi di data murid ini');return;}
-  if(dest!=='wa'&&!link){toast('Link Sheet belum diisi di data murid ini');return;}
+  // WA & Sheet sama-sama bisa dipakai; pengaturan hanya menentukan mana yang utama
+  if(!phone&&!link){toast('Isi No. WA atau Link Google Sheet di data murid ini dulu');return;}
+  const primary=(dest==='wa'&&phone)||!link?'wa':'sheet';
 
   const dateKey=window._sheetDateKey||window._currentDateKey||todayStr();
   const attKey=window._sheetAttKey||s.name;
@@ -8471,9 +8547,9 @@ function openSheetLink(idx){
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(()=>fallbackCopyPlain(text));
   else fallbackCopyPlain(text);
 
-  const actionBtn=dest==='wa'
-    ?`<button onclick="goToWAProgress('${phone}')" class="llk-btn wa" style="flex:1;height:52px">${llkI('chat')} Kirim ke WA</button>`
-    :`<button onclick="goToSheet('${jsAttr(link)}')" class="llk-btn primary" style="flex:1;height:52px">${llkI('external')} Buka Sheet</button>`;
+  const waBtn=phone?`<button onclick="goToWAProgress('${phone}')" class="llk-btn wa" style="flex:1;height:52px">${llkI('chat')} Kirim ke WA</button>`:'';
+  const sheetBtn=link?`<button onclick="goToSheet('${jsAttr(link)}')" class="llk-btn ${phone?'secondary':'primary'}" style="flex:1;height:52px">${llkI('external')} Buka Sheet</button>`:'';
+  const actionBtn=primary==='wa'?waBtn+sheetBtn:sheetBtn+waBtn;
 
   const popup=document.createElement('div');
   popup.id='sheetPopup';
@@ -8485,10 +8561,8 @@ function openSheetLink(idx){
       <div class="kirim-preview" style="margin-bottom:10px">${text.replace(/</g,'&lt;')}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:0.84rem;color:var(--hadir);margin-bottom:14px;font-weight:600">${llkI('copy','sm')} Teks sudah tersalin ke clipboard</div>
       ${alreadySent?`<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:0.84rem;color:var(--hadir);margin-bottom:12px;font-weight:600">${llkI('check-circle','sm')} Sudah dikirim untuk tanggal ini</div>`:''}
-      <div style="display:flex;gap:10px;margin-bottom:10px">
-        ${actionBtn}
-        <button onclick="markSheetSent(${idx},'${sentKey}')" class="llk-btn success" style="flex:1;height:52px">${llkI('check')} Sudah Tercatat</button>
-      </div>
+      <div style="display:flex;gap:10px;margin-bottom:10px">${actionBtn}</div>
+      <button onclick="markSheetSent(${idx},'${sentKey}')" class="llk-btn outline-success block" style="height:52px;margin-bottom:10px">${llkI('check')} Sudah Terkirim</button>
       <button onclick="document.getElementById('sheetPopup').remove()" class="llk-btn soft block">Batal</button>
       <div style="margin-top:10px;text-align:center">
         <button onclick="document.getElementById('sheetPopup').remove();renderProgressSettings()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--blue);font-family:inherit;font-size:0.84rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:10px">${llkI('sliders','sm')} Atur format & tujuan kirim</button>
@@ -8507,7 +8581,8 @@ function goToSheet(link){
 function goToWAProgress(phone){
   // Hanya buka WA, TIDAK menandai sebagai sudah tercatat
   const msg=encodeURIComponent(window._sheetLastText||'');
-  window.open(`https://wa.me/62${phone.replace(/^0/,'')}?text=${msg}`,'_blank');
+  const wa=phone.startsWith('62')?phone:'62'+phone.replace(/^0/,'');
+  window.open(`https://wa.me/${wa}?text=${msg}`,'_blank');
 }
 
 function markSheetSent(idx,sentKey){
@@ -8525,6 +8600,7 @@ function markSheetSent(idx,sentKey){
   // dengan status tersimpan, terlepas dari tab/tampilan mana tombolnya ditekan.
   if(currentTab==='absensi') setTimeout(renderAbsensi,150);
   else if(currentTab==='track') setTimeout(renderTrack,150);
+  else if(currentTab==='kirim') setTimeout(renderKirim,150);
 }
 
 // ── TOAST ─────────────────────────────────────────────
