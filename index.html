@@ -2100,7 +2100,7 @@ function checkNotifications(){
     if(pushMap[(s._extraDate||dateKey)+'|'+(s._attKey||s.name)]) return;
     if(diff>0 && diff<=leadMs && !notifShown[key]){
       notifShown[key]=true;
-      showNotif(`🎵 Sebentar lagi les ${s.name}!`,`${s.instrument?s.instrument+' · ':''}mulai ${effectiveTime} — semangat mengajar! ✨`);
+      showNotif(`🎵 ${s.name} · ${effectiveTime}`,`${s.name}${s.instrument?' · '+s.instrument:''} · mulai sebentar lagi (jam ${effectiveTime}) — semangat mengajar! ✨`);
     }
   });
 
@@ -2143,7 +2143,7 @@ function checkSheetSentReminder(dateKey, todayName){
   if(belumKirim.length){
     notifShown[remKey]=true;
     const names=belumKirim.length<=2?belumKirim.join(', '):belumKirim.slice(0,2).join(', ')+` +${belumKirim.length-2} lagi`;
-    showNotif(`📝 Yuk, kabari ortu hari ini`,`Progres ${names} belum terkirim — buka tab Kirim, cuma sebentar kok 😊`);
+    showNotif(`📝 ${names} · kirim progres`,`Progres ${names} belum terkirim — buka tab Kirim, cuma sebentar kok 😊`);
   }
 }
 
@@ -2503,8 +2503,9 @@ function llkDesiredReminders(now){
       if(when.getTime()<minAt) return skip('jamnya sudah lewat');
       // Judul wajib diawali 🎵 — worker membersihkan reminder les berdasarkan awalan ini
       out.push({key:attDk+'|'+attKey, at:when, kind:'jadwal', name:s.name, time:s.time,
-        title:'🎵 Sebentar lagi les '+s.name+'!',
-        message:(s.instrument?s.instrument+' · ':'')+'mulai jam '+s.time+' ('+fmtLeadLabel(lead)+' lagi). Siapkan materinya ya, semangat mengajar! ✨'});
+        // Nama murid paling depan (judul & isi) supaya tetap terbaca walau notifikasi terpotong di HP
+        title:'🎵 '+s.name+' · '+s.time,
+        message:s.name+(s.instrument?' · '+s.instrument:'')+' · mulai '+fmtLeadLabel(lead)+' lagi (jam '+s.time+'). Siapkan materinya ya, semangat mengajar! ✨'});
     });
     const lessons=list.filter(s=>s.time);
     const withContact=lessons.filter(llkHasContact);
@@ -2513,7 +2514,7 @@ function llkDesiredReminders(now){
       if(when.getTime()>=minAt){
         const names=withContact.slice(0,2).map(s=>s.name).join(', ')+(withContact.length>2?' +'+(withContact.length-2)+' lagi':'');
         out.push({key:dk+'|__progres', at:when, kind:'progres', name:'Kirim progres', daily:true,
-          title:'📝 Yuk, kabari ortu hari ini', message:'Progres les '+names+' belum terkirim. Ketuk untuk kirim lewat WA — cuma sebentar kok 😊'});
+          title:'📝 '+names+' · kirim progres', message:'Progres les '+names+' belum terkirim. Ketuk untuk kirim lewat WA — cuma sebentar kok 😊'});
       }
     }
     if(llkRemOn('laporan') && lessons.length && !localStorage.getItem('kirim_copied_'+dk)){
