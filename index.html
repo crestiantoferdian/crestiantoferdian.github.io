@@ -3909,7 +3909,8 @@ async function renderInvoiceCanvas(inv, copyDate){
   c.textAlign='right'; c.fillText('TANGGAL',W-M,y); c.textAlign='left';
   y+=46; c.fillStyle='#1c1c1e'; c.font=font(800,36); c.fillText('Orang tua/wali '+inv.studentName,M,y);
   c.textAlign='right'; c.font=font(600,28); c.fillText(new Date(inv.createdAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),W-M,y); c.textAlign='left';
-  y+=40; c.fillStyle='#4b5563'; c.font=font(500,26); c.fillText((inv.instrument?inv.instrument+' · ':'')+(inv.timing==='depan'?'Bayar di Depan':'Bayar di Belakang'),M,y);
+  // Mode bayar (depan/belakang) tidak ditampilkan ke ortu — cukup mata pelajarannya
+  if(inv.instrument){ y+=40; c.fillStyle='#4b5563'; c.font=font(500,26); c.fillText(inv.instrument,M,y); }
   y+=40; c.fillStyle='#1c1c1e'; c.font=font(600,26);
   wrapCanvasText(c,inv.desc,W-2*M).forEach(l=>{ c.fillText(l,M,y); y+=34; });
   // Tabel
@@ -3947,8 +3948,13 @@ async function renderInvoiceCanvas(inv, copyDate){
   const stampColor=inv.voidAt?'#6b7280':paid?'#1d9e4e':'#dc2626';
   c.font=font(800,34);
   const sw=c.measureText(stamp).width+60;
-  c.strokeStyle=stampColor; c.fillStyle=stampColor; c.lineWidth=5;
-  c.strokeRect(M,y,sw,70); c.fillText(stamp,M+30,y+48);
+  if(!paid && !inv.voidAt){
+    // Belum dibayar: teks hitam biasa (tanpa kotak merah) supaya tidak terkesan menagih keras
+    c.fillStyle='#1c1c1e'; c.fillText(stamp,M,y+48);
+  } else {
+    c.strokeStyle=stampColor; c.fillStyle=stampColor; c.lineWidth=5;
+    c.strokeRect(M,y,sw,70); c.fillText(stamp,M+30,y+48);
+  }
   if(paid){ c.font=font(500,24); c.fillText('Dibayar '+new Date(inv.paidAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),M+sw+24,y+45); }
   y+=110;
   // Info pembayaran
