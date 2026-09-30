@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 30 Sep 2026 (pengingat baru + desain notifikasi)_
+_Terakhir diperbarui: 30 Sep 2026 (pengingat otomatis 7 hari ke depan)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,13 @@ _Terakhir diperbarui: 30 Sep 2026 (pengingat baru + desain notifikasi)_
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
+
+## ⏰ Pengingat terjadwal otomatis 7 hari ke depan (30 Sep 2026)
+- Permintaan pemilik: tidak perlu lagi menekan "Jadwalkan Ulang". Aplikasi web yang tertutup tidak bisa jalan sendiri jam 6 pagi, jadi solusinya: `llkSyncReminders()` menjadwalkan pengingat untuk **7 hari ke depan** (`LLK_REMINDER_DAYS`) sekaligus — les (X menit sebelum), kirim progres & salin laporan (hari yang ada les), PR guru (kemunculan berikutnya) — lewat `llkDesiredReminders(now)`.
+- **Otomatis** via `llkAutoSyncReminders(delay)` (ditunda & digabung): saat login selesai, saat tab Absensi hari ini dibuka, saat aplikasi kembali terlihat (`visibilitychange`), dan setiap `save()` (data berubah). Tidak jalan kalau notifikasi mati / belum login / offline.
+- **Hemat**: ID pengingat disimpan bersama tanda tangan (`{id, sig}` di `llk_push_ids`, sig = waktu+judul+isi); yang sama dibiarkan, yang berubah dibatalkan lalu dikirim ulang, yang tidak diperlukan lagi dibatalkan. Format lama (string ID) tetap terbaca. Info terakhir di `llk_push_sync_info`.
+- Pengaturan Notifikasi: kotak "Otomatis — tidak perlu menekan apa pun" + waktu pembaruan terakhir; tombol diganti **Lihat Jadwal Pengingat** (daftar hari ini + ringkasan per hari berikutnya).
+- Diuji: `autotest.js` (11 cek: otomatis tanpa klik, 7 hari, 0 kiriman kalau tidak berubah, ubah jadwal → 1 batal + 1 kirim, izin → batal, pengaturan, notifikasi mati) + semua uji sebelumnya.
 
 ## 🔔 Pengingat baru + desain notifikasi (30 Sep 2026)
 - **Dihapus** dari Pengaturan Notifikasi: Pilih Suara, Volume, Tes Suara (membingungkan). Suara di dalam aplikasi tetap nada bawaan.
