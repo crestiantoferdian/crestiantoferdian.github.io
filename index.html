@@ -299,9 +299,13 @@ button:disabled{opacity:.55;cursor:default}
 }
 .s-item:last-child{border-bottom:none}
 .s-item:active{background:var(--card2)}
-.s-item.status-hadir{border-left:3px solid var(--hadir)}
-.s-item.status-izin{border-left:3px solid var(--izin)}
-.s-item.status-alpa{border-left:3px solid var(--alpa)}
+/* Kartu murid diberi warna latar sesuai status supaya Hadir / Izin / Alpa langsung terbedakan */
+.s-item.status-hadir{border-left:4px solid var(--hadir);background:rgba(42,115,73,0.09)}
+.s-item.status-izin{border-left:4px solid var(--izin);background:rgba(166,85,16,0.10)}
+.s-item.status-alpa{border-left:4px solid var(--alpa);background:rgba(176,38,63,0.08)}
+.s-item.status-hadir:active{background:rgba(42,115,73,0.15)}
+.s-item.status-izin:active{background:rgba(166,85,16,0.16)}
+.s-item.status-alpa:active{background:rgba(176,38,63,0.14)}
 .s-item.status-belum{border-left:3px solid transparent}
 .s-avatar{position:relative;
   width:46px;height:46px;border-radius:14px;
@@ -2810,9 +2814,7 @@ function renderAbsensi(){
     // Tentukan border, badge, warna
     const borderLeft=samedayRs?'border-left:3px solid var(--plum);'
       :hasActiveReschedule?'border-left:3px solid var(--amber);'
-      :isIzin?'border-left:3px solid var(--izin);'
-      :isAlpa?'border-left:3px solid var(--alpa);'
-      :isHadir?'border-left:3px solid var(--hadir);background:rgba(42,115,73,0.05);':'';
+      :''; // Hadir / Izin / Alpa: warna dari class .status-* (CSS)
     const avatarOpacity=samedayRs||hasActiveReschedule||isIzin||isAlpa?'opacity:0.5;':'';
     const badgeHtml=samedayRs
       ?'<span class="llk-av-badge" style="background:var(--plum)">'+llkI('repeat')+'</span>'
@@ -5499,7 +5501,7 @@ function buildDateDetail(dk){
 
     const isIzin=status==='izin';
     const isAlpa=status==='alpa';
-    const borderStyle=isIzin?'border-left:3px solid var(--izin);':isAlpa?'border-left:3px solid var(--alpa);':'';
+    const borderStyle=''; // warna Hadir / Izin / Alpa dari class .status-* (CSS)
     const avatarStyle=isIzin||isAlpa?'opacity:0.5;':'';
     const nameStyle=isIzin||isAlpa?'color:var(--muted);':'';
     const timeStyle=isIzin?'color:var(--izin);text-decoration:line-through;':isAlpa?'color:var(--alpa);text-decoration:line-through;':status==='hadir'?'color:var(--hadir);':'color:var(--text);';
