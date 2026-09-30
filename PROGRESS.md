@@ -9,6 +9,11 @@ _Terakhir diperbarui: 30 Sep 2026 (Pembayaran Custom, kirim ulang kuitansi)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 🔢 Progres: "Pertemuan ke-…" (30 Sep 2026)
+- Pilihan baru di Pengaturan Progres Siswa → Format teks progres: **Pertemuan ke-berapa** (field `pertemuan`, default tidak dicentang). Nomornya dari `llkMeetingNumber()` = semua sesi terhitung (Hadir/Alpa, termasuk Pertemuan Awal & tambahan kelas) sampai tanggal itu.
+- Template default punya baris `🔢 {pertemuan}`; kalau tidak dicentang, barisnya dibuang (bukan emoji kosong). Template buatan guru tanpa `{pertemuan}` → baris disisipkan otomatis setelah baris `{tanggal}`. Variabel `{pertemuan}` ditambahkan ke daftar variabel.
+- Diuji: `meettest.js` (9 cek) + semua uji sebelumnya.
+
 ## 🗓️ Absensi: strip 14 tanggal (30 Sep 2026)
 - Permintaan pemilik: strip hari di Absensi jadi **14 tanggal** (7 ke belakang, **hari ini di tengah**, 6 ke depan); klik "Sel" = **Selasa kemarin**, bukan minggu depan; di ujung strip ada tombol **Kalender**.
 - `dayBarHtml()` kini membuat tombol per tanggal (`selectAbsDate(dk)`, state `selectedAbsDate`, kosong = hari ini). `selectedDay` tetap disinkronkan dari tanggal itu (dipakai Tambah Murid, bagikan jadwal). `selectDay(nama)` lama → kemunculan terakhir hari itu.
