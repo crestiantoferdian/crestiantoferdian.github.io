@@ -20,6 +20,10 @@
  *   ONESIGNAL_APP_ID    (sudah ada)
  *   FIREBASE_PROJECT_ID (opsional — default 'llk-67a30')
  *
+ * TAMPILAN NOTIFIKASI (baru): aplikasi boleh mengirim ikon, gambar
+ * banner, tombol aksi & tautan (lihat notificationDesign). Semua alamat
+ * wajib dari domain LesLesanKu sendiri; isian lain diabaikan.
+ *
  * CARA DEPLOY: Workers & Pages → llk-onesignal-bridge → Edit code →
  * hapus semua kode lama → tempel seluruh isi file ini → Deploy.
  * ═══════════════════════════════════════════════════════════════
@@ -118,8 +122,35 @@ async function verifyFirebaseIdToken(token, projectId, fetchImpl = fetch, nowMs 
   return payload.sub;
 }
 
+// ── Tampilan notifikasi (opsional) ───────────────────────────────
+// Aplikasi boleh mengirim: url (dibuka saat notifikasi diketuk), icon,
+// badge (ikon kecil bilah status Android), image (gambar besar), buttons
+// (maks 2 tombol aksi) dan ttl (detik). Semua alamat WAJIB dari domain
+// LesLesanKu sendiri (ALLOWED_ORIGINS) supaya worker tidak bisa dipakai
+// menyebar tautan/gambar asing. Isian yang tidak lolos diam-diam diabaikan.
+function isOwnUrl(u) {
+  return typeof u === 'string' && u.length <= 300 && !/\s/.test(u) &&
+    ALLOWED_ORIGINS.some(o => u === o || u.startsWith(o + '/'));
+}
+function notificationDesign(body) {
+  const d = {};
+  if (isOwnUrl(body.url)) d.web_url = body.url;
+  if (isOwnUrl(body.icon)) { d.chrome_web_icon = body.icon; d.firefox_icon = body.icon; }
+  if (isOwnUrl(body.badge)) d.chrome_web_badge = body.badge;
+  if (isOwnUrl(body.image)) d.chrome_web_image = body.image;
+  if (Array.isArray(body.buttons)) {
+    const btns = body.buttons.slice(0, 2)
+      .filter(b => b && typeof b.text === 'string' && b.text.trim() && b.text.trim().length <= 40 && isOwnUrl(b.url))
+      .map((b, i) => ({ id: (String(b.id || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20) || 'btn' + i), text: b.text.trim(), url: b.url }));
+    if (btns.length) d.web_buttons = btns;
+  }
+  if (typeof body.ttl === 'number' && isFinite(body.ttl)) d.ttl = Math.max(60, Math.min(2 * 24 * 60 * 60, Math.round(body.ttl)));
+  return d;
+}
+
 export default {
   _verifyFirebaseIdToken: verifyFirebaseIdToken, // untuk pengujian
+  _notificationDesign: notificationDesign,       // untuk pengujian
   async fetch(request, env, ctx, fetchImpl = fetch) {
     const res = await handle(request, env, fetchImpl);
     for (const [k, v] of Object.entries(corsHeadersFor(request))) res.headers.set(k, v);
@@ -224,6 +255,7 @@ async function handle(request, env, fetchImpl) {
       send_after: new Date(sendAtMs).toISOString(),
       priority: 10,
       include_subscription_ids: [subscriptionId], // hanya ke device pengirim
+      ...notificationDesign(body),
     };
 
     const osResponse = await fetchImpl('https://api.onesignal.com/notifications', {
