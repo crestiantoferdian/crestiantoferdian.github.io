@@ -9116,6 +9116,7 @@ function requireLoginOrBlock(){
   const form=document.getElementById('loginGateFormWrap');
   const msgEl=document.getElementById('loginGateMsg');
   const skipBtn=document.getElementById('loginGateSkipBtn');
+  if(msgEl&&!window._llkGateMsgDefault) window._llkGateMsgDefault=msgEl.innerHTML;
   if(checking) checking.style.display='none';
   if(form) form.style.display='block';
   if(msgEl) msgEl.innerHTML='<strong style="color:var(--red-text)">Login dulu ya</strong>, supaya data yang kamu buat tidak hilang begitu saja & tersimpan aman di akunmu.';
@@ -9797,6 +9798,7 @@ function logoutFirebase(skipDirtyCheck){
     if(_subUnsub){ _subUnsub(); _subUnsub=null; }
     toast('👋 Berhasil logout. Data di HP ini tetap ada.');
     renderAccountSection();
+    showWelcomeGate(); // kembali ke layar "Selamat datang" seperti saat pertama buka
   });
 }
 
@@ -10383,6 +10385,17 @@ function renderAccountSection(){
 // Dipanggil dari tombol login manual di tab Lainnya (misal setelah user pilih
 // "Lewati" sebelumnya, lalu berubah pikiran). Status login sudah pasti "belum
 // login" di titik ini, jadi langsung tampilkan form-nya, tanpa animasi checking.
+// Layar "Selamat datang" versi awal (pesan & tombol "Lihat-lihat dulu" dipulihkan,
+// karena requireLoginOrBlock() bisa mengganti isinya).
+function showWelcomeGate(){
+  const msgEl=document.getElementById('loginGateMsg');
+  const skipBtn=document.getElementById('loginGateSkipBtn');
+  if(msgEl&&window._llkGateMsgDefault) msgEl.innerHTML=window._llkGateMsgDefault;
+  if(skipBtn) skipBtn.textContent='Lihat-lihat dulu, login nanti';
+  setLoginGateStatus('');
+  _llkGuestMode=false;
+  reopenLoginGate();
+}
 function reopenLoginGate(){
   const gate=document.getElementById('loginGate');
   gate.style.display='flex';
