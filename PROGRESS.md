@@ -9,6 +9,9 @@ _Terakhir diperbarui: 30 Sep 2026 (pengingat otomatis 7 hari ke depan)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 🧾 Invoice: tanpa mode bayar, "Perlu Dibayar" hitam (30 Sep 2026)
+- Invoice/kuitansi (`renderInvoiceCanvas`) tidak lagi menampilkan "Bayar di Depan/Belakang" (cukup mata pelajaran). Tulisan **PERLU DIBAYAR** kini teks hitam biasa tanpa kotak merah; cap LUNAS (hijau) & DIBATALKAN (abu) tetap.
+
 ## ⏰ Pengingat terjadwal otomatis 7 hari ke depan (30 Sep 2026)
 - Permintaan pemilik: tidak perlu lagi menekan "Jadwalkan Ulang". Aplikasi web yang tertutup tidak bisa jalan sendiri jam 6 pagi, jadi solusinya: `llkSyncReminders()` menjadwalkan pengingat untuk **7 hari ke depan** (`LLK_REMINDER_DAYS`) sekaligus — les (X menit sebelum), kirim progres & salin laporan (hari yang ada les), PR guru (kemunculan berikutnya) — lewat `llkDesiredReminders(now)`.
 - **Otomatis** via `llkAutoSyncReminders(delay)` (ditunda & digabung): saat login selesai, saat tab Absensi hari ini dibuka, saat aplikasi kembali terlihat (`visibilitychange`), dan setiap `save()` (data berubah). Tidak jalan kalau notifikasi mati / belum login / offline.
