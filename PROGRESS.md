@@ -9,6 +9,11 @@ _Terakhir diperbarui: 30 Sep 2026 (Pembayaran Custom, kirim ulang kuitansi)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 🎨 Ikon mata pelajaran berwarna (30 Sep 2026)
+- Permintaan pemilik: ikon piano & gitar dulu sama-sama abu; semua ikon harus berwarna berbeda.
+- `llkSubjectIcon()` kini membungkus ikon dalam `<span class="llk-subj">` yang mengisi kotak avatar dengan warna dari `llkSubjectStyle()`: 20 jenis ikon → 20 hue berjarak 18° (`llkSubjectHue`); alat musik utama berjauhan (piano bata, drum kuning zaitun, gitar hijau, vokal biru, biola ungu, musik umum merah muda). Hue ganjil diberi latar lebih pekat supaya tetangga tetap beda. Kontras ikon vs latar ≥ 4,5:1.
+- Diuji: `icontest.js` + semua uji sebelumnya.
+
 ## 🚪 Logout → kembali ke layar "Selamat datang" (30 Sep 2026)
 - Bug: setelah logout, gate login tetap tersembunyi (sudah di-`hideLoginGate()` saat login), jadi yang terlihat hanya kartu "Belum login" di Lainnya.
 - Perbaikan: `logoutFirebase()` memanggil `showWelcomeGate()` setelah signOut → pesan awal (trial gratis 31 hari) & tombol "Lihat-lihat dulu, login nanti" dipulihkan (requireLoginOrBlock bisa menggantinya; teks aslinya disimpan di `window._llkGateMsgDefault`), mode tamu direset, gate ditampilkan.
