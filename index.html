@@ -1335,9 +1335,14 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
     </div>
     <div style="margin-bottom:14px">
       <div onclick="toggleNoteTimeEdit()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:0.84rem;color:var(--blue);font-weight:600;padding:6px 0">
-        <span id="noteTimeToggleIcon" style="display:inline-flex"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></span> <svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg> Jam sesi ini salah? Perbaiki di sini
+        <span id="noteTimeToggleIcon" style="display:inline-flex"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></span> <svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg> <span id="noteTimeToggleLabel">Jam sesi ini salah? Perbaiki di sini</span>
       </div>
       <div id="noteTimeEditWrap" style="display:none;margin-top:8px">
+        <div class="mfield" id="noteDateRow" style="display:none;margin-bottom:10px">
+          <label>Tanggal sesi</label>
+          <input type="date" id="noteDateInput"/>
+          <div class="llk-hint">Salah tanggal? Ganti di sini — status, progres, PR & foto ikut dipindah.</div>
+        </div>
         <div class="llk-hint" style="margin-bottom:8px">Jam khusus untuk riwayat tanggal ini saja — tidak mengubah jadwal rutin siswa.</div>
         <div style="display:flex;gap:10px">
           <div class="mfield" style="flex:1;margin-bottom:0"><label>Jam Mulai</label><input type="time" id="noteTimeInput"/></div>
@@ -2826,6 +2831,7 @@ function renderAbsensi(){
         <div class="page-title">Absensi Harian</div><div class="page-sub">Tandai siswa yang hadir. Catat progress di setiap pertemuan.</div>
       </div>`+
     dayBarHtml()+
+    llkAbsDateLine(dateKey, isToday)+
     `<div class="stats-row">
       <div class="stat-card s-hadir"><div class="stat-label">Hadir</div><div class="stat-num">${hadirC}</div></div>
       <div class="stat-card s-izin"><div class="stat-label">Izin</div><div class="stat-num">${izinC}</div></div>
@@ -2867,6 +2873,37 @@ function getDayDiff(dayName){
   // Past days → jump to next week's occurrence
   if(diff < 0) diff += 7;
   return diff;
+}
+
+// Baris tanggal di tab Absensi. Hari yang sudah lewat minggu ini menampilkan
+// minggu DEPAN (lihat getDayDiff) — dulu tanggalnya tidak terlihat sehingga
+// guru bisa tak sengaja mengisi Hadir untuk minggu depan. Sekarang tanggalnya
+// tampil jelas + tautan untuk mengisi hari yang sama minggu lalu lewat Kalender.
+function llkAbsDateLine(dk, isToday){
+  const d=new Date(dk+'T00:00:00');
+  const label=d.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const toMon=x=>(x+6)%7;
+  const nextWeek=!isToday && toMon(d.getDay())<toMon(new Date().getDay());
+  const tag=isToday?'Hari ini':nextWeek?'Minggu depan':'Akan datang';
+  let html='<div style="padding:4px 20px 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    +'<span style="font-weight:700;font-size:0.92rem;color:var(--text)">'+escapeHtml(label)+'</span>'
+    +'<span style="font-size:0.72rem;font-weight:700;padding:2px 9px;border-radius:var(--r-pill);'+(isToday?'background:var(--hadir-bg);color:var(--hadir-text)':'background:var(--amber-bg);color:var(--izin-text)')+'">'+tag+'</span></div>';
+  if(nextWeek){
+    const prev=new Date(d); prev.setDate(prev.getDate()-7);
+    const pk=dateKeyOfDate(prev);
+    html+='<div style="padding:4px 20px 0"><button onclick="goToCalendarDate(\''+pk+'\')" class="llk-callout info" style="width:100%;border:none;cursor:pointer;text-align:left;font:inherit;font-size:0.84rem">'+llkI('calendar-day')+'<div>Mau isi <b>'+escapeHtml(prev.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'short'}))+'</b> yang sudah lewat? Tap untuk buka di Kalender.</div></button></div>';
+  }
+  return html;
+}
+function goToCalendarDate(dk){
+  const d=new Date(dk+'T00:00:00');
+  currentTab='track'; trackMode='tanggal'; viewingStudent=null;
+  calYear=d.getFullYear(); calMonth=d.getMonth(); selectedCalDate=dk;
+  ['absensi','siswa','track','kirim','links','lainnya'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.classList.toggle('active',x==='track'); });
+  history.pushState({tab:'track', view:'main'},'');
+  llkPageEnter();
+  render();
+  setTimeout(function(){ const w=document.getElementById('dateDetailWrap'); if(w) w.scrollIntoView({behavior:'smooth',block:'start'}); },120);
 }
 
 // Helper: get display date string for a day name.
@@ -4052,10 +4089,27 @@ function openNoteModal(attKey, status, displayName, dateOverride, timeOverride, 
       showConfirmReset(msg);
       return;
     }
+    // Hadir/Alpa hanya untuk hari ini atau yang sudah lewat (Izin boleh diisi di muka)
+    if((status==='hadir'||status==='alpa') && dateKey>todayStr()){
+      const prev=new Date(dateKey+'T00:00:00'); prev.setDate(prev.getDate()-7);
+      const pk=dateKeyOfDate(prev);
+      const msg='Pertemuan <b>'+escapeHtml(name)+'</b> pada <b>'+escapeHtml(fmtInvDate(dateKey))+'</b> belum terjadi. Hadir & Alpa hanya bisa diisi untuk hari ini atau yang sudah lewat.';
+      if(pk<=todayStr() && attKey===name){
+        showGenericConfirm('Pertemuan belum terjadi', msg+'<br><br>Maksudnya pertemuan <b>'+escapeHtml(fmtInvDate(pk))+'</b>?', 'Isi '+fmtInvDate(pk).replace(/ \d{4}$/,''), function(){
+          const cur=(attendance[pk]||{})[attKey];
+          if(cur===status) openTrackEditModal(attKey, status, name, pk);
+          else openNoteModal(attKey, status, name, pk, timeOverride, time2Override);
+        }, false, 'calendar-day');
+      } else toast('⚠️ Pertemuan '+fmtInvDate(dateKey)+' belum terjadi — Hadir/Alpa hanya untuk hari ini atau yang sudah lewat',4500);
+      return;
+    }
     const s=students.find(x=>x.name===name)||{};
     const snapTime=timeOverride||s.time||'';
     const snapTime2=time2Override||s.time2||'';
     noteStudent={name:attKey,displayName:name,status:status,dateKey:dateKey,time:snapTime,time2:snapTime2};
+    document.getElementById('noteDateRow').style.display='none';
+    document.getElementById('noteDateInput').value='';
+    document.getElementById('noteTimeToggleLabel').textContent='Jam sesi ini salah? Perbaiki di sini';
     document.getElementById('noteTitle').textContent=status==='hadir'?'Catat Kehadiran':status==='izin'?'Catat Izin':'Catat Alpa';
     document.getElementById('noteSub').textContent=name+' · '+fmtDateShort(dateKey)+(snapTime?' · '+snapTime+(snapTime2?'–'+snapTime2:''):'');
     document.getElementById('noteTimeInput').value=snapTime;
@@ -4298,6 +4352,10 @@ function openTrackEditModal(attKey, status, displayName, dateKey){
     const snapTime=existingMeta.time||s.time||'';
     const snapTime2=existingMeta.time2||s.time2||'';
     noteStudent={name:attKey, displayName:displayName, status:status, dateKey:dateKey, fromTrack:true, time:snapTime, time2:snapTime2};
+    document.getElementById('noteDateRow').style.display='';
+    document.getElementById('noteDateInput').value=dateKey;
+    document.getElementById('noteDateInput').max=todayStr();
+    document.getElementById('noteTimeToggleLabel').textContent='Tanggal / jam sesi ini salah? Perbaiki di sini';
     document.getElementById('noteTitle').innerHTML=llkI('edit')+' Edit Catatan';
     document.getElementById('noteSub').textContent=displayName+' · '+fmtDateShort(dateKey)+(snapTime?' · '+snapTime+(snapTime2?'–'+snapTime2:''):'');
     document.getElementById('noteTimeInput').value=snapTime;
@@ -4327,9 +4385,26 @@ function openTrackEditModal(attKey, status, displayName, dateKey){
 function saveNote(){
   try{
     if(!noteStudent||!noteStudent.name){closeNoteModal();return;}
-    const dateKey=noteStudent.dateKey||todayStr();
-    if(!attendance[dateKey]) attendance[dateKey]={};
+    let dateKey=noteStudent.dateKey||todayStr();
     const status=document.getElementById('noteStatus').value;
+    // Pindah tanggal (dari Edit Catatan): status + catatan + foto + tugas PR ikut pindah
+    const moveTo=noteStudent.fromTrack?(document.getElementById('noteDateInput').value||''):'';
+    let movedFrom=null;
+    if(moveTo && moveTo!==dateKey){
+      const nm=noteStudent.name, dn=noteStudent.displayName||nm;
+      if((status==='hadir'||status==='alpa') && moveTo>todayStr()){ toast('⚠️ Tanggal tujuan belum terjadi — pilih hari ini atau yang sudah lewat',4000); return; }
+      if(llkNoteHasContent(attNotes[moveTo+'_'+nm])){ toast('⚠️ '+fmtInvDate(moveTo)+' sudah punya catatan untuk '+dn+' — edit tanggal itu saja',4500); return; }
+      const oldKey=dateKey+'_'+nm;
+      if(attendance[dateKey]){ delete attendance[dateKey][nm]; if(!Object.keys(attendance[dateKey]).length) delete attendance[dateKey]; }
+      delete attNotes[oldKey]; delete attMeta[oldKey];
+      delete notePhotoCache[oldKey]; idbSetPhotos(oldKey, []);
+      syncPrGuruTask(oldKey, '', dn, dateKey, '');
+      localStorage.removeItem('llk_ts_'+oldKey);
+      const sk=d=>'sheet_sent_'+d+'_'+dn.replace(/[^a-zA-Z0-9]/g,'_');
+      if(localStorage.getItem(sk(dateKey))){ localStorage.setItem(sk(moveTo),'1'); localStorage.removeItem(sk(dateKey)); }
+      movedFrom=dateKey; dateKey=moveTo;
+    }
+    if(!attendance[dateKey]) attendance[dateKey]={};
     const reason=document.getElementById('noteReason').value.trim();
     const progress=document.getElementById('noteProgress').value.trim();
     const prSiswa=document.getElementById('notePrSiswa').value.trim();
@@ -4356,16 +4431,18 @@ function saveNote(){
     notePhotoCache[noteKey]=notePhotosData.slice();
     idbSetPhotos(noteKey, notePhotosData.slice());
     syncPrGuruTask(noteKey, prGuru, displayName, dateKey, editedTime);
+    // BUGFIX: dulu noteStudent sudah di-null-kan closeNoteModal() sebelum dicek,
+    // jadi simpan dari profil murid selalu melempar balik ke daftar.
+    const wasFromTrack=!!noteStudent.fromTrack;
+    const onProfile=!!document.querySelector('#mainContent .hist-back[onclick*="_profileFrom"]');
     save();closeNoteModal();
-    if(noteStudent&&noteStudent.fromTrack){
-      currentTab="track";
-      if(window._profileName) renderStudentProfile(window._profileName, window._profilePeriod||'week');
-      else if(viewingStudent) renderStudentProfile(viewingStudent, 'week');
-      else renderTrack();
-    }else render();
+    if(onProfile && window._profileName) renderStudentProfile(window._profileName, window._profilePeriod||'all');
+    else if(wasFromTrack){ currentTab='track'; render(); }
+    else render();
     updateMateriBadge();
     const emoji=status==='hadir'?'✅':status==='izin'?'✋':'✗';
-    toast(emoji+' '+displayName+' — '+status);
+    if(movedFrom) toast('✅ '+displayName+' dipindah: '+fmtInvDate(movedFrom)+' → '+fmtInvDate(dateKey),4000);
+    else toast(emoji+' '+displayName+' — '+status);
   }catch(e){
     console.error('saveNote error:',e);
     toast('❌ Error: '+e.message);
