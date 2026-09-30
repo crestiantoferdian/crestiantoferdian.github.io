@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 30 Sep 2026 (3 tema tampilan: Caffe Latte, Happy Time, Dark Mode)_
+_Terakhir diperbarui: 30 Sep 2026 (pengingat baru + desain notifikasi)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,19 @@ _Terakhir diperbarui: 30 Sep 2026 (3 tema tampilan: Caffe Latte, Happy Time, Dar
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
+
+## 🔔 Pengingat baru + desain notifikasi (30 Sep 2026)
+- **Dihapus** dari Pengaturan Notifikasi: Pilih Suara, Volume, Tes Suara (membingungkan). Suara di dalam aplikasi tetap nada bawaan.
+- **4 pengingat**, masing-masing dengan saklar on/off (`llk_rem_jadwal|progres|laporan|pr`, bawaan nyala):
+  1. **Jadwal les** — X menit sebelum les (`llk_push_lead_minutes`).
+  2. **Kirim progres ke ortu** — jam (`llk_notif_sheet_time`, bawaan 20:00); hanya kalau masih ada progres hari ini yang belum terkirim (murid hadir yang punya No. WA/Link Sheet).
+  3. **Salin laporan harian** — jam (`llk_notif_kirim_time`, 20:00); kalau laporan hari ini belum disalin.
+  4. **Cek PR guru** — jam (`llk_notif_pr_time`, bawaan 07:00); kalau ada PR guru belum selesai; kalau jamnya sudah lewat → dijadwalkan besok.
+- Semuanya ikut **push** (walau app ditutup) lewat `llkScheduleDailyReminders()` yang dipanggil `scheduleTodayReminders()`, pushKey `tanggal|__progres/__laporan/__pr`. Dibatalkan otomatis di `reconcileMarkedReminders()` begitu tugasnya beres / saklar dimatikan. Saat app terbuka & push belum aktif → pengingat dalam aplikasi (`checkSheetSentReminder`, `checkKirimCopyReminder`, `checkPrGuruReminder`). Mengubah saklar/jam langsung menjadwalkan ulang. Tombol **Coba Notifikasi Sekarang** mengirim contoh ±15 detik.
+- **Teks notifikasi lebih ramah**, mis. "🎵 Sebentar lagi les Syalenka! — Piano · mulai jam 11:30 (10 menit lagi). Siapkan materinya ya, semangat mengajar! ✨". Judul reminder les tetap diawali 🎵 (worker membersihkan reminder les berdasarkan awalan itu).
+- **Desain notifikasi** (`llkPushDesign(kind)`): ikon LLK (`icon-192.png`), ikon bilah status putih (`notif-badge.png`), gambar banner per jenis (`notif-jadwal|progres|laporan|pr.png`, 1024×512, dibuat dari ilustrasi app), tombol aksi ("Buka Absensi", "Kirim Progres", "Salin Laporan", "Lihat PR Guru"), tautan langsung `/?open=absensi|kirim|pr` (ditangani saat init), dan `ttl`.
+- **⚠️ PERLU DEPLOY MANUAL**: `worker/onesignal-bridge-worker.js` diperbarui (`notificationDesign()`: meneruskan url/icon/badge/image/buttons/ttl ke OneSignal, hanya alamat dari domain LesLesanKu). Tempel ulang ke Cloudflare (Workers & Pages → llk-onesignal-bridge → Edit code → Deploy). Sebelum di-deploy, notifikasi tetap jalan dengan teks baru tapi tanpa ikon/gambar/tombol.
+- Diuji: `notiftest.js` (18 cek, fetch worker di-mock), `workertest.mjs` (6 cek: desain diteruskan, alamat asing/domain tiruan ditolak, tanpa desain tetap jalan, tanpa login 401), semua uji sebelumnya.
 
 ## 🎨 Tema tampilan: Caffe Latte · Happy Time · Dark Mode (30 Sep 2026)
 - Permintaan pemilik: tema hasil perombakan diberi nama **Caffe Latte** (pemilik menulis "Caffe late"), tampilan lama sebelum dirombak dimunculkan lagi sebagai **Happy Time**, plus tema **Dark Mode**. Dipilih di **Lainnya → Pengaturan Aplikasi → Tema tampilan** (3 kartu pratinjau), langsung dipakai tanpa tekan Simpan.

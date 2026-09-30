@@ -711,6 +711,22 @@ button:disabled{opacity:.55;cursor:default}
 .llk-logout-btn.is-leaving .ico{animation:llkLogoutNudge 520ms var(--ease-out)}
 @keyframes llkLogoutPress{0%{transform:scale(1)}35%{transform:scale(0.9)}100%{transform:scale(1)}}
 @keyframes llkLogoutNudge{0%{transform:none;opacity:1}45%{transform:translateX(7px);opacity:0}46%{transform:translateX(-7px);opacity:0}100%{transform:none;opacity:1}}
+.llk-rem-list{display:flex;flex-direction:column;gap:10px}
+.llk-rem{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 14px 12px;transition:opacity var(--d2) var(--ease-out)}
+.llk-rem-head{display:flex;align-items:center;gap:12px}
+.llk-rem-txt{flex:1;min-width:0}
+.llk-rem-txt .t{font-weight:700;font-size:0.95rem;line-height:1.3}
+.llk-rem-txt .d{font-size:0.8rem;color:var(--muted);line-height:1.4;margin-top:1px}
+.llk-rem-ctl{display:flex;align-items:center;gap:10px;margin-top:12px;padding-left:52px}
+.llk-rem-lbl{font-size:0.8rem;font-weight:600;color:var(--text2);flex-shrink:0}
+.llk-rem-ctl select,.llk-rem-ctl input{flex:1;min-width:0;height:44px;padding:0 12px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--bg);color:var(--text);font:inherit;font-size:16px}
+.llk-rem.off .llk-rem-ctl{opacity:0.45;pointer-events:none}
+.llk-rem.off .llk-rem-head .menu-icon{filter:grayscale(1);opacity:0.6}
+.llk-switch{position:relative;flex-shrink:0;width:50px;height:30px;border-radius:999px;border:none;background:var(--border);cursor:pointer;padding:0;transition:background-color var(--d2) var(--ease-out)}
+.llk-switch i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.25);transition:transform var(--d2) var(--ease-spring)}
+.llk-switch.on{background:var(--hadir-solid)}
+.llk-switch.on i{transform:translateX(20px)}
+.llk-switch:focus-visible{outline:2.5px solid var(--red);outline-offset:2px}
 .llk-cp-row{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border2);border-radius:var(--r-md);background:var(--card);color:var(--text);font:inherit;text-align:left;cursor:pointer;transition:transform var(--d1) var(--ease-out),background-color var(--d1) var(--ease-out),border-color var(--d1) var(--ease-out)}
 .llk-cp-row:active{transform:scale(0.985)}
 .llk-cp-row.on{background:var(--hadir-bg);border-color:var(--hadir)}
@@ -2065,7 +2081,9 @@ function checkNotifications(){
   // supaya otomatis mengenali siswa nonaktif (dilewati), Tambahan Kelas,
   // hari kedua/ketiga/keempat, dan reschedule terbaru dengan benar.
   const todayS=getStudentsForDay(todayName, dateKey).filter(s=>!s._sameday_reschedule&&!s._hasActiveReschedule);
-  todayS.forEach(s=>{
+  const leadMs=getNotifLeadMinutes()*60*1000;
+  const pushMap=getPushIdMap();
+  if(llkRemOn('jadwal')) todayS.forEach(s=>{
     // BUGFIX: dulu pengingat di dalam aplikasi tetap bunyi walau murid sudah
     // ditandai Izin/Hadir/Alpa. Sekarang sesi yang sudah ditandai dilewati.
     const stNow=(attendance[s._extraDate||dateKey]||{})[s._attKey||s.name];
@@ -2076,9 +2094,11 @@ function checkNotifications(){
     const diff=lessonTime-now;
     // Kunci unik per sesi (termasuk sesi tambahan) supaya tidak bentrok/kelewat
     const key=dateKey+'_'+(s._attKey||s.name);
-    if(diff>0 && diff<=5*60*1000 && !notifShown[key]){
+    // Sudah ada notifikasi push untuk sesi ini → jangan dobel di dalam aplikasi
+    if(pushMap[(s._extraDate||dateKey)+'|'+(s._attKey||s.name)]) return;
+    if(diff>0 && diff<=leadMs && !notifShown[key]){
       notifShown[key]=true;
-      showNotif(`🎵 ${s.name} dalam 5 menit!`,`${effectiveTime} · ${s.instrument||'LesLesanKu'}`);
+      showNotif(`🎵 Sebentar lagi les ${s.name}!`,`${s.instrument?s.instrument+' · ':''}mulai ${effectiveTime} — semangat mengajar! ✨`);
     }
   });
 
@@ -2089,14 +2109,18 @@ function checkNotifications(){
   checkSheetSentReminder(dateKey, todayName);
   // ── Pengingat: laporan tab Kirim hari ini belum di-copy ──
   checkKirimCopyReminder(dateKey);
+  // ── Pengingat: PR guru yang belum selesai ──
+  checkPrGuruReminder(dateKey);
 }
 
 function checkSheetSentReminder(dateKey, todayName){
   const remKey='sheet_remind_'+dateKey;
   if(notifShown[remKey]) return; // sudah diingatkan hari ini
+  if(!llkRemOn('progres')) return;
+  if(getPushIdMap()[dateKey+'|__progres']) return; // sudah dijadwalkan lewat push
 
   // Tunggu sampai jam yang diatur user sebelum bunyi
-  const remindTime=localStorage.getItem('llk_notif_sheet_time')||'20:00';
+  const remindTime=llkRemTime('progres');
   const [rh,rm]=remindTime.split(':').map(Number);
   const now=new Date();
   const threshold=new Date(now.getFullYear(),now.getMonth(),now.getDate(),rh,rm);
@@ -2105,7 +2129,7 @@ function checkSheetSentReminder(dateKey, todayName){
   const belumKirim=[];
   const scheduled=getStudentsForDay(todayName, dateKey);
   scheduled.forEach(s=>{
-    if(!s.sheetLink) return;
+    if(!llkHasContact(s)) return;
     const attKey=s._attKey||s.name;
     const attDateKey=s._extraDate||dateKey;
     const status=(attendance[attDateKey]||{})[attKey];
@@ -2117,17 +2141,19 @@ function checkSheetSentReminder(dateKey, todayName){
   if(belumKirim.length){
     notifShown[remKey]=true;
     const names=belumKirim.length<=2?belumKirim.join(', '):belumKirim.slice(0,2).join(', ')+` +${belumKirim.length-2} lagi`;
-    showNotif(`📨 ${belumKirim.length} link belum dikirim`,`${names} — tombol amplop belum dicentang`);
+    showNotif(`📝 Yuk, kabari ortu hari ini`,`Progres ${names} belum terkirim — buka tab Kirim, cuma sebentar kok 😊`);
   }
 }
 
 function checkKirimCopyReminder(dateKey){
   const remKey='kirim_remind_'+dateKey;
   if(notifShown[remKey]) return; // sudah diingatkan hari ini
+  if(!llkRemOn('laporan')) return;
+  if(getPushIdMap()[dateKey+'|__laporan']) return; // sudah dijadwalkan lewat push
   if(localStorage.getItem('kirim_copied_'+dateKey)) return; // sudah pernah di-copy
 
   // Tunggu sampai jam yang diatur user sebelum bunyi
-  const remindTime=localStorage.getItem('llk_notif_kirim_time')||'20:00';
+  const remindTime=llkRemTime('laporan');
   const [rh,rm]=remindTime.split(':').map(Number);
   const now=new Date();
   const threshold=new Date(now.getFullYear(),now.getMonth(),now.getDate(),rh,rm);
@@ -2138,7 +2164,58 @@ function checkKirimCopyReminder(dateKey){
   if(!hasActivity) return; // belum ada yang diabsen sama sekali, belum perlu diingatkan
 
   notifShown[remKey]=true;
-  showNotif('📋 Laporan Kirim belum di-copy','Buka tab Kirim untuk menyalin laporan hari ini');
+  showNotif('📋 Rekap absensi hari ini sudah siap','Salin laporan di tab Kirim biar catatanmu tetap rapi ✨');
+}
+function checkPrGuruReminder(dateKey){
+  const remKey='pr_remind_'+dateKey;
+  if(notifShown[remKey]||!llkRemOn('pr')) return;
+  if(getPushIdMap()[dateKey+'|__pr']) return; // sudah dijadwalkan lewat push
+  const [rh,rm]=llkRemTime('pr').split(':').map(Number);
+  const now=new Date();
+  if(now<new Date(now.getFullYear(),now.getMonth(),now.getDate(),rh,rm)) return;
+  const pend=teacherTasks.filter(t=>!t.done);
+  if(!pend.length) return;
+  notifShown[remKey]=true;
+  showNotif('📚 Ada '+pend.length+' PR guru menunggu', llkShortText(pend[0].text,60)+(pend.length>1?' +'+(pend.length-1)+' lagi':'')+' — cek di tab Materi 💪');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PENGATURAN PENGINGAT — 4 jenis, masing-masing bisa dinyalakan/dimatikan:
+//   jadwal  : X menit sebelum les dimulai (llk_push_lead_minutes)
+//   progres : jam kirim progres ke ortu   (llk_notif_sheet_time)
+//   laporan : jam salin laporan harian    (llk_notif_kirim_time)
+//   pr      : jam cek PR guru             (llk_notif_pr_time)
+// Saklar on/off di llk_rem_<jenis> ('1'/'0', bawaan nyala).
+// ══════════════════════════════════════════════════════════════════════
+const LLK_REM_TIME_KEY={progres:'llk_notif_sheet_time',laporan:'llk_notif_kirim_time',pr:'llk_notif_pr_time'};
+const LLK_REM_TIME_DEFAULT={progres:'20:00',laporan:'20:00',pr:'07:00'};
+function llkRemOn(k){ const v=localStorage.getItem('llk_rem_'+k); return v===null?true:v==='1'; }
+function llkRemTime(k){ return localStorage.getItem(LLK_REM_TIME_KEY[k])||LLK_REM_TIME_DEFAULT[k]; }
+function llkHasContact(s){ return !!((s.phone&&String(s.phone).replace(/\D/g,''))||(s.sheetLink&&String(s.sheetLink).trim())); }
+function llkShortText(t,n){ t=String(t||'').replace(/\s+/g,' ').trim(); return t.length>n?t.slice(0,n-1)+'…':t; }
+// Semua sesi hari ini sudah ditandai & semua yang hadir (punya kontak) sudah dikirimi progres
+function llkProgresDone(dateKey){
+  const dayName=dayNameFromDate(dateKey);
+  const list=getStudentsForDay(dayName, dateKey).filter(s=>!s._sameday_reschedule&&!s._hasActiveReschedule);
+  return list.every(s=>{
+    const st=(attendance[s._extraDate||dateKey]||{})[s._attKey||s.name];
+    if(!st||st==='belum') return false;
+    if(st!=='hadir'||!llkHasContact(s)) return true;
+    return !!localStorage.getItem('sheet_sent_'+(s._extraDate||dateKey)+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'));
+  });
+}
+// Tampilan notifikasi push (dipakai worker → OneSignal): ikon LLK, ikon kecil
+// bilah status, gambar banner, tombol aksi & tautan langsung ke halaman terkait.
+function llkPushDesign(kind){
+  const o=location.origin;
+  const d={jadwal:{open:'absensi',btn:'Buka Absensi',ttl:3*3600},
+           progres:{open:'kirim',btn:'Kirim Progres',ttl:12*3600},
+           laporan:{open:'kirim',btn:'Salin Laporan',ttl:12*3600},
+           pr:{open:'pr',btn:'Lihat PR Guru',ttl:20*3600},
+           tes:{open:'absensi',btn:'Buka LesLesanKu',ttl:3600}}[kind];
+  const url=o+'/?open='+d.open;
+  return {kind:kind, url:url, icon:o+'/icon-192.png', badge:o+'/notif-badge.png',
+    image:o+'/notif-'+(kind==='tes'?'jadwal':kind)+'.png', buttons:[{id:'open',text:d.btn,url:url}], ttl:d.ttl};
 }
 setInterval(checkNotifications,30000);
 checkNotifications();
@@ -2213,6 +2290,16 @@ function reconcileMarkedReminders(){
     const i=pushKey.indexOf('|'); if(i<0) return;
     const dk=pushKey.slice(0,i), attKey=pushKey.slice(i+1);
     if(dk<today){ popPushId(pushKey); return; } // reminder hari lalu, sudah lewat
+    if(attKey.indexOf('__')===0){
+      const done=attKey==='__progres'?(!llkRemOn('progres')||llkProgresDone(dk))
+        :attKey==='__laporan'?(!llkRemOn('laporan')||!!localStorage.getItem('kirim_copied_'+dk))
+        :attKey==='__pr'?(!llkRemOn('pr')||!teacherTasks.some(t=>!t.done)):false;
+      if(!done) return;
+      if(_reconcileTried[pushKey]&&Date.now()-_reconcileTried[pushKey]<60000) return;
+      _reconcileTried[pushKey]=Date.now();
+      cancelReminderPush(dk, attKey);
+      return;
+    }
     const st=(attendance[dk]||{})[attKey];
     if(st!=='hadir'&&st!=='izin'&&st!=='alpa') return;
     if(_reconcileTried[pushKey]&&Date.now()-_reconcileTried[pushKey]<60000) return;
@@ -2236,7 +2323,7 @@ async function cleanupTodayReminders(){
     if(!res.ok||!j.ok) return null;
     // Semua reminder hari ini sudah dibatalkan di server → lupakan ID-nya
     const map=getPushIdMap(), today=todayStr();
-    Object.keys(map).forEach(function(k){ if(k.slice(0,10)<=today) delete map[k]; });
+    Object.keys(map).forEach(function(k){ if(k.slice(0,10)<=today && k.indexOf('|__')<0) delete map[k]; });
     localStorage.setItem(PUSH_ID_STORE_KEY, JSON.stringify(map));
     return j.canceled||0;
   }catch(e){ console.warn('cleanupTodayReminders gagal:', e); return null; }
@@ -2317,7 +2404,7 @@ function disablePushNotif(){
 // menjadwalkan 1 notifikasi terjadwal untuk sesi ini.
 // Return true kalau sukses, false kalau gagal (dan alasannya di-log ke console
 // supaya nggak gagal diam-diam tanpa jejak).
-async function scheduleReminderPush(title, message, isoDateTime, pushKey){
+async function scheduleReminderPush(title, message, isoDateTime, pushKey, design){
   if(!pushNotifReady()){
     console.warn('scheduleReminderPush dibatalkan: pushNotifReady()=false (OneSignal belum siap / URL worker belum diisi)');
     return false;
@@ -2347,7 +2434,9 @@ async function scheduleReminderPush(title, message, isoDateTime, pushKey){
         title: title,
         message: message||'',
         send_after: isoDateTime, // format ISO, contoh: 2026-08-20T14:25:00.000Z
-        subscriptionId: subscriptionId // target device ini SAJA
+        subscriptionId: subscriptionId, // target device ini SAJA
+        // Tampilan (ikon, gambar, tombol, tautan) — diabaikan worker versi lama
+        ...(design||{})
       })
     });
     const result = await res.json().catch(()=>({}));
@@ -2420,6 +2509,7 @@ async function scheduleTodayReminders(showToast, opts){
   for(const s of list){
     done++;
     if(opts.onProgress) try{ opts.onProgress(done, list.length, s.name); }catch(e){}
+    if(!llkRemOn('jadwal')){ report.skipped.push({name:s.name,time:s.time,why:'pengingat jadwal dimatikan'}); continue; }
     if(!s.time){ skipped.push(s.name+': tidak ada jam'); report.skipped.push({name:s.name,why:'tidak ada jam'}); continue; }
     const attKey=s._attKey||s.name; // sesi extra pakai key beda (name_extra_N)
     const attDateKey=s._extraDate||dateKey;
@@ -2433,16 +2523,19 @@ async function scheduleTodayReminders(showToast, opts){
     // "Jadwalkan Ulang" / ganti waktu reminder bikin notifikasi DOBEL
     // (yang lama tetap bunyi + yang baru).
     await cancelReminderPush(attDateKey, attKey);
+    // Judul wajib diawali 🎵 — worker membersihkan reminder les berdasarkan awalan ini
     const ok=await scheduleReminderPush(
-      `🎵 ${s.name} dalam ${fmtLeadLabel(leadMin)}!`,
-      `Jadwal jam ${s.time}`,
+      `🎵 Sebentar lagi les ${s.name}!`,
+      `${s.instrument?s.instrument+' · ':''}mulai jam ${s.time} (${fmtLeadLabel(leadMin)} lagi). Siapkan materinya ya, semangat mengajar! ✨`,
       reminderAt.toISOString(),
-      attDateKey+'|'+attKey
+      attDateKey+'|'+attKey,
+      llkPushDesign('jadwal')
     );
     if(ok){ count++; report.scheduled.push({name:s.name,time:s.time,at:reminderAt}); }
     else report.failed.push({name:s.name,time:s.time});
   }
   if(skipped.length) console.log('scheduleTodayReminders — sesi yang di-skip:', skipped);
+  count+=await llkScheduleDailyReminders(report, list, now, dateKey);
   localStorage.setItem('llk_push_scheduled_date', dateKey);
   if(showToast){
     if(count>0) toast(`✅ ${count} reminder dijadwalkan hari ini`);
@@ -2450,6 +2543,44 @@ async function scheduleTodayReminders(showToast, opts){
     else toast('ℹ️ Tidak ada sesi hari ini');
   }
   return count;
+}
+
+// Pengingat harian (kirim progres, salin laporan, PR guru) — dijadwalkan bersama
+// reminder les. Dibatalkan otomatis kalau tugasnya sudah beres (lihat
+// reconcileMarkedReminders) atau saklarnya dimatikan.
+async function llkScheduleDailyReminders(report, list, now, dateKey){
+  let n=0;
+  const at=(t,plusDay)=>{ const [h,m]=String(t).split(':').map(Number); const d=new Date(now); d.setDate(d.getDate()+(plusDay||0)); d.setHours(h,m,0,0); return d; };
+  const push=async(key,dk,title,msg,when,kind,label)=>{
+    await cancelReminderPush(dk,key);
+    const ok=await scheduleReminderPush(title,msg,when.toISOString(),dk+'|'+key,llkPushDesign(kind));
+    if(ok){ n++; report.scheduled.push({name:label,at:when,daily:true}); } else report.failed.push({name:label,time:''});
+  };
+  const lessons=list.filter(s=>s.time);
+  // Kirim progres
+  const withContact=lessons.filter(llkHasContact);
+  if(!llkRemOn('progres')) await cancelReminderPush(dateKey,'__progres');
+  else if(withContact.length && !llkProgresDone(dateKey)){
+    const t=at(llkRemTime('progres'));
+    if(t>now){
+      const names=withContact.slice(0,2).map(s=>s.name).join(', ')+(withContact.length>2?' +'+(withContact.length-2)+' lagi':'');
+      await push('__progres',dateKey,'📝 Yuk, kabari ortu hari ini','Progres les '+names+' belum terkirim. Ketuk untuk kirim lewat WA — cuma sebentar kok 😊',t,'progres','Kirim progres');
+    } else report.skipped.push({name:'Kirim progres',why:'jam '+llkRemTime('progres')+' sudah lewat'});
+  }
+  // Salin laporan
+  if(!llkRemOn('laporan')) await cancelReminderPush(dateKey,'__laporan');
+  else if(lessons.length && !localStorage.getItem('kirim_copied_'+dateKey)){
+    const t=at(llkRemTime('laporan'));
+    if(t>now) await push('__laporan',dateKey,'📋 Rekap absensi hari ini sudah siap','Salin laporan ke Google Sheets biar catatanmu tetap rapi. Cukup satu ketukan! ✨',t,'laporan','Salin laporan');
+    else report.skipped.push({name:'Salin laporan',why:'jam '+llkRemTime('laporan')+' sudah lewat'});
+  }
+  // PR guru — kalau jamnya sudah lewat hari ini, dijadwalkan untuk besok
+  const pend=teacherTasks.filter(t=>!t.done);
+  let t=at(llkRemTime('pr')), dk=dateKey;
+  if(t<=now){ t=at(llkRemTime('pr'),1); dk=dateKeyOfDate(t); }
+  if(!llkRemOn('pr')||!pend.length) await cancelReminderPush(dk,'__pr');
+  else await push('__pr',dk,'📚 Ada '+pend.length+' PR guru menunggu',llkShortText(pend[0].text,70)+(pend.length>1?' +'+(pend.length-1)+' lagi':'')+'. Ketuk untuk lihat daftarnya 💪',t,'pr','Cek PR guru');
+  return n;
 }
 
 let notifTimer;
@@ -2482,7 +2613,7 @@ async function runReminderSchedule(trigger){
       btn.innerHTML=llkI('alert')+' Belum bisa dijadwalkan';
       btn.classList.add('llk-fail');
     }else{
-      btn.innerHTML=llkI('check')+(n>0?(' '+n+' reminder terjadwal'):' Selesai');
+      btn.innerHTML=llkI('check')+(n>0?(' '+n+' pengingat terjadwal'):' Selesai');
       btn.classList.add('llk-ok');
     }
     setTimeout(function(){
@@ -2493,7 +2624,8 @@ async function runReminderSchedule(trigger){
   if(sel) sel.disabled=false;
   if(out) out.innerHTML=reminderReportHtml(report);
   if(report.reason) toast('⚠️ '+report.reason,4000);
-  else if(trigger==='lead') toast(n>0?('✅ Waktu reminder disimpan — '+n+' reminder dijadwalkan ulang'):'✅ Waktu reminder disimpan');
+  else if(trigger==='lead') toast(n>0?('✅ Waktu pengingat disimpan — '+n+' pengingat dijadwalkan ulang'):'✅ Waktu pengingat disimpan');
+  else if(trigger==='settings') {}
   else toast(n>0?('✅ '+n+' reminder dijadwalkan hari ini'):'ℹ️ Tidak ada reminder baru untuk hari ini');
   _reminderRunning=false;
 }
@@ -2505,11 +2637,11 @@ function reminderReportHtml(r){
   if(r.cleaned) h+='<div style="color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:6px">'+llkI('refresh','sm')+r.cleaned+' reminder lama/dobel dibersihkan</div>';
   if((r.scheduled||[]).length){
     h+='<div style="font-weight:800;color:var(--hadir-text);margin-bottom:4px;display:flex;align-items:center;gap:6px">'+llkI('bell','sm')+'Notifikasi akan bunyi:</div>';
-    h+=r.scheduled.map(function(x){ return '<div>• <b>'+fmt(x.at)+'</b> — '+escapeHtml(x.name)+' <span style="color:var(--muted)">(les jam '+escapeHtml(x.time)+')</span></div>'; }).join('');
+    h+=r.scheduled.map(function(x){ return '<div>• <b>'+fmt(x.at)+'</b>'+(x.at.getDate()!==new Date().getDate()?' <span style="color:var(--muted)">besok</span>':'')+' — '+escapeHtml(x.name)+(x.daily?'':' <span style="color:var(--muted)">(les jam '+escapeHtml(x.time)+')</span>')+'</div>'; }).join('');
   }
   if((r.failed||[]).length){
     h+='<div style="font-weight:800;color:var(--alpa-text);margin:8px 0 4px;display:flex;align-items:center;gap:6px">'+llkI('x-circle','sm')+'Gagal dijadwalkan:</div>';
-    h+=r.failed.map(function(x){ return '<div>• '+escapeHtml(x.name)+' (jam '+escapeHtml(x.time)+') — cek internet lalu coba lagi</div>'; }).join('');
+    h+=r.failed.map(function(x){ return '<div>• '+escapeHtml(x.name)+(x.time?' (jam '+escapeHtml(x.time)+')':'')+' — cek internet lalu coba lagi</div>'; }).join('');
   }
   if((r.skipped||[]).length){
     h+='<div style="font-weight:700;color:var(--muted);margin:8px 0 4px">Dilewati:</div>';
@@ -2625,6 +2757,19 @@ document.getElementById('overlay').addEventListener('click',e=>{if(e.target===do
 document.getElementById('noteOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('noteOverlay'))closeNoteModal()});
 document.getElementById('linkOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('linkOverlay'))closeLinkModal()});
 history.replaceState({tab:'absensi',view:'main'},'');
+// Dibuka dari tombol notifikasi → langsung ke halaman terkait
+(function(){
+  try{
+    const q=new URLSearchParams(location.search).get('open');
+    if(!q) return;
+    history.replaceState({tab:'absensi',view:'main'},'',location.pathname);
+    setTimeout(function(){
+      if(q==='kirim') setTab('kirim');
+      else if(q==='pr'){ setTab('links'); if(typeof openMateriSection==='function') openMateriSection('pr'); }
+      else setTab('absensi');
+    },400);
+  }catch(e){}
+})();
 
 // ── STATUS KONEKSI INTERNET ─────────────────────────────
 // Aplikasi ini 100% berjalan lokal di HP (localStorage) — internet TIDAK dibutuhkan untuk menyimpan data,
@@ -7377,7 +7522,7 @@ const BACKUP_SETTINGS_KEYS=[
   'llk_notif_sheet_time','llk_notif_kirim_time','llk_income_hidden','llk_payment_mode',
   'llk_tpl_session','llk_tpl_monthly','llk_progress_dest','llk_progress_fields','llk_tpl_progress',
   'llk_tpl_admin','llk_pay_timing','llk_pay_info','llk_tpl_prepaid_session','llk_tpl_prepaid_monthly',
-  'llk_theme'
+  'llk_theme','llk_push_lead_minutes','llk_notif_pr_time','llk_rem_jadwal','llk_rem_progres','llk_rem_laporan','llk_rem_pr'
 ];
 function collectSettingsData(){
   const out={};
@@ -8445,104 +8590,78 @@ function renderPaymentSettings(){
 // ── PENGATURAN NOTIFIKASI ──────────────────────────────
 function renderNotifSettings(){
   history.pushState({tab:'lainnya', view:'sub'},'');
-  const {sound, volume} = getNotifSetting();
-  const {customName} = getNotifSetting();
-  const soundOptions = Object.entries(NOTIF_SOUNDS).map(([k,v])=>{
-    const isActive = sound===k;
-    const extraHtml = (k==='custom'&&isActive)
-      ? `<div style="margin-top:10px;padding-left:2px">
-          <div style="font-size:0.82rem;color:var(--muted);margin-bottom:8px">${customName?'File: <b>'+customName+'</b>':'Belum ada file dipilih'}</div>
-          <button onclick="pickCustomMp3();event.stopPropagation()" class="llk-btn secondary sm">
-            ${llkI('folder-open')} Pilih File MP3
-          </button>
-          <input type="file" id="mp3FileInput" accept="audio/*" style="display:none" onchange="loadCustomMp3(this)">
-        </div>`
-      : '';
-    return `<div onclick="selectNotifSound('${k}')" id="nsound-${k}" class="llk-choice${isActive?' on':''}" style="margin-bottom:8px;display:block;min-height:0">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:28px">
-        <span style="display:flex;align-items:center;gap:10px;font-size:0.94rem;font-weight:${isActive?'700':'500'};color:${isActive?'var(--red-text)':'var(--text)'}">${llkI(k==='off'?'volume-off':k==='custom'?'folder':'music')}${llkStripLeadEmoji(v.label)}</span>
-        ${isActive?'<span style="color:var(--red-text);display:inline-flex">'+llkI('check-circle')+'</span>':''}
-      </div>
-      ${extraHtml}
-    </div>`;
-  }).join('');
-  const llkBoxS='background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin-bottom:14px';
-
+  const pushOn=!!localStorage.getItem('llk_push_enabled');
+  const lead=getNotifLeadMinutes();
+  const leadOpts=[5,10,15,30,60,120].map(m=>'<option value="'+m+'"'+(lead===m?' selected':'')+'>'+(m<60?m+' menit':(m/60)+' jam')+' sebelumnya</option>').join('');
+  const sw=(k)=>'<button type="button" class="llk-switch'+(llkRemOn(k)?' on':'')+'" role="switch" aria-checked="'+llkRemOn(k)+'" aria-label="Nyalakan pengingat" onclick="llkToggleRem(\''+k+'\',this)"><i></i></button>';
+  const row=(k,icon,tone,title,desc,ctl)=>'<div class="llk-rem'+(llkRemOn(k)?'':' off')+'" id="llkRem-'+k+'">'
+    +'<div class="llk-rem-head"><span class="menu-icon '+tone+'">'+llkI(icon)+'</span><div class="llk-rem-txt"><div class="t">'+title+'</div><div class="d">'+desc+'</div></div>'+sw(k)+'</div>'
+    +'<div class="llk-rem-ctl">'+ctl+'</div></div>';
+  const timeCtl=(k)=>'<label class="llk-rem-lbl">Jam</label><input type="time" value="'+llkRemTime(k)+'" onchange="llkSetRemTime(\''+k+'\',this.value)">';
   document.getElementById('mainContent').innerHTML=`
     <div class="page-title-area">
       <div class="hist-back" onclick="llkPageEnter();renderLainnya()"><span><svg class="ico" aria-hidden="true"><use href="#i-chevron-left"/></svg></span><div class="hist-back-label">Kembali</div></div>
       <div class="page-title">Pengaturan Notifikasi</div>
-      <div class="page-sub">Atur suara dan volume notifikasi jadwal les.</div>
+      <div class="page-sub">Pilih pengingat yang kamu butuhkan, dan jam berapa munculnya.</div>
     </div>
     <div style="padding:10px 20px 24px">
-      <div style="background:var(--card);border:1px solid var(--border);border-left:4px solid ${localStorage.getItem('llk_push_enabled')?'var(--hadir)':'var(--red)'};border-radius:var(--r-lg);padding:16px;margin-bottom:14px">
-        <div class="llk-section-label" style="padding-top:0;color:${localStorage.getItem('llk_push_enabled')?'var(--hadir)':'var(--red-text)'}">${llkI(localStorage.getItem('llk_push_enabled')?'bell':'bell-off')}Notifikasi Latar Belakang (Push)</div>
-        <div style="font-size:0.88rem;color:var(--text);margin-bottom:12px;line-height:1.5">${localStorage.getItem('llk_push_enabled')?'Aktif — reminder tetap masuk walau LLK ditutup total.':'Belum aktif — reminder cuma jalan kalau LLK sedang dibuka.'}</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-left:4px solid ${pushOn?'var(--hadir)':'var(--red)'};border-radius:var(--r-lg);padding:16px;margin-bottom:14px">
+        <div class="llk-section-label" style="padding-top:0;color:${pushOn?'var(--hadir)':'var(--red-text)'}">${llkI(pushOn?'bell':'bell-off')}Notifikasi di HP</div>
+        <div style="font-size:0.88rem;color:var(--text);margin-bottom:12px;line-height:1.5">${pushOn?'Aktif — pengingat tetap masuk walau LesLesanKu sedang ditutup.':'Belum aktif — pengingat hanya muncul saat LesLesanKu sedang dibuka.'}</div>
         <button id="pushToggleBtn" class="llk-press llk-btn block" onclick="onPushToggleClick(this)"
-          style="height:48px;background:${localStorage.getItem('llk_push_enabled')?'var(--hadir)':'var(--red)'};color:#fff;border:none">
-          ${localStorage.getItem('llk_push_enabled')?llkI('check')+' Notifikasi Aktif (klik untuk nonaktifkan)':llkI('bell')+' Aktifkan Notifikasi Push'}
+          style="height:48px;background:${pushOn?'var(--hadir-solid)':'var(--red)'};color:${pushOn?'#fff':'var(--on-red)'};border:none">
+          ${pushOn?llkI('check')+' Notifikasi Aktif (ketuk untuk matikan)':llkI('bell')+' Aktifkan Notifikasi'}
         </button>
       </div>
-      <div style="${llkBoxS}">
-        <div class="llk-section-label" style="padding-top:0">${llkI('clock')}Waktu Reminder</div>
-        <div style="font-size:0.84rem;color:var(--muted);margin-bottom:12px;line-height:1.5">Ingatkan berapa lama sebelum jadwal sesi dimulai.</div>
-        <select id="notifLeadTime" onchange="localStorage.setItem('llk_push_lead_minutes',this.value);runReminderSchedule('lead')"
-          style="width:100%;height:48px;padding:0 12px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;font-size:16px;margin-bottom:12px">
-          <option value="5" ${getNotifLeadMinutes()===5?'selected':''}>5 menit sebelumnya</option>
-          <option value="10" ${getNotifLeadMinutes()===10?'selected':''}>10 menit sebelumnya</option>
-          <option value="15" ${getNotifLeadMinutes()===15?'selected':''}>15 menit sebelumnya</option>
-          <option value="30" ${getNotifLeadMinutes()===30?'selected':''}>30 menit sebelumnya</option>
-          <option value="60" ${getNotifLeadMinutes()===60?'selected':''}>1 jam sebelumnya</option>
-          <option value="120" ${getNotifLeadMinutes()===120?'selected':''}>2 jam sebelumnya</option>
-        </select>
-        <button id="reminderScheduleBtn" class="llk-press llk-btn secondary block" onclick="runReminderSchedule('button')" style="min-height:48px;height:auto">
-          ${llkI('refresh')} Jadwalkan Ulang Reminder Hari Ini
-        </button>
-        <div id="reminderScheduleResult"></div>
-        <div style="font-size:0.78rem;color:var(--muted);margin-top:8px;line-height:1.5">Reminder hari ini terjadwal otomatis begitu tab Absensi dibuka. Tombol ini buat jadwalkan ulang manual (misal setelah ganti waktu reminder atau ubah jadwal siswa).</div>
+
+      <div class="llk-section-label">${llkI('bell')}Pengingat</div>
+      <div class="llk-rem-list">
+        ${row('jadwal','calendar','red','Jadwal les','Diingatkan sebelum les murid dimulai',
+          '<label class="llk-rem-lbl">Ingatkan</label><select id="notifLeadTime" onchange="localStorage.setItem(\'llk_push_lead_minutes\',this.value);llkRemChanged(\'lead\')">'+leadOpts+'</select>')}
+        ${row('progres','chat','green','Kirim progres ke ortu','Kalau masih ada progres les hari ini yang belum terkirim',timeCtl('progres'))}
+        ${row('laporan','table','blue','Salin laporan harian','Kalau laporan absensi hari ini belum disalin di tab Kirim',timeCtl('laporan'))}
+        ${row('pr','book','plum','Cek PR guru','Kalau masih ada PR guru yang belum selesai',timeCtl('pr'))}
       </div>
-      <div style="${llkBoxS}">
-        <div class="llk-section-label" style="padding-top:0">${llkI('music')}Pilih Suara · saat aplikasi terbuka</div>
-        <div class="llk-callout warn" style="margin-bottom:12px;font-size:0.82rem;line-height:1.6">
-          ${llkI('info')}<div>Suara di bawah ini dipakai untuk pengingat <b>saat LesLesanKu sedang terbuka</b>.<br>
-          Notifikasi saat aplikasi <b>tertutup</b> memakai <b>suara notifikasi HP</b> — aplikasi web tidak diizinkan Android memilih suaranya sendiri. Untuk menggantinya:<br>
-          <b>Pengaturan HP → Aplikasi → LesLesanKu</b> (atau <b>Chrome</b>, kalau dibuka lewat Chrome) <b>→ Notifikasi</b> → pilih kategori notifikasinya → <b>Suara</b>. Di sana bisa pilih nada lain atau file MP3 sendiri.</div>
-        </div>
-        ${soundOptions}
-      </div>
-      <div style="${llkBoxS}">
-        <div class="llk-section-label" style="padding-top:0">${llkI('volume')}Volume</div>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:6px;color:var(--text2)">
-          ${llkI('volume-off')}
-          <input type="range" id="notifVolume" min="0.1" max="1" step="0.1" value="${volume}"
-            oninput="document.getElementById('volLabel').textContent=Math.round(this.value*100)+'%'"
-            onchange="localStorage.setItem('llk_notif_volume',this.value)"
-            style="flex:1;accent-color:var(--red);height:28px">
-          ${llkI('volume')}
-          <span id="volLabel" style="font-size:0.92rem;font-weight:700;color:var(--text);min-width:40px;text-align:right;font-variant-numeric:tabular-nums">${Math.round(volume*100)}%</span>
-        </div>
-      </div>
-      <button onclick="testNotifSound()" class="llk-btn primary block" style="height:52px;margin-bottom:14px">
-        ${llkI('bell')} Tes Suara Sekarang
+
+      <button id="reminderScheduleBtn" class="llk-press llk-btn secondary block" onclick="runReminderSchedule('button')" style="min-height:48px;height:auto;margin-top:12px">
+        ${llkI('refresh')} Jadwalkan Ulang Pengingat Hari Ini
       </button>
+      <div id="reminderScheduleResult"></div>
+      <div style="font-size:0.78rem;color:var(--muted);margin-top:8px;line-height:1.5">Pengingat hari ini terjadwal otomatis begitu tab Absensi dibuka. Perubahan di atas langsung dijadwalkan ulang.</div>
 
-      <div style="${llkBoxS}">
-        <div class="llk-section-label" style="padding-top:0">${llkI('clock')}Jam Pengingat Harian</div>
-        <div style="font-size:0.84rem;color:var(--muted);margin-bottom:14px;line-height:1.5">Atur jam berapa pengingat di bawah ini boleh mulai bunyi (bukan langsung saat itu juga).</div>
-
-        <div class="mfield">
-          <label>${llkI('mail')} Amplop belum dicentang</label>
-          <input type="time" id="notifSheetTime" value="${localStorage.getItem('llk_notif_sheet_time')||'20:00'}"
-            onchange="localStorage.setItem('llk_notif_sheet_time',this.value);toast('✅ Jam pengingat amplop disimpan')">
-        </div>
-
-        <div class="mfield" style="margin-bottom:0">
-          <label>${llkI('table')} Laporan Kirim belum di-copy</label>
-          <input type="time" id="notifKirimTime" value="${localStorage.getItem('llk_notif_kirim_time')||'20:00'}"
-            onchange="localStorage.setItem('llk_notif_kirim_time',this.value);toast('✅ Jam pengingat Kirim disimpan')">
-        </div>
-      </div>
+      <button onclick="llkSendTestPush(this)" class="llk-press llk-btn primary block" style="height:50px;margin-top:16px">
+        ${llkI('bell')} Coba Notifikasi Sekarang
+      </button>
+      <div style="font-size:0.78rem;color:var(--muted);margin-top:8px;line-height:1.5;text-align:center">Contoh notifikasi akan masuk ke HP ini dalam ±15 detik.</div>
     </div>`;
+}
+function llkToggleRem(k, btn){
+  const on=!llkRemOn(k);
+  localStorage.setItem('llk_rem_'+k, on?'1':'0');
+  btn.classList.toggle('on',on); btn.setAttribute('aria-checked',on);
+  const box=document.getElementById('llkRem-'+k); if(box) box.classList.toggle('off',!on);
+  const names={jadwal:'jadwal les',progres:'kirim progres',laporan:'salin laporan',pr:'cek PR guru'};
+  toast((on?'✅ Pengingat ':'🔕 Pengingat ')+names[k]+(on?' dinyalakan':' dimatikan'));
+  llkRemChanged('toggle');
+}
+function llkSetRemTime(k, v){
+  if(!/^\d{2}:\d{2}$/.test(v)) return;
+  localStorage.setItem(LLK_REM_TIME_KEY[k], v);
+  toast('✅ Jam pengingat disimpan: '+v);
+  llkRemChanged('time');
+}
+// Setelah pengaturan berubah: sinkron ke cloud & jadwalkan ulang push hari ini
+function llkRemChanged(trigger){
+  if(typeof scheduleCloudSync==='function') scheduleCloudSync();
+  if(localStorage.getItem('llk_push_enabled') && typeof currentUser!=='undefined' && currentUser) runReminderSchedule(trigger==='lead'?'lead':'settings');
+}
+async function llkSendTestPush(btn){
+  if(!localStorage.getItem('llk_push_enabled')){ toast('⚠️ Aktifkan notifikasi dulu (tombol di atas)'); return; }
+  const old=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="llk-btn-spin light"></span>Mengirim contoh…';
+  const when=new Date(Date.now()+15000).toISOString();
+  const ok=await scheduleReminderPush('🔔 Halo dari LesLesanKu!','Begini tampilan pengingatmu nanti. Semoga mengajar hari ini menyenangkan! ✨',when,null,llkPushDesign('tes'));
+  btn.disabled=false; btn.innerHTML=old;
+  toast(ok?'✅ Contoh notifikasi akan masuk ±15 detik lagi':'⚠️ Gagal mengirim contoh — cek internet & pastikan sudah login',4000);
 }
 
 function selectNotifSound(key){
