@@ -312,6 +312,8 @@ button:disabled{opacity:.55;cursor:default}
 }
 .s-avatar .ico,.track-avatar .ico{width:24px;height:24px;stroke-width:1.6}
 .s-avatar.vocal,.track-avatar.vocal{background:var(--blue-bg);color:var(--blue)}
+/* Ikon mata pelajaran berwarna — mengisi penuh kotak avatarnya */
+.llk-subj{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:inherit}
 .llk-av-badge{position:absolute;bottom:-3px;right:-3px;width:18px;height:18px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;color:#fff;border:2px solid var(--card)}
 .llk-av-badge .ico{width:10px;height:10px;stroke-width:3}
@@ -1477,7 +1479,23 @@ function llkSubjectIcon(instrument){
   let n=LLK_SUBJECT_ICON[e];
   if(!n && /\uD83C[\uDDE6-\uDDFF]/.test(e)) n='lang';   // bendera negara → bahasa
   if(!n && e && e.indexOf('‍')>=0) n='users';       // sosiologi
-  return llkI(n||'music');
+  n=n||'music';
+  // Tiap jenis ikon punya warna sendiri (tidak ada yang sama) — lihat llkSubjectHue
+  return '<span class="llk-subj" style="'+llkSubjectStyle(n)+'">'+llkI(n)+'</span>';
+}
+// Warna ikon mata pelajaran: 20 hue berjarak 18°, alat musik yang paling sering
+// dipakai diberi hue yang saling berjauhan (piano bata, drum kuning zaitun,
+// gitar hijau, vokal biru, biola ungu, musik umum merah muda).
+function llkSubjectHue(n){
+  const k={piano:1,drum:4,guitar:7,mic:12,violin:15,music:18,
+    math:0,microscope:2,atom:3,flask:5,dna:6,globe:8,scroll:9,chart:10,laptop:11,
+    'book-open':13,pencil:14,scale:16,lang:17,users:19}[n];
+  return (k===undefined?18:k)*18;
+}
+// Hue ganjil/genap diberi kecerahan berbeda supaya dua warna bertetangga tetap mudah dibedakan
+function llkSubjectStyle(n){
+  const h=llkSubjectHue(n), odd=(h/18)%2===1;
+  return odd?'background:hsl('+h+',56%,83%);color:hsl('+h+',58%,24%)':'background:hsl('+h+',48%,91%);color:hsl('+h+',52%,30%)';
 }
 // Ikon tautan Materi: pilihan bawaan (disimpan sebagai emoji di data) ditampilkan
 // sebagai ikon garis; emoji ketikan guru sendiri tetap tampil apa adanya.
