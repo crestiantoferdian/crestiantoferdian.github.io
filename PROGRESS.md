@@ -17,6 +17,7 @@ _Terakhir diperbarui: 30 Sep 2026 (3 tema tampilan: Caffe Latte, Happy Time, Dar
 - **Dark Mode**: kopi gelap (#15120f/#1e1a16), teks #f3ebe1, status lebih terang (kontras ≥5:1), `color-scheme:dark`. `llkReadableOnPaper()` kini mengukur kontras terhadap warna kartu tema aktif (tema gelap → warna aksen diterangkan). Ikon mata pelajaran versi gelap di `llkSubjectStyle()`.
 - Warna aksen sekolah (header) tetap dari Pengaturan di semua tema. Invoice/PDF tetap putih (dokumen).
 - Diuji: `themetest.js` (11 cek), screenshot semua halaman di tiap tema (`themeshoot.js`), semua uji sebelumnya.
+- **Tema hanya mengubah tampilan** (permintaan pemilik): JS hanya membaca tema di `llkSubjectIcon` (emoji di Happy Time) & `llkSubjectStyle` (warna ikon gelap) — tidak ada logika absensi/pembayaran/data yang bergantung tema. Seluruh uji fitur (paytest, inittest, datetest, striptest, meettest, fmttest, statustest, icontest, gatetest, logouttest, func 20/20, colortest 10/10) dijalankan ulang dengan **Happy Time** dan **Dark Mode** aktif (`runtheme.sh` + `forcetheme.js` di scratchpad) → semua lolos, sama dengan Caffe Latte.
 
 ## 🟩 Kartu murid berwarna sesuai status (30 Sep 2026)
 - Kartu murid di Absensi & Kalender: `.s-item.status-hadir` latar hijau lembut, `status-izin` oranye, `status-alpa` merah muda (garis kiri 4px warna status); Belum tetap polos. Warna inline lama dipindah ke CSS class.
