@@ -9,6 +9,13 @@ _Terakhir diperbarui: 30 Sep 2026 (Pembayaran Custom, kirim ulang kuitansi)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 🗓️ Absensi: strip 14 tanggal (30 Sep 2026)
+- Permintaan pemilik: strip hari di Absensi jadi **14 tanggal** (7 ke belakang, **hari ini di tengah**, 6 ke depan); klik "Sel" = **Selasa kemarin**, bukan minggu depan; di ujung strip ada tombol **Kalender**.
+- `dayBarHtml()` kini membuat tombol per tanggal (`selectAbsDate(dk)`, state `selectedAbsDate`, kosong = hari ini). `selectedDay` tetap disinkronkan dari tanggal itu (dipakai Tambah Murid, bagikan jadwal). `selectDay(nama)` lama → kemunculan terakhir hari itu.
+- `renderAbsensi` memakai tanggal pasti; tanggal lampau kini bisa diisi langsung di Absensi (dulu diarahkan ke Kalender), termasuk murid yang nonaktif setelah tanggal itu & riwayat yang tidak lagi tercakup jadwal. Judul daftar: "Selasa — Kemarin / Hari ini / 6 hari lagi". Callout "Minggu depan" dari PR sebelumnya dihapus (tidak diperlukan lagi).
+- Catatan teknis: nama hari singkat memakai fungsi `llkDayShort()` (bukan const) karena strip digambar saat init sebelum baris const dieksekusi (TDZ).
+- Diuji: `striptest.js` (14 cek), datetest disesuaikan, paytest, inittest, logouttest, func.js 20/20, colortest 10/10.
+
 ## 📅 Absensi: tanggal terlihat, Hadir di masa depan ditolak, pindah tanggal (30 Sep 2026)
 - **Bug:** di tab Absensi, hari yang sudah lewat minggu ini (mis. Selasa saat hari Rabu) membuka **minggu depan** (`getDayDiff` sengaja melompat +7), tapi tanggalnya tidak ditampilkan → guru mengisi progres "kemarin" yang ternyata tersimpan di 6 Okt, jadi Estimasi September kurang 1 sesi.
 - **Perbaikan:** (1) `llkAbsDateLine()` menampilkan tanggal sebenarnya + label "Hari ini/Minggu depan", plus tautan "Mau isi Selasa, 29 Sep yang sudah lewat?" → `goToCalendarDate()`. (2) `openNoteModal` menolak **Hadir/Alpa untuk tanggal setelah hari ini** (Izin tetap boleh) dan menawarkan tanggal yang sama minggu lalu (kalau sudah Hadir → langsung Edit Catatan). Reset status di tanggal mendatang tetap bisa. (3) **Pindah tanggal** di Edit Catatan (`#noteDateInput`): status, progres, PR, foto, tugas PR guru, tanda terkirim ikut pindah; ditolak kalau tanggal tujuan sudah punya catatan / belum terjadi.

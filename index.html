@@ -250,6 +250,13 @@ button:disabled{opacity:.55;cursor:default}
 .day-pill.today{border-color:var(--accent-line);color:var(--red-text)}
 .day-pill.today::after{content:'';position:absolute;top:6px;right:8px;width:5px;height:5px;border-radius:50%;background:var(--red)}
 .day-pill.today.active{color:#fff}
+.date-pill{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:58px;padding:7px 12px;border-radius:var(--r-md);line-height:1.15}
+.date-pill .dp-d{font-size:0.72rem;font-weight:600;opacity:0.8}
+.date-pill .dp-n{font-family:var(--font-display);font-size:1.1rem;font-weight:600;font-variant-numeric:lining-nums tabular-nums}
+.date-pill.past:not(.active){background:var(--card2)}
+.date-pill.today::after{top:5px;right:6px}
+.cal-pill{display:inline-flex;align-items:center;gap:6px;border-style:dashed;color:var(--blue);border-radius:var(--r-md)}
+.cal-pill .ico{width:18px;height:18px}
 
 /* ── STATS: satu strip "buku besar", bukan 4 kartu ── */
 .stats-row{
@@ -1593,6 +1600,7 @@ let attMeta={};          // {dateKey_attKey: {time,time2}} — snapshot jam jadw
                           // supaya riwayat lama tidak ikut berubah kalau jadwal siswa diedit belakangan
 let currentTab='absensi';
 let selectedDay='';
+let selectedAbsDate=''; // tanggal yang dibuka di tab Absensi (YYYY-MM-DD), kosong = hari ini
 let editIdx=null;
 let noteStudent=null;
 let notePhotosData=[]; // array base64 foto progress (sudah dikompres) untuk modal catatan yang sedang dibuka
@@ -2668,54 +2676,78 @@ function render(){
 }
 
 // ── DAY BAR ───────────────────────────────────────────
+// Strip 14 tanggal: 7 hari ke belakang, HARI INI (di tengah), 6 hari ke depan.
+// Tiap tombol = tanggal pasti (dulu nama hari saja, dan hari yang sudah lewat
+// minggu ini malah membuka minggu depan). Di kedua ujung ada tombol Kalender.
+// (fungsi, bukan const: strip ini sudah digambar saat init, sebelum baris ini dieksekusi)
+function llkDayShort(i){ return ['Min','Sen','Sel','Rab','Kam','Jum','Sab'][i]; }
 function dayBarHtml(){
-  const todayName=todayDayName();
-  return `<div class="day-scroll" id="dayBar">`+
-    DAYS.map(d=>`<button class="day-pill ${d===selectedDay?'active':''} ${d===todayName&&d!==selectedDay?'today':''}" onclick="selectDay('${d}')">${d}</button>`).join('')+
-  `</div>`;
+  const today=todayStr();
+  const sel=selectedAbsDate||today;
+  const base=new Date(today+'T00:00:00');
+  const calBtn='<button class="day-pill cal-pill" onclick="goToCalendar()" aria-label="Buka Kalender">'+llkI('calendar-day')+'<span>Kalender</span></button>';
+  let pills='';
+  for(let i=-7;i<=6;i++){
+    const d=new Date(base); d.setDate(d.getDate()+i);
+    const dk=dateKeyOfDate(d);
+    const showMonth=i===-7||d.getDate()===1;
+    pills+='<button class="day-pill date-pill'+(dk===sel?' active':'')+(dk===today&&dk!==sel?' today':'')+(dk<today?' past':'')+'" onclick="selectAbsDate(\''+dk+'\')" aria-label="'+escapeHtml(d.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'}))+(dk===today?' (hari ini)':'')+'">'
+      +'<span class="dp-d">'+(dk===today?'Hari ini':llkDayShort(d.getDay()))+'</span>'
+      +'<span class="dp-n">'+d.getDate()+(showMonth?' '+MONTH_SHORT_ID[d.getMonth()]:'')+'</span></button>';
+  }
+  return '<div class="day-scroll" id="dayBar">'+calBtn+pills+calBtn+'</div>';
 }
-function selectDay(d){
-  selectedDay=d;render();
+function llkCenterDayBar(smooth){
   setTimeout(()=>{
     const bar=document.getElementById('dayBar');
     const active=bar&&bar.querySelector('.day-pill.active');
-    if(bar&&active) bar.scrollTo({left:active.offsetLeft-(bar.offsetWidth/2)+(active.offsetWidth/2),behavior:'smooth'});
+    if(!bar||!active) return;
+    const left=active.offsetLeft-(bar.offsetWidth/2)+(active.offsetWidth/2);
+    if(smooth) bar.scrollTo({left,behavior:'smooth'}); else bar.scrollLeft=left;
   },50);
+}
+function selectAbsDate(dk){
+  selectedAbsDate=(dk===todayStr())?'':dk;
+  selectedDay=dayNameFromDate(dk);
+  render();
+  llkCenterDayBar(true);
+}
+// Kompatibel dengan pemanggilan lama: pilih hari = kemunculan TERAKHIR hari itu (hari ini atau yang sudah lewat)
+function selectDay(d){
+  const t=new Date(todayStr()+'T00:00:00');
+  for(let i=0;i<7;i++){ if(llkDayShort(t.getDay())===d.slice(0,3)||dayNameFromDate(dateKeyOfDate(t))===d) break; t.setDate(t.getDate()-1); }
+  selectAbsDate(dateKeyOfDate(t));
 }
 
 // ── ABSENSI ───────────────────────────────────────────
 function renderAbsensi(){
   const todayKey=todayStr();
-  const isToday=selectedDay===todayDayName();
+  const dateKey=selectedAbsDate||todayKey;
+  selectedDay=dayNameFromDate(dateKey);
+  const isToday=dateKey===todayKey;
   // Auto-jadwalkan reminder push 1x/hari begitu tab Absensi dibuka untuk hari ini
   if(isToday&&localStorage.getItem('llk_push_enabled')&&localStorage.getItem('llk_push_scheduled_date')!==todayKey){
     scheduleTodayReminders(false);
   }
-  // Gunakan tanggal aktual hari yang dipilih, bukan selalu hari ini
-  const dayDiff=getDayDiff(selectedDay);
-  const isPast=dayDiff<0;
-  const dateKey=isToday?todayKey:getDateKeyForDay(selectedDay);
+  const isPast=dateKey<todayKey;
   window._currentDateKey=dateKey; // expose untuk openSheetLink
   const att=attendance[dateKey]||{};
 
-  // Get students for this day (including reschedule)
-  // Jika hari sudah lewat, arahkan ke Track kalender
+  // Tanggal lampau: ikutkan murid yang sekarang nonaktif (kalau tanggalnya sebelum dia nonaktif)
+  // + riwayat yang tidak lagi tercakup jadwal saat ini (sama seperti tab Kirim)
+  let dayS=getStudentsForDay(selectedDay, dateKey, isPast).filter(s=>!s.inactive||!isPast||!s.inactiveSince||dateKey<s.inactiveSince);
   if(isPast){
-    document.getElementById('mainContent').innerHTML=
-      `<div class="page-title-area" style="position:relative">
-        <button onclick="goToCalendar()" class="llk-icon-btn" aria-label="Buka kalender" title="Kalender" style="position:absolute;top:18px;right:20px">${llkI('calendar-day')}</button>
-        <div class="page-title">Absensi Harian</div><div class="page-sub">Tandai siswa yang hadir. Catat progress di setiap pertemuan.</div>
-      </div>`+
-      dayBarHtml()+
-      `<div class="empty" style="margin:16px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg)">
-        ${llkIll('calendar')}
-        <div class="empty-t">Hari ${selectedDay} sudah lewat</div>
-        <div class="empty-d" style="margin-bottom:18px">Gunakan tab <b>Track → Kalender</b> untuk input atau lihat absensi hari yang sudah lewat.</div>
-        <button onclick="setTab('track')" class="llk-btn primary">Buka Track ${llkI('arrow-right')}</button>
-      </div>`;
-    return;
+    const covered=new Set(dayS.map(x=>x._attKey||x.name));
+    students.forEach(st=>{
+      const v=att[st.name];
+      if(v&&v!=='belum'&&!covered.has(st.name)){
+        covered.add(st.name);
+        const meta=attMeta[dateKey+'_'+st.name]||{};
+        dayS.push(Object.assign({},st,{time:meta.time||st.time||'00:00',time2:meta.time2||st.time2||''}));
+      }
+    });
   }
-  const dayS=getStudentsForDay(selectedDay, dateKey).sort((a,b)=>a.time.localeCompare(b.time));
+  dayS.sort((a,b)=>(a.time||'').localeCompare(b.time||''));
 
   // Exclude kartu info saja (_sameday_reschedule) dari semua hitungan
   const dayS_real=dayS.filter(s=>!s._sameday_reschedule);
@@ -2823,7 +2855,7 @@ function renderAbsensi(){
         </div>
       </div>
     </div>`;
-  }).join(''):`${isPast?'<div class="empty">'+llkIll('calendar')+'<div class="empty-t">Hari sudah lewat</div><div class="empty-d">Gunakan tab Track → Kalender untuk absensi hari lalu</div></div>':`<div class="empty">${llkIll('notebook')}<div class="empty-t">Tidak ada jadwal hari ${selectedDay}</div><div class="empty-d">Hari ini kosong. Tambahkan murid atau pilih hari lain di atas.</div></div>`}`;
+  }).join(''):`${isPast?'<div class="empty">'+llkIll('calendar')+'<div class="empty-t">Tidak ada jadwal di tanggal ini</div><div class="empty-d">Pilih tanggal lain di atas, atau buka Kalender.</div></div>':`<div class="empty">${llkIll('notebook')}<div class="empty-t">Tidak ada jadwal hari ${selectedDay}</div><div class="empty-d">Hari ini kosong. Tambahkan murid atau pilih hari lain di atas.</div></div>`}`;
 
   document.getElementById('mainContent').innerHTML=
     `<div class="page-title-area" style="position:relative">
@@ -2831,7 +2863,6 @@ function renderAbsensi(){
         <div class="page-title">Absensi Harian</div><div class="page-sub">Tandai siswa yang hadir. Catat progress di setiap pertemuan.</div>
       </div>`+
     dayBarHtml()+
-    llkAbsDateLine(dateKey, isToday)+
     `<div class="stats-row">
       <div class="stat-card s-hadir"><div class="stat-label">Hadir</div><div class="stat-num">${hadirC}</div></div>
       <div class="stat-card s-izin"><div class="stat-label">Izin</div><div class="stat-num">${izinC}</div></div>
@@ -2841,8 +2872,8 @@ function renderAbsensi(){
     <div class="list-wrap">
       <div class="list-header">
         <div>
-          <div class="list-title">${selectedDay}${isToday?' — Hari ini':' — '+getDateForDay(selectedDay)}</div>
-          <div style="font-size:0.8rem;color:var(--muted);margin-top:2px;font-weight:500">${getDateForDay(selectedDay)}</div>
+          <div class="list-title">${selectedDay} — ${llkRelDayLabel(dateKey)}</div>
+          <div style="font-size:0.8rem;color:var(--muted);margin-top:2px;font-weight:500">${new Date(dateKey+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}</div>
         </div>
         <div style="display:flex;gap:8px;flex-shrink:0">
           <button onclick="shareJadwal('${selectedDay}','${dateKey}')" class="llk-icon-btn sm" title="Bagikan jadwal" aria-label="Bagikan jadwal">${llkI('share')}</button>
@@ -2852,12 +2883,8 @@ function renderAbsensi(){
       ${cardsHtml}
     </div>`;
 
-  // Scroll active day to center
-  setTimeout(()=>{
-    const bar=document.getElementById('dayBar');
-    const active=bar&&bar.querySelector('.day-pill.active');
-    if(bar&&active) bar.scrollLeft=active.offsetLeft-(bar.offsetWidth/2)+(active.offsetWidth/2);
-  },50);
+  // Scroll tanggal terpilih ke tengah
+  llkCenterDayBar(false);
 }
 
 // Helper: compute day offset from today.
@@ -2875,25 +2902,13 @@ function getDayDiff(dayName){
   return diff;
 }
 
-// Baris tanggal di tab Absensi. Hari yang sudah lewat minggu ini menampilkan
-// minggu DEPAN (lihat getDayDiff) — dulu tanggalnya tidak terlihat sehingga
-// guru bisa tak sengaja mengisi Hadir untuk minggu depan. Sekarang tanggalnya
-// tampil jelas + tautan untuk mengisi hari yang sama minggu lalu lewat Kalender.
-function llkAbsDateLine(dk, isToday){
-  const d=new Date(dk+'T00:00:00');
-  const label=d.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const toMon=x=>(x+6)%7;
-  const nextWeek=!isToday && toMon(d.getDay())<toMon(new Date().getDay());
-  const tag=isToday?'Hari ini':nextWeek?'Minggu depan':'Akan datang';
-  let html='<div style="padding:4px 20px 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-    +'<span style="font-weight:700;font-size:0.92rem;color:var(--text)">'+escapeHtml(label)+'</span>'
-    +'<span style="font-size:0.72rem;font-weight:700;padding:2px 9px;border-radius:var(--r-pill);'+(isToday?'background:var(--hadir-bg);color:var(--hadir-text)':'background:var(--amber-bg);color:var(--izin-text)')+'">'+tag+'</span></div>';
-  if(nextWeek){
-    const prev=new Date(d); prev.setDate(prev.getDate()-7);
-    const pk=dateKeyOfDate(prev);
-    html+='<div style="padding:4px 20px 0"><button onclick="goToCalendarDate(\''+pk+'\')" class="llk-callout info" style="width:100%;border:none;cursor:pointer;text-align:left;font:inherit;font-size:0.84rem">'+llkI('calendar-day')+'<div>Mau isi <b>'+escapeHtml(prev.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'short'}))+'</b> yang sudah lewat? Tap untuk buka di Kalender.</div></button></div>';
-  }
-  return html;
+// Label relatif untuk judul daftar Absensi: Hari ini / Kemarin / Besok / 3 hari lalu …
+function llkRelDayLabel(dk){
+  const diff=Math.round((new Date(dk+'T00:00:00')-new Date(todayStr()+'T00:00:00'))/86400000);
+  if(diff===0) return 'Hari ini';
+  if(diff===-1) return 'Kemarin';
+  if(diff===1) return 'Besok';
+  return diff<0?(-diff)+' hari lalu':diff+' hari lagi';
 }
 function goToCalendarDate(dk){
   const d=new Date(dk+'T00:00:00');
