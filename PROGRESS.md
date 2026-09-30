@@ -9,6 +9,13 @@ _Terakhir diperbarui: 30 Sep 2026 (Pembayaran Custom, kirim ulang kuitansi)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 📅 Absensi: tanggal terlihat, Hadir di masa depan ditolak, pindah tanggal (30 Sep 2026)
+- **Bug:** di tab Absensi, hari yang sudah lewat minggu ini (mis. Selasa saat hari Rabu) membuka **minggu depan** (`getDayDiff` sengaja melompat +7), tapi tanggalnya tidak ditampilkan → guru mengisi progres "kemarin" yang ternyata tersimpan di 6 Okt, jadi Estimasi September kurang 1 sesi.
+- **Perbaikan:** (1) `llkAbsDateLine()` menampilkan tanggal sebenarnya + label "Hari ini/Minggu depan", plus tautan "Mau isi Selasa, 29 Sep yang sudah lewat?" → `goToCalendarDate()`. (2) `openNoteModal` menolak **Hadir/Alpa untuk tanggal setelah hari ini** (Izin tetap boleh) dan menawarkan tanggal yang sama minggu lalu (kalau sudah Hadir → langsung Edit Catatan). Reset status di tanggal mendatang tetap bisa. (3) **Pindah tanggal** di Edit Catatan (`#noteDateInput`): status, progres, PR, foto, tugas PR guru, tanda terkirim ikut pindah; ditolak kalau tanggal tujuan sudah punya catatan / belum terjadi.
+- **Bug lama ikut diperbaiki:** simpan Edit Catatan dari profil murid dulu selalu melempar ke daftar (noteStudent di-null-kan sebelum dicek). Sekarang tetap di profil / Kalender.
+- Cara memperbaiki data pemilik (Dastan): profil → pensil di 6 Okt → "Tanggal / jam sesi ini salah?" → ganti ke 29 Sep → Simpan; lalu Edit Murid → ketik ulang Pertemuan Awal 3 → 15/22/29 Sep → Estimasi September Rp300.000.
+- Diuji: `datetest.js` (16 cek), paytest, inittest, logouttest, func.js 20/20, colortest 10/10.
+
 ## 🗓️ Pertemuan Awal jadi tanggal Hadir + kirim progres ke WA (30 Sep 2026)
 - **Bug:** "Pertemuan Awal = 3" dulu hanya angka (`initialSessions`). Kalau guru lalu menandai Hadir pertemuan kemarin untuk menulis progres, pertemuan itu terhitung dobel (3+1=4 → langsung ditagih).
 - **Perbaikan (usulan pemilik):** `llkApplyInitialSessions()` menandai **Hadir** di N tanggal jadwal rutin terakhir **sebelum hari ini** (tanggal yang sudah Hadir/Alpa ikut dihitung, Izin dilewati). Jika murid sudah punya riwayat lebih lama, tanggalnya diambil sebelum pertemuan tercatat pertama (total tidak berkurang). Tanggal otomatis disimpan di `s.initialDates`, angka yang diisi di `s.initialCount`, `initialSessions` jadi 0. Murid tanpa jadwal rutin tetap memakai angka seperti dulu.
