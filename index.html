@@ -6295,8 +6295,8 @@ function buildProgressText(attKey, displayName, dateKey){
     salam:getGreetingID(),
     nama:displayName,
     tanggal:settings.fields.includes('tanggal')?fmtPretty(dateKey):'',
-    progress:settings.fields.includes('progress')?(note.progress||'-'):'',
-    pr:settings.fields.includes('pr')?(note.prSiswa||'-'):'',
+    progress:settings.fields.includes('progress')?(llkBulletLines(note.progress)||'-'):'',
+    pr:settings.fields.includes('pr')?(String(note.prSiswa||'').trim().includes('\n')?llkBulletLines(note.prSiswa):(String(note.prSiswa||'').trim()||'-')):'',
     pertemuan:settings.fields.includes('pertemuan')?('Pertemuan ke-'+llkMeetingNumber(displayName, attKey, dateKey)):''
   };
   let lines=getProgressTemplate().split('\n');
@@ -6307,9 +6307,37 @@ function buildProgressText(attKey, displayName, dateKey){
     if(at<0) at=Math.max(0,lines.length-2);
     lines.splice(at+1,0,'🔢 {pertemuan}');
   }
-  // Pertemuan ke- tidak dicentang → buang barisnya (bukan menyisakan emoji kosong)
-  if(!vars.pertemuan) lines=lines.filter(l=>!l.includes('{pertemuan}'));
-  return fillTemplate(lines.join('\n'), vars).trim();
+  // Bagian yang tidak dicentang → buang barisnya (bukan menyisakan label/emoji kosong)
+  ['tanggal','pertemuan','progress','pr'].forEach(k=>{
+    if(vars[k]) return;
+    lines=lines.filter(l=>!l.includes('{'+k+'}')||['tanggal','pertemuan','progress','pr'].some(o=>o!==k&&vars[o]&&l.includes('{'+o+'}')));
+  });
+  // Progres (dan PR yang lebih dari 1 baris) tampil sebagai daftar poin di bawah
+  // labelnya, dengan baris kosong sebelum & sesudahnya:
+  //   📝 Progress:
+  //
+  //   • Warming up …
+  //   • Mengulang lagu …
+  //
+  //   📚 PR: …
+  const asBlock=k=>!!vars[k]&&(vars[k].startsWith('• ')||vars[k].includes('\n'));
+  const out=[];
+  lines.forEach(l=>{
+    const k=['progress','pr'].find(x=>l.includes('{'+x+'}')&&asBlock(x));
+    if(!k){ out.push(l); return; }
+    const i=l.indexOf('{'+k+'}'), before=l.slice(0,i).trimEnd(), after=l.slice(i+k.length+2);
+    if(out.length&&out[out.length-1].trim()!=='') { if(!before) out.push(''); }
+    if(before){ out.push(before); out.push(''); }
+    out.push('{'+k+'}'+after);
+    out.push('');
+  });
+  return fillTemplate(out.join('\n'), vars).replace(/\n[ \t]*\n([ \t]*\n)+/g,'\n\n').trim();
+}
+// Ubah catatan jadi daftar poin: tiap baris jadi "• …" (tanda *, -, • di awal
+// baris diganti), baris bernomor (1. / 2)) dibiarkan, baris kosong dibuang.
+function llkBulletLines(text){
+  return String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
+    .map(l=>/^\d+[.)]\s/.test(l)?l:'• '+l.replace(/^[*\-•·]+\s*/,'')).join('\n');
 }
 // Pertemuan ke-berapa pada tanggal ini: semua sesi terhitung (Hadir/Alpa,
 // termasuk Pertemuan Awal & tambahan kelas) sampai tanggal itu.
