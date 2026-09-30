@@ -9,6 +9,12 @@ _Terakhir diperbarui: 30 Sep 2026 (Pembayaran Custom, kirim ulang kuitansi)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 📝 Progres: format poin + jarak sebelum PR (30 Sep 2026)
+- Permintaan pemilik: progres tampil seperti daftar poin tanpa tanda `*`, dan ada baris kosong antara progres dan PR.
+- `llkBulletLines()`: tiap baris catatan → `• …` (tanda `*`, `-`, `•` di awal baris diganti; baris bernomor `1.` dibiarkan; baris kosong dibuang). `buildProgressText()` menaruh progres (dan PR yang >1 baris) di bawah labelnya dengan baris kosong sebelum & sesudah — berlaku juga untuk template buatan guru. Catatan kosong tetap satu baris ("Progress: -").
+- Bagian yang tidak dicentang (tanggal/pertemuan/progres/PR) kini barisnya dibuang, tidak menyisakan label kosong.
+- Diuji: `fmttest.js` (6 cek), meettest disesuaikan, semua uji sebelumnya lolos.
+
 ## 🔢 Progres: "Pertemuan ke-…" (30 Sep 2026)
 - Pilihan baru di Pengaturan Progres Siswa → Format teks progres: **Pertemuan ke-berapa** (field `pertemuan`, default tidak dicentang). Nomornya dari `llkMeetingNumber()` = semua sesi terhitung (Hadir/Alpa, termasuk Pertemuan Awal & tambahan kelas) sampai tanggal itu.
 - Template default punya baris `🔢 {pertemuan}`; kalau tidak dicentang, barisnya dibuang (bukan emoji kosong). Template buatan guru tanpa `{pertemuan}` → baris disisipkan otomatis setelah baris `{tanggal}`. Variabel `{pertemuan}` ditambahkan ke daftar variabel.
