@@ -9,6 +9,11 @@ _Terakhir diperbarui: 30 Sep 2026 (Pembayaran Custom, kirim ulang kuitansi)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 🚪 Logout → kembali ke layar "Selamat datang" (30 Sep 2026)
+- Bug: setelah logout, gate login tetap tersembunyi (sudah di-`hideLoginGate()` saat login), jadi yang terlihat hanya kartu "Belum login" di Lainnya.
+- Perbaikan: `logoutFirebase()` memanggil `showWelcomeGate()` setelah signOut → pesan awal (trial gratis 31 hari) & tombol "Lihat-lihat dulu, login nanti" dipulihkan (requireLoginOrBlock bisa menggantinya; teks aslinya disimpan di `window._llkGateMsgDefault`), mode tamu direset, gate ditampilkan.
+- Diuji: `gatetest.js` (5 cek, Firebase di-stub) + semua uji sebelumnya.
+
 ## 📝 Progres: format poin + jarak sebelum PR (30 Sep 2026)
 - Permintaan pemilik: progres tampil seperti daftar poin tanpa tanda `*`, dan ada baris kosong antara progres dan PR.
 - `llkBulletLines()`: tiap baris catatan → `• …` (tanda `*`, `-`, `•` di awal baris diganti; baris bernomor `1.` dibiarkan; baris kosong dibuang). `buildProgressText()` menaruh progres (dan PR yang >1 baris) di bawah labelnya dengan baris kosong sebelum & sesudah — berlaku juga untuk template buatan guru. Catatan kosong tetap satu baris ("Progress: -").
