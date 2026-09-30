@@ -3262,7 +3262,7 @@ function setPaymentMode(mode){
 const DEFAULT_TPL_SESSION='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nMohon izin mengingatkan bahwa les {nama} telah berjalan {sesi}x pertemuan.\nMohon kesediaan Bapak/Ibu untuk melakukan pembayaran sebesar {biaya}.\n\nTerima kasih atas perhatian dan kerja samanya.\n\nHormat kami';
 const DEFAULT_TPL_MONTHLY='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nMohon izin mengingatkan pembayaran les bulan {bulan}.\nSelama bulan ini telah berlangsung {sesi}x pertemuan, yaitu pada tanggal {tanggal}.\nMohon kesediaan Bapak/Ibu untuk melakukan pembayaran sebesar {biaya}.\n\nTerima kasih atas perhatian dan kerja samanya.\n\nHormat kami';
 const DEFAULT_TPL_ADMIN='Halo Admin\nMohon diingatkan pembayaran:\nNama: {nama}\nMata Pelajaran: {instrumen}\nJadwal: {jadwal}\nTotal: {total}x {keterangan}\nTerima kasih!';
-const DEFAULT_TPL_PROGRESS='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nBerikut kami sampaikan progres les {nama}:\n🗓️ {tanggal}\n📝 Progress: {progress}\n📚 PR: {pr}\n\nTerima kasih atas perhatiannya.';
+const DEFAULT_TPL_PROGRESS='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nBerikut kami sampaikan progres les {nama}:\n🗓️ {tanggal}\n🔢 {pertemuan}\n📝 Progress: {progress}\n📚 PR: {pr}\n\nTerima kasih atas perhatiannya.';
 function getMonthNameID(d){ return (d||new Date()).toLocaleDateString('id-ID',{month:'long'}); }
 function formatRupiah(n){ return 'Rp '+Math.round(n||0).toLocaleString('id-ID'); }
 // Sapaan formal otomatis mengikuti jam saat pesan dikirim
@@ -6252,6 +6252,7 @@ function renderProgressSettings(){
         <div class="kirim-title">Format teks progres</div>
         <div style="display:flex;flex-direction:column;gap:10px">
           ${fieldRow('tanggal','calendar','Tanggal & hari siswa hadir')}
+          ${fieldRow('pertemuan','repeat','Pertemuan ke-berapa (mis. "Pertemuan ke-5")')}
           ${fieldRow('progress','note','Progres siswa')}
           ${fieldRow('pr','book','PR siswa')}
         </div>
@@ -6260,7 +6261,7 @@ function renderProgressSettings(){
         <div class="kirim-title" style="display:flex;align-items:center;gap:8px;margin-bottom:4px">${llkI('mail')} Template Pesan Progres</div>
         <div style="font-size:0.8rem;color:var(--muted);margin-bottom:10px;line-height:1.5">Dipakai saat kirim progres via Sheet maupun WA. Isi variabel dengan tanda kurung kurawal.</div>
         <textarea id="tplProgressInput" rows="7" class="llk-textarea">${escapeHtml(getProgressTemplate())}</textarea>
-        <div style="font-size:0.78rem;color:var(--muted);margin-top:8px;line-height:1.8">Variabel: <code class="llk-code">{salam}</code> <code class="llk-code">{nama}</code> <code class="llk-code">{tanggal}</code> <code class="llk-code">{progress}</code> <code class="llk-code">{pr}</code></div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:8px;line-height:1.8">Variabel: <code class="llk-code">{salam}</code> <code class="llk-code">{nama}</code> <code class="llk-code">{tanggal}</code> <code class="llk-code">{pertemuan}</code> <code class="llk-code">{progress}</code> <code class="llk-code">{pr}</code></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button onclick="saveProgressTemplate()" class="llk-btn primary" style="flex:1">${llkI('check')} Simpan</button>
           <button onclick="resetProgressTemplate()" class="llk-btn secondary">${llkI('undo')} Default</button>
@@ -6295,9 +6296,29 @@ function buildProgressText(attKey, displayName, dateKey){
     nama:displayName,
     tanggal:settings.fields.includes('tanggal')?fmtPretty(dateKey):'',
     progress:settings.fields.includes('progress')?(note.progress||'-'):'',
-    pr:settings.fields.includes('pr')?(note.prSiswa||'-'):''
+    pr:settings.fields.includes('pr')?(note.prSiswa||'-'):'',
+    pertemuan:settings.fields.includes('pertemuan')?('Pertemuan ke-'+llkMeetingNumber(displayName, attKey, dateKey)):''
   };
-  return fillTemplate(getProgressTemplate(), vars).trim();
+  let lines=getProgressTemplate().split('\n');
+  if(vars.pertemuan && !lines.some(l=>l.includes('{pertemuan}'))){
+    // Template lama/buatan guru belum punya {pertemuan} → sisipkan setelah baris tanggal
+    let at=lines.findIndex(l=>l.includes('{tanggal}'));
+    if(at<0) at=lines.findIndex(l=>l.includes('{progress}'))-1;
+    if(at<0) at=Math.max(0,lines.length-2);
+    lines.splice(at+1,0,'🔢 {pertemuan}');
+  }
+  // Pertemuan ke- tidak dicentang → buang barisnya (bukan menyisakan emoji kosong)
+  if(!vars.pertemuan) lines=lines.filter(l=>!l.includes('{pertemuan}'));
+  return fillTemplate(lines.join('\n'), vars).trim();
+}
+// Pertemuan ke-berapa pada tanggal ini: semua sesi terhitung (Hadir/Alpa,
+// termasuk Pertemuan Awal & tambahan kelas) sampai tanggal itu.
+function llkMeetingNumber(name, attKey, dateKey){
+  const list=countedSessionList(name);
+  const before=list.filter(x=>!x.date||x.date<dateKey).length;
+  const sameDay=list.filter(x=>x.date===dateKey).length;
+  if(!sameDay) return before+1;
+  return before+(attKey===name?1:sameDay);
 }
 function fallbackCopyPlain(text){
   const ta=document.createElement('textarea');
