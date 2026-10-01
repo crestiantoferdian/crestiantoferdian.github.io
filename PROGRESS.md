@@ -9,6 +9,11 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 🔐 Halaman login "missing initial state" (1 Okt 2026)
+- Gejala: layar putih bertuliskan "Unable to process request due to missing initial state…". Itu halaman helper login Firebase (`/__/auth/handler`) yang terbuka di tab/jendela yang bukan asal login (tab login lama dibuka lagi, HP memuat ulang tab saat memori/baterai rendah, atau alur redirect di PWA). Data tidak terpengaruh.
+- `__/auth/handler.html`: tambahan skrip LLK — kalau error itu muncul, diganti pesan ramah bahasa Indonesia, popup ditutup, lalu otomatis kembali ke `/` (3,5 dtk) + tombol "Buka LesLesanKu". Alur login normal tidak berubah (`handler.js` resmi tidak disentuh).
+- `sw.js`: permintaan `/__/…` tidak lagi ditangani/di-cache service worker.
+
 ## ⏸️ Status baru "Off (guru izin)" + Tampilan Invoice (1 Okt 2026)
 - **Off** = guru yang berhalangan. Nilai baru `attendance[dk][key]='off'` (data lama tidak diubah).
   - Tombol **Off** di kartu absen (Absensi & Track), sesudah Reschedule dan sebelum Kirim Progres. Modal: pilihan "Off (guru izin)", cukup alasan (tanpa progres/foto). Boleh diisi di muka seperti Izin.
