@@ -3851,7 +3851,7 @@ function buildInvoiceWaText(inv, copyDate){
   text+='\n\n🧾 *'+(inv.paidAt?'KUITANSI LUNAS':'INVOICE')+' '+inv.no+'*\n';
   if(copyDate&&inv.paidAt) text+='_Salinan · dikirim ulang '+new Date(copyDate+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+'_\n';
   text+=inv.desc+'\n';
-  inv.items.forEach((it,i)=>{ text+=(i+1)+'. '+(it.date?fmtInvDate(it.date):'-')+' — '+it.label+'\n'; });
+  inv.items.forEach((it,i)=>{ text+=(i+1)+'. '+(it.date?fmtInvDate(it.date):'-')+' — '+llkInvItemLabel(it.label)+'\n'; });
   text+='*Total: '+formatRupiah(inv.total)+'*';
   if(inv.paidAt) text+='\nStatus: LUNAS ('+new Date(inv.paidAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+')';
   const payInfo=(localStorage.getItem('llk_pay_info')||'').trim();
@@ -3872,6 +3872,18 @@ function wrapCanvasText(ctx, text, maxW){
     lines.push(line);
   });
   return lines;
+}
+// Keterangan baris invoice/kuitansi: cukup status (Hadir/Izin/Alpa) — catatan
+// tambahan kelas ("Karena pulang pagi", dll.) tidak ditampilkan ke ortu.
+// Berlaku juga untuk invoice lama yang sudah tersimpan (label asli tidak diubah).
+function llkInvItemLabel(label){
+  label=String(label||'');
+  const unpaid=/ · belum dibayar$/.test(label)?' · belum dibayar':'';
+  const m=label.match(/^(Hadir|Izin|Alpa)\b/);
+  if(m) return m[1]+unpaid;
+  const t=label.match(/^Terjadwal(?: · (\d{1,2}[:.]\d{2}))?/);
+  if(t) return 'Terjadwal'+(t[1]?' · '+t[1]:'')+unpaid;
+  return label;
 }
 function loadImageSafe(src){
   return new Promise(res=>{ if(!src) return res(null); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
@@ -3931,8 +3943,9 @@ async function renderInvoiceCanvas(inv, copyDate){
     c.fillStyle='#1c1c1e';
     c.fillText(String(i+1),colNo,y+37);
     c.fillText(it.date?fmtInvDate(it.date):'-',colDate,y+37);
-    let lbl=it.label; while(c.measureText(lbl).width>colAmt-colDesc-200 && lbl.length>4) lbl=lbl.slice(0,-2);
-    if(lbl!==it.label) lbl=lbl.trim()+'…';
+    const full=llkInvItemLabel(it.label);
+    let lbl=full; while(c.measureText(lbl).width>colAmt-colDesc-200 && lbl.length>4) lbl=lbl.slice(0,-2);
+    if(lbl!==full) lbl=lbl.trim()+'…';
     c.fillStyle='#4b5563'; c.fillText(lbl,colDesc,y+37);
     c.fillStyle='#1c1c1e'; c.textAlign='right'; c.fillText(formatRupiah(inv.rate),colAmt,y+37); c.textAlign='left';
     y+=rowH;

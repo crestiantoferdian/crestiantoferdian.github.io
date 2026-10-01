@@ -9,6 +9,10 @@ _Terakhir diperbarui: 30 Sep 2026 (pengingat otomatis 7 hari ke depan)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 🧾 Invoice: keterangan cukup status (1 Okt 2026)
+- Kolom KETERANGAN invoice/kuitansi (gambar & pesan WA) kini hanya status: **Hadir / Izin / Alpa** (atau "Terjadwal · jam" untuk bayar di depan). Catatan tambahan kelas seperti "Karena pulang pagi" dan "(tetap dihitung)" tidak ditampilkan. Penanda "· belum dibayar" (tunggakan) tetap.
+- Lewat `llkInvItemLabel()` saat menampilkan → invoice lama yang sudah tersimpan juga ikut bersih; data label asli tidak diubah.
+
 ## 🔔 Teks notifikasi: nama murid paling depan (30 Sep 2026)
 - Notifikasi di HP sering terpotong ("🎵 Sebent…") sehingga nama murid tidak terlihat. Pengingat les sekarang berjudul `🎵 {Nama} · {jam}` dan isinya diawali nama: `{Nama} · {Alat} · mulai 5 menit lagi (jam 19:00). Siapkan materinya ya…`. Awalan 🎵 tetap (dipakai worker untuk membersihkan reminder).
 - Pengingat progres: judul `📝 {Nama1, Nama2 +N lagi} · kirim progres`. Berlaku juga untuk notifikasi dalam aplikasi (`checkNotifications`).
