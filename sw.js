@@ -31,6 +31,9 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return; // jangan cache request selain GET
+  // Helper login Google (/__/auth/…) selalu langsung dari internet, jangan
+  // disimpan ke cache — halaman ini sekali pakai & membawa data login.
+  if (new URL(e.request.url).pathname.indexOf('/__/') === 0) return;
 
   e.respondWith(
     fetch(e.request)
