@@ -9,6 +9,14 @@ _Terakhir diperbarui: 30 Sep 2026 (pengingat otomatis 7 hari ke depan)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 👁️ Pengaturan Tampilan Invoice (1 Okt 2026)
+- Saklar baru di **Pengaturan Pembayaran → Tampilan Invoice** + chip pintasan "Tampilkan: Keterangan · Harga · Izin · Alpa" di layar invoice (preview langsung diperbarui).
+  - **Keterangan**: kolom status. Kalau mati, baris Izin tetap bertulisan "Izin" (biar tidak membingungkan).
+  - **Harga per pertemuan**: kolom BIAYA + "× Rp…" di footer. Total selalu tampil.
+  - **Baris Izin**: baris Rp 0.
+  - **Tulisan Alpa**: kalau mati, baris Alpa tetap ada (tetap ditagih) tanpa tulisan "Alpa".
+- Kunci `llk_inv_show_{ket,price,izin,alpa}` ('0' = sembunyi, default tampil), ikut backup/sinkron pengaturan. Hanya tampilan (gambar & WA); `inv.items`/total tidak berubah. Pesan WA kini juga menulis harga per baris bila Harga aktif.
+
 ## 🧾 Invoice: keterangan cukup status (1 Okt 2026)
 - Kolom KETERANGAN invoice/kuitansi (gambar & pesan WA) kini hanya status: **Hadir / Izin / Alpa** (atau "Terjadwal · jam" untuk bayar di depan). Catatan tambahan kelas seperti "Karena pulang pagi" dan "(tetap dihitung)" tidak ditampilkan. Penanda "· belum dibayar" (tunggakan) tetap.
 - Lewat `llkInvItemLabel()` saat menampilkan → invoice lama yang sudah tersimpan juga ikut bersih; data label asli tidak diubah.
