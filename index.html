@@ -123,16 +123,17 @@
   --hadir:#2a7349;--hadir-bg:rgba(42,115,73,0.11);--hadir-text:#1f5a38;
   --izin:#a65510;--izin-bg:rgba(166,85,16,0.11);--izin-text:#7a3e08;
   --alpa:#b0263f;--alpa-bg:rgba(176,38,63,0.10);--alpa-text:#8a1b32;
+  --off:#4f5d6e;--off-bg:rgba(79,93,110,0.12);--off-text:#3a4553;   /* Off = guru berhalangan */
   --amber:#8a620b;--amber-bg:rgba(138,98,11,0.12);
   --plum:#6b4e9b;--plum-bg:rgba(107,78,155,0.11);
   --blue:#2f5a8a;--blue-bg:rgba(47,90,138,0.10);   /* tinta biru pena */
   --wa:#1b7a43;
   /* Warna status sebagai LATAR tombol/lencana berteks putih (di Dark Mode status
      teksnya lebih terang, jadi latar solid dipisah) */
-  --hadir-solid:#2a7349;--izin-solid:#a65510;--alpa-solid:#b0263f;
+  --hadir-solid:#2a7349;--izin-solid:#a65510;--alpa-solid:#b0263f;--off-solid:#4f5d6e;
   --blue-solid:#2f5a8a;--plum-solid:#6b4e9b;--amber-solid:#8a620b;
   /* Kartu murid per status */
-  --st-hadir-bg:rgba(42,115,73,0.09);--st-izin-bg:rgba(166,85,16,0.10);--st-alpa-bg:rgba(176,38,63,0.08);
+  --st-hadir-bg:rgba(42,115,73,0.09);--st-izin-bg:rgba(166,85,16,0.10);--st-alpa-bg:rgba(176,38,63,0.08);--st-off-bg:rgba(79,93,110,0.09);
   /* Permukaan "tinta" (tombol hitam, toast, kartu penghasilan, hari terpilih) */
   --ink:#2b2420;--on-ink:#fffcf7;
   --input-focus:#ffffff;
@@ -184,10 +185,11 @@
   --hadir:#16803f;--hadir-bg:rgba(22,128,63,0.10);--hadir-text:#0f5f2e;--hadir-solid:#16803f;
   --izin:#a55400;--izin-bg:rgba(217,119,6,0.11);--izin-text:#7c4e00;--izin-solid:#a55400;
   --alpa:#d0232e;--alpa-bg:rgba(220,38,38,0.09);--alpa-text:#991b1b;--alpa-solid:#d0232e;
+  --off:#4a5668;--off-bg:rgba(74,86,104,0.10);--off-text:#343e4c;--off-solid:#4a5668;
   --amber:#946300;--amber-bg:rgba(217,160,6,0.13);--amber-solid:#946300;
   --plum:#7a3fc2;--plum-bg:rgba(122,63,194,0.10);--plum-solid:#7a3fc2;
   --blue:#0066cc;--blue-bg:rgba(0,113,227,0.09);--blue-solid:#0066cc;
-  --st-hadir-bg:rgba(29,158,78,0.08);--st-izin-bg:rgba(217,119,6,0.08);--st-alpa-bg:rgba(220,38,38,0.07);
+  --st-hadir-bg:rgba(29,158,78,0.08);--st-izin-bg:rgba(217,119,6,0.08);--st-alpa-bg:rgba(220,38,38,0.07);--st-off-bg:rgba(74,86,104,0.07);
   --ink:#1d1d1f;--on-ink:#ffffff;--input-focus:#ffffff;--nb-paper:#f5f5f7;--banner-warn:#fdf0d5;
   --shadow-xs:0 1px 3px rgba(0,0,0,0.07);
   --shadow-sm:0 2px 12px rgba(0,0,0,0.07),0 1px 3px rgba(0,0,0,0.04);
@@ -211,10 +213,11 @@
   --hadir:#6cc793;--hadir-bg:rgba(108,199,147,0.15);--hadir-text:#96dcb3;
   --izin:#f0a35e;--izin-bg:rgba(240,163,94,0.15);--izin-text:#f5c08f;
   --alpa:#f47a8e;--alpa-bg:rgba(244,122,142,0.15);--alpa-text:#f8a5b3;
+  --off:#a9b7c8;--off-bg:rgba(169,183,200,0.15);--off-text:#c9d4e1;--off-solid:#56657a;
   --amber:#e0b75a;--amber-bg:rgba(224,183,90,0.15);
   --plum:#bba3ea;--plum-bg:rgba(187,163,234,0.15);
   --blue:#8ab8ec;--blue-bg:rgba(138,184,236,0.14);
-  --st-hadir-bg:rgba(108,199,147,0.10);--st-izin-bg:rgba(240,163,94,0.10);--st-alpa-bg:rgba(244,122,142,0.09);
+  --st-hadir-bg:rgba(108,199,147,0.10);--st-izin-bg:rgba(240,163,94,0.10);--st-alpa-bg:rgba(244,122,142,0.09);--st-off-bg:rgba(169,183,200,0.08);
   --ink:#3a3029;--on-ink:#f6eee5;--input-focus:#2e2721;--nb-paper:#1b1713;--banner-warn:#3b2f1c;
   --shadow-xs:0 1px 0 rgba(0,0,0,0.3);--shadow-sm:0 1px 0 rgba(0,0,0,0.35);
   --shadow-md:0 10px 30px -12px rgba(0,0,0,0.7);
@@ -365,6 +368,7 @@ button:disabled{opacity:.55;cursor:default}
 .s-hadir .stat-num{color:var(--hadir)} .s-hadir .stat-label::before{background:var(--hadir-solid)}
 .s-izin .stat-num{color:var(--izin)}   .s-izin .stat-label::before{background:var(--izin-solid)}
 .s-alpa .stat-num{color:var(--alpa)}   .s-alpa .stat-label::before{background:var(--alpa-solid)}
+.s-off .stat-num{color:var(--off)}     .s-off .stat-label::before{background:var(--off-solid)}
 
 /* ── LIST WRAP ── */
 .list-wrap{
@@ -396,7 +400,8 @@ button:disabled{opacity:.55;cursor:default}
 .s-item.status-hadir{border-left:4px solid var(--hadir);background:var(--st-hadir-bg)}
 .s-item.status-izin{border-left:4px solid var(--izin);background:var(--st-izin-bg)}
 .s-item.status-alpa{border-left:4px solid var(--alpa);background:var(--st-alpa-bg)}
-.s-item.status-hadir:active,.s-item.status-izin:active,.s-item.status-alpa:active{filter:brightness(0.96)}
+.s-item.status-off{border-left:4px solid var(--off);background:var(--st-off-bg)}
+.s-item.status-hadir:active,.s-item.status-izin:active,.s-item.status-alpa:active,.s-item.status-off:active{filter:brightness(0.96)}
 .s-item.status-belum{border-left:3px solid transparent}
 .s-avatar{position:relative;
   width:46px;height:46px;border-radius:14px;
@@ -449,9 +454,11 @@ button:disabled{opacity:.55;cursor:default}
 .att-btn.a-hadir{color:var(--hadir)}
 .att-btn.a-izin{color:var(--izin)}
 .att-btn.a-alpa{color:var(--alpa)}
+.att-btn.a-off{color:var(--off);width:auto;padding:0 10px;font-size:0.8rem;font-weight:800;letter-spacing:0.02em}
 .att-btn.a-hadir.on{background:var(--hadir-solid);border-color:var(--hadir);color:#fff}
 .att-btn.a-izin.on{background:var(--izin-solid);border-color:var(--izin);color:#fff}
 .att-btn.a-alpa.on{background:var(--alpa-solid);border-color:var(--alpa);color:#fff}
+.att-btn.a-off.on{background:var(--off-solid);border-color:var(--off);color:#fff}
 .att-btn.on .ico{animation:llkPop var(--d3) var(--ease-spring)}
 .att-btn.is-sent{background:var(--hadir-bg);border-color:transparent;color:var(--hadir)}
 .att-btn.is-send{background:var(--blue-bg);border-color:transparent;color:var(--blue)}
@@ -569,6 +576,7 @@ button:disabled{opacity:.55;cursor:default}
 .hist-status-pill.h{background:var(--hadir-bg);color:var(--hadir-text)}
 .hist-status-pill.i{background:var(--izin-bg);color:var(--izin-text)}
 .hist-status-pill.a{background:var(--alpa-bg);color:var(--alpa-text)}
+.hist-status-pill.o{background:var(--off-bg);color:var(--off-text)}
 .hist-note{font-size:0.86rem;color:var(--text2);line-height:1.6;margin-top:6px;padding:10px 13px;background:var(--card2);border-radius:var(--r-sm);white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto}
 .hist-no-note{font-size:0.8rem;color:var(--muted);font-style:italic}
 
@@ -1441,6 +1449,7 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
         <option value="hadir">Hadir</option>
         <option value="izin">Izin</option>
         <option value="alpa">Alpa</option>
+        <option value="off">Off (guru izin)</option>
       </select>
     </div>
     <div class="mfield" id="notePhotoWrap">
@@ -2089,7 +2098,7 @@ function checkNotifications(){
     // BUGFIX: dulu pengingat di dalam aplikasi tetap bunyi walau murid sudah
     // ditandai Izin/Hadir/Alpa. Sekarang sesi yang sudah ditandai dilewati.
     const stNow=(attendance[s._extraDate||dateKey]||{})[s._attKey||s.name];
-    if(stNow==='hadir'||stNow==='izin'||stNow==='alpa') return;
+    if(stNow==='hadir'||stNow==='izin'||stNow==='alpa'||stNow==='off') return;
     const effectiveTime=s.time||'00:00';
     const [h,m]=effectiveTime.split(':').map(Number);
     const lessonTime=new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m);
@@ -2303,7 +2312,7 @@ function reconcileMarkedReminders(){
       return;
     }
     const st=(attendance[dk]||{})[attKey];
-    if(st!=='hadir'&&st!=='izin'&&st!=='alpa') return;
+    if(st!=='hadir'&&st!=='izin'&&st!=='alpa'&&st!=='off') return;
     if(_reconcileTried[pushKey]&&Date.now()-_reconcileTried[pushKey]<60000) return;
     _reconcileTried[pushKey]=Date.now();
     cancelReminderPush(dk, attKey);
@@ -2495,7 +2504,7 @@ function llkDesiredReminders(now){
       if(!s.time) return skip('tidak ada jam');
       const attKey=s._attKey||s.name, attDk=s._extraDate||dk;
       const st=(attendance[attDk]||{})[attKey];
-      if(st==='hadir'||st==='izin'||st==='alpa') return skip('sudah ditandai '+st);
+      if(st==='hadir'||st==='izin'||st==='alpa'||st==='off') return skip('sudah ditandai '+st);
       if(!llkRemOn('jadwal')) return skip('pengingat jadwal dimatikan');
       const start=at(attDk,s.time);
       if(isNaN(start.getTime())) return skip('format jam tidak valid');
@@ -3094,7 +3103,8 @@ function renderAbsensi(){
   const hadirC=dayS_real.filter(s=>{const ak=s._attKey||s.name;const adk=s._extraDate||dateKey;return (s._isRescheduled||s._isExtra?(attendance[adk]||{}):(attendance[adk]||{}))[ak]==='hadir';}).length;
   const izinC=dayS_real.filter(s=>{const ak=s._attKey||s.name;const adk=s._extraDate||dateKey;return (attendance[adk]||{})[ak]==='izin';}).length;
   const alpaC=dayS_real.filter(s=>{const ak=s._attKey||s.name;const adk=s._extraDate||dateKey;return (attendance[adk]||{})[ak]==='alpa';}).length;
-  const belumC=jadwal-hadirC-izinC-alpaC;
+  const offC=dayS_real.filter(s=>{const ak=s._attKey||s.name;const adk=s._extraDate||dateKey;return (attendance[adk]||{})[ak]==='off';}).length;
+  const belumC=jadwal-hadirC-izinC-alpaC-offC;
 
   const cardsHtml=dayS.length?dayS.map(s=>{
     const icon=getInstrumentIcon(s.instrument);
@@ -3125,6 +3135,8 @@ function renderAbsensi(){
     // Efek visual untuk izin & alpa
     const isIzin=status==='izin';
     const isAlpa=status==='alpa';
+    // Off = guru yang berhalangan (tidak dihitung bayar, seperti Izin)
+    const isOff=status==='off';
     const izinReason=note.reason||'';
     const alpaReason=note.reason||'';
     const isHadir=status==='hadir'&&!samedayRs&&!hasActiveReschedule;
@@ -3132,7 +3144,7 @@ function renderAbsensi(){
     const borderLeft=samedayRs?'border-left:3px solid var(--plum);'
       :hasActiveReschedule?'border-left:3px solid var(--amber);'
       :''; // Hadir / Izin / Alpa: warna dari class .status-* (CSS)
-    const avatarOpacity=samedayRs||hasActiveReschedule||isIzin||isAlpa?'opacity:0.5;':'';
+    const avatarOpacity=samedayRs||hasActiveReschedule||isIzin||isAlpa||isOff?'opacity:0.5;':'';
     const badgeHtml=samedayRs
       ?'<span class="llk-av-badge" style="background:var(--plum-solid)">'+llkI('repeat')+'</span>'
       :hasActiveReschedule
@@ -3141,14 +3153,16 @@ function renderAbsensi(){
       ?'<span class="llk-av-badge" style="background:var(--izin-solid)">'+llkI('minus')+'</span>'
       :isAlpa
       ?'<span class="llk-av-badge" style="background:var(--alpa-solid)">'+llkI('x')+'</span>'
+      :isOff
+      ?'<span class="llk-av-badge" style="background:var(--off-solid)">'+llkI('pause')+'</span>'
       :isHadir
       ?'<span class="llk-av-badge" style="background:var(--hadir-solid)">'+llkI('check')+'</span>'
       :'';
-    const nameColor=samedayRs||hasActiveReschedule||isIzin||isAlpa?'color:var(--muted);':'';
-    const timeColor=hasActiveReschedule?'var(--amber)':isIzin?'var(--izin)':isAlpa?'var(--alpa)':status==='hadir'?'var(--hadir)':'var(--text)';
+    const nameColor=samedayRs||hasActiveReschedule||isIzin||isAlpa||isOff?'color:var(--muted);':'';
+    const timeColor=hasActiveReschedule?'var(--amber)':isIzin?'var(--izin)':isAlpa?'var(--alpa)':isOff?'var(--off)':status==='hadir'?'var(--hadir)':'var(--text)';
     const timeFontSize=status==='belum'?'1.05rem':'1rem';
     const timeFontWeight='700';
-    const timeDecor=samedayRs||hasActiveReschedule||isIzin||isAlpa?';text-decoration:line-through':'';
+    const timeDecor=samedayRs||hasActiveReschedule||isIzin||isAlpa||isOff?';text-decoration:line-through':'';
     const infoRow=samedayRs
       ?`<div style="font-size:0.8rem;color:var(--plum);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:5px">${llkI('repeat','sm')} Diganti ke jam <b>${samedayRs.time}${samedayRs.time2?'–'+samedayRs.time2:''}</b></div>`
       :hasActiveReschedule
@@ -3157,6 +3171,8 @@ function renderAbsensi(){
       ?`<div style="font-size:0.8rem;color:var(--izin);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:5px">${llkI('hand','sm')} Izin${izinReason?' · <span style="font-weight:400;color:var(--text2)">'+escapeHtml(izinReason)+'</span>':''}</div>`
       :isAlpa
       ?`<div style="font-size:0.8rem;color:var(--alpa);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:5px">${llkI('x-circle','sm')} Alpa${alpaReason?' · <span style="font-weight:400;color:var(--text2)">'+escapeHtml(alpaReason)+'</span>':''}</div>`
+      :isOff
+      ?`<div style="font-size:0.8rem;color:var(--off);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:5px">${llkI('pause','sm')} Off · Guru izin${note.reason?' · <span style="font-weight:400;color:var(--text2)">'+escapeHtml(note.reason)+'</span>':''}</div>`
       :'';
     return `<div class="s-item status-${status}" id="sitem-${attKey.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="${samedayRs?'':'toggleSItem(this)'}" style="cursor:${samedayRs?'default':'pointer'};${borderLeft}">
       <div class="s-avatar ${isVokal?'vocal':''}" style="${avatarOpacity}">
@@ -3171,7 +3187,7 @@ function renderAbsensi(){
           <div class="s-time-row" style="margin-top:0;flex-shrink:0;text-align:right"><span style="color:${timeColor}${timeDecor};font-size:${timeFontSize};font-weight:${timeFontWeight}">${timeRange}</span></div>
         </div>
         ${infoRow}
-        <div class="s-pills" style="margin-top:${hasActiveReschedule||isIzin||isAlpa?2:5}px">
+        <div class="s-pills" style="margin-top:${hasActiveReschedule||isIzin||isAlpa||isOff?2:5}px">
           ${isRescued?`<span class="s-pill rescue-pill">${llkI('repeat')} Reschedule</span>`:''}
           ${s._isExtra?`<span class="s-pill" style="background:var(--blue-bg);color:var(--blue)">${llkI('plus')} ${escapeHtml(s._extraNote||'Tambahan Kelas')}</span>`:''}
         </div>
@@ -3184,9 +3200,10 @@ function renderAbsensi(){
               : `<button class="att-btn a-hadir ${status==='hadir'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','hadir','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Hadir" title="Hadir">${llkI('check','bold')}</button>
             <button class="att-btn a-izin ${status==='izin'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','izin','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Izin" title="Izin">${llkI('hand')}</button>
             <button class="att-btn a-alpa ${status==='alpa'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','alpa','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Alpa" title="Alpa">${llkI('x','bold')}</button>
-            <button class="att-btn" onclick="openRescheduleModal('${jsAttr(s.name)}','${s.day}',${sidx},${s._isExtra?s._extraIdx:'null'},'${s._isExtra?s._extraDate:''}');event.stopPropagation()" title="Reschedule" aria-label="Reschedule" style="${(s._hasActiveReschedule||s._isRescheduled)?'background:var(--amber-bg);border-color:transparent;color:var(--amber)':''}">${llkI('repeat')}</button>`
+            <button class="att-btn" onclick="openRescheduleModal('${jsAttr(s.name)}','${s.day}',${sidx},${s._isExtra?s._extraIdx:'null'},'${s._isExtra?s._extraDate:''}');event.stopPropagation()" title="Reschedule" aria-label="Reschedule" style="${(s._hasActiveReschedule||s._isRescheduled)?'background:var(--amber-bg);border-color:transparent;color:var(--amber)':''}">${llkI('repeat')}</button>
+            <button class="att-btn a-off ${status==='off'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','off','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Off (guru izin)" title="Off — guru izin / berhalangan">Off</button>`
             }
-            ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${jsAttr(s.name)}','${attDateKey}','${jsAttr(attKey)}')" aria-label="Kirim progres" title="Kirim progres" style="${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:var(--hadir-bg);border-color:transparent;color:var(--hadir)':'background:var(--blue-bg);border-color:transparent;color:var(--blue)'}">
+            ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'&&status!=='off'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${jsAttr(s.name)}','${attDateKey}','${jsAttr(attKey)}')" aria-label="Kirim progres" title="Kirim progres" style="${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:var(--hadir-bg);border-color:transparent;color:var(--hadir)':'background:var(--blue-bg);border-color:transparent;color:var(--blue)'}">
               ${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?llkI('mail-check'):llkI('mail')}
             </button>`:''}
         </div>
@@ -3200,10 +3217,11 @@ function renderAbsensi(){
         <div class="page-title">Absensi Harian</div><div class="page-sub">Tandai siswa yang hadir. Catat progress di setiap pertemuan.</div>
       </div>`+
     dayBarHtml()+
-    `<div class="stats-row">
+    `<div class="stats-row"${offC?' style="grid-template-columns:repeat(5,1fr)"':''}>
       <div class="stat-card s-hadir"><div class="stat-label">Hadir</div><div class="stat-num">${hadirC}</div></div>
       <div class="stat-card s-izin"><div class="stat-label">Izin</div><div class="stat-num">${izinC}</div></div>
       <div class="stat-card s-alpa"><div class="stat-label">Alpa</div><div class="stat-num">${alpaC}</div></div>
+      ${offC?`<div class="stat-card s-off"><div class="stat-label">Off</div><div class="stat-num">${offC}</div></div>`:''}
       <div class="stat-card"><div class="stat-label">Belum</div><div class="stat-num" style="color:var(--text2)">${belumC}</div></div>
     </div>
     <div class="list-wrap">
@@ -3759,7 +3777,7 @@ function upcomingSessionList(s, fromDk, opts){
       const attKey=x._attKey||x.name;
       const attDk=x._extraDate||dk;
       const st=(attendance[attDk]||{})[attKey];
-      if(st==='hadir'||st==='alpa'||st==='izin') return;
+      if(st==='hadir'||st==='alpa'||st==='izin'||st==='off') return;
       out.push({date:attDk,time:x.time||'',label:'Terjadwal'+(x.time?' · '+x.time:'')+(x._isExtra?' · '+(x._extraNote||'Tambahan Kelas'):'')+(x._isRescheduled?' · Reschedule':'')});
     });
     if(opts.limit && out.length>=opts.limit) return out.slice(0,opts.limit);
@@ -3827,21 +3845,23 @@ function buildInvoiceDraft(s){
     }
   }
   items.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  // Tanggal Izin di periode yang sama — ikut tampil di invoice (Rp 0), tidak menambah tagihan
-  let izin;
-  if(mode==='monthly') izin=llkIzinDates(s.name, period+'-00', today<=period+'-31'?today:period+'-31');
+  // Tanggal Izin & Off (guru izin) di periode yang sama — ikut tampil di invoice
+  // (Rp 0, bisa disembunyikan), tidak menambah tagihan
+  let after, until;
+  if(mode==='monthly'){ after=period+'-00'; until=today<=period+'-31'?today:period+'-31'; }
   else {
     const list=countedSessionList(s.name);
     const paidN=Math.min(list.length, timing==='belakang'?(s.lastPaidAt||0):((s.prepaidThrough!=null)?s.prepaidThrough:(s.lastPaidAt||0)));
-    izin=llkIzinDates(s.name, paidN>0?list[paidN-1].date:null, today);
+    after=paidN>0?list[paidN-1].date:null; until=today;
   }
+  const izin=llkStatusDates(s.name,'izin',after,until), off=llkStatusDates(s.name,'off',after,until);
   return {
     no:'INV-'+today.replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),
     createdAt:new Date().toISOString(),
     studentName:s.name, instrument:s.instrument||'',
     timing, mode, period, desc, rate,
     items:items.map(x=>({date:x.date,label:x.label})),
-    izin:izin,
+    izin:izin, off:off,
     total:items.length*rate,
     paidAt:null
   };
@@ -3867,14 +3887,11 @@ function buildInvoiceWaText(inv, copyDate){
   text+='\n\n🧾 *'+(inv.paidAt?'KUITANSI LUNAS':'INVOICE')+' '+inv.no+'*\n';
   if(copyDate&&inv.paidAt) text+='_Salinan · dikirim ulang '+new Date(copyDate+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+'_\n';
   text+=inv.desc+'\n';
-  const showKet=llkInvShow('ket'), showPrice=llkInvShow('price');
+  const showPrice=llkInvShow('price');
   llkInvoiceRows(inv).forEach(r=>{
-    const parts=[];
-    // WA tanpa warna → baris Izin tetap diberi tulisan "Izin" walau Keterangan disembunyikan
-    const lbl=showKet?r.label:(r.izin?'Izin':'');
-    if(lbl) parts.push(lbl);
+    const parts=[r.label];
     if(showPrice) parts.push(formatRupiah(r.amount));
-    text+=(r.izin?'• ':r.no+'. ')+(r.date?fmtInvDate(r.date):'-')+(parts.length?' — '+parts.join(' · '):'')+'\n';
+    text+=(r.zero?'• ':r.no+'. ')+(r.date?fmtInvDate(r.date):'-')+' — '+parts.join(' · ')+'\n';
   });
   text+='*Total: '+formatRupiah(inv.total)+'*';
   if(inv.paidAt) text+='\nStatus: LUNAS ('+new Date(inv.paidAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+')';
@@ -3909,43 +3926,44 @@ function llkInvItemLabel(label){
   if(t) return 'Terjadwal'+(t[1]?' · '+t[1]:'')+unpaid;
   return label;
 }
-// Tanggal Izin murid (termasuk sesi tambahan) di rentang (afterDk, untilDk].
-// afterDk null = tanpa batas bawah. Satu entri per sesi yang izin.
-function llkIzinDates(name, afterDk, untilDk){
+// Tanggal berstatus `status` (mis. 'izin' / 'off') milik murid, termasuk sesi
+// tambahan, di rentang (afterDk, untilDk]. afterDk null = tanpa batas bawah.
+function llkStatusDates(name, status, afterDk, untilDk){
   const out=[], prefix=name+'_extra_';
   Object.keys(attendance).sort().forEach(dk=>{
     if((afterDk&&dk<=afterDk)||(untilDk&&dk>untilDk)) return;
     const dayAtt=attendance[dk]||{};
-    if(dayAtt[name]==='izin') out.push(dk);
-    Object.keys(dayAtt).forEach(k=>{ if(k.startsWith(prefix)&&dayAtt[k]==='izin') out.push(dk); });
+    if(dayAtt[name]===status) out.push(dk);
+    Object.keys(dayAtt).forEach(k=>{ if(k.startsWith(prefix)&&dayAtt[k]===status) out.push(dk); });
   });
   return out;
 }
-// Baris invoice untuk ditampilkan: pertemuan ditagih (bernomor) + Izin (Rp 0),
-// urut tanggal. Invoice lama tanpa data izin → ambil Izin di antara tanggal
-// pertemuan pertama & terakhirnya (maks. tanggal invoice dibuat).
-// Pengaturan tampilan invoice (default semua tampil). Hanya tampilan — nilai
-// tagihan & data pembayaran tidak berubah.
-const LLK_INV_OPTS={ket:'Keterangan',price:'Harga per pertemuan',izin:'Baris Izin',alpa:'Tulisan Alpa'};
+// Pengaturan tampilan invoice. Hadir & Alpa (yang ditagih) WAJIB tampil; yang
+// bisa diatur: harga per baris, baris Izin, baris Off (guru izin). Default tampil.
+// Hanya tampilan — nilai tagihan & data pembayaran tidak berubah.
+const LLK_INV_OPTS={price:'Harga per pertemuan',izin:'Baris Izin',off:'Baris Off (guru izin)'};
+const LLK_INV_ZERO={izin:{label:'Izin',bg:'#fef6e4',ink:'#a15c07'},off:{label:'Off (guru izin)',bg:'#eef1f5',ink:'#4f5d6e'}};
 function llkInvShow(k){ return localStorage.getItem('llk_inv_show_'+k)!=='0'; }
+// Baris invoice untuk ditampilkan: pertemuan ditagih (bernomor) + Izin/Off (Rp 0,
+// tanpa nomor), urut tanggal. Invoice lama tanpa daftar Izin/Off → diambil di
+// antara tanggal pertemuan pertama & terakhirnya (maks. tanggal invoice dibuat).
 function llkInvoiceRows(inv){
-  let izin=llkInvShow('izin')?inv.izin:[];
-  if(!Array.isArray(izin)){
-    const dates=inv.items.map(x=>x.date).filter(Boolean).sort();
-    const made=dateKeyOfDate(new Date(inv.createdAt||Date.now()));
-    izin=dates.length?llkIzinDates(inv.studentName, (()=>{const d=new Date(dates[0]+'T00:00:00'); d.setDate(d.getDate()-1); return dateKeyOfDate(d);})(), dates[dates.length-1]<made?dates[dates.length-1]:made):[];
-  }
-  const hideAlpa=!llkInvShow('alpa');
-  const rows=inv.items.map((it,i)=>{
-    let label=llkInvItemLabel(it.label);
-    // Alpa tetap ditagih (barisnya tetap ada) — yang disembunyikan cuma tulisannya
-    if(hideAlpa&&/^Alpa\b/.test(label)) label=label.replace(/^Alpa( · )?/,'');
-    return {no:i+1,date:it.date,label:label,amount:inv.rate};
-  });
-  // Sisipkan Izin sebelum pertemuan bertanggal pertama yang lebih baru (baris tanpa tanggal tetap di tempatnya)
-  izin.forEach(dk=>{
-    const at=rows.findIndex(r=>r.date&&r.date>dk);
-    rows.splice(at<0?rows.length:at,0,{izin:true,date:dk,label:'Izin',amount:0});
+  const rows=inv.items.map((it,i)=>({no:i+1,date:it.date,label:llkInvItemLabel(it.label),amount:inv.rate}));
+  const dates=inv.items.map(x=>x.date).filter(Boolean).sort();
+  const made=dateKeyOfDate(new Date(inv.createdAt||Date.now()));
+  Object.keys(LLK_INV_ZERO).forEach(kind=>{
+    if(!llkInvShow(kind)) return;
+    let list=inv[kind];
+    if(!Array.isArray(list)){
+      if(!dates.length) return;
+      const d=new Date(dates[0]+'T00:00:00'); d.setDate(d.getDate()-1);
+      list=llkStatusDates(inv.studentName, kind, dateKeyOfDate(d), dates[dates.length-1]<made?dates[dates.length-1]:made);
+    }
+    // Sisipkan sebelum pertemuan bertanggal pertama yang lebih baru (baris tanpa tanggal tetap di tempatnya)
+    list.forEach(dk=>{
+      const at=rows.findIndex(r=>r.date&&r.date>dk);
+      rows.splice(at<0?rows.length:at,0,{zero:kind,date:dk,label:LLK_INV_ZERO[kind].label,amount:0});
+    });
   });
   return rows;
 }
@@ -3965,7 +3983,7 @@ async function renderInvoiceCanvas(inv, copyDate){
   const meas=document.createElement('canvas').getContext('2d');
   meas.font=font(400,26);
   const payLines=payInfo?wrapCanvasText(meas,payInfo,W-2*M-40):[];
-  const rows=llkInvoiceRows(inv), izinN=rows.filter(r=>r.izin).length;
+  const rows=llkInvoiceRows(inv), izinN=rows.filter(r=>r.zero==='izin').length, offN=rows.filter(r=>r.zero==='off').length;
   const H=Math.max(1754, 620+rowH*(rows.length+1)+120+(payLines.length?80+payLines.length*36:0)+160);
   const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
   const c=cv.getContext('2d');
@@ -3996,8 +4014,8 @@ async function renderInvoiceCanvas(inv, copyDate){
   c.fillStyle='#f3f4f6'; c.fillRect(M,y,W-2*M,rowH);
   c.fillStyle='#374151'; c.font=font(800,24);
   const colNo=M+20, colDate=M+100, colDesc=M+440, colAmt=W-M-20;
-  const showKet=llkInvShow('ket'), showPrice=llkInvShow('price');
-  c.fillText('NO',colNo,y+37); c.fillText('TANGGAL',colDate,y+37); if(showKet) c.fillText('KETERANGAN',colDesc,y+37);
+  const showPrice=llkInvShow('price');
+  c.fillText('NO',colNo,y+37); c.fillText('TANGGAL',colDate,y+37); c.fillText('KETERANGAN',colDesc,y+37);
   if(showPrice){ c.textAlign='right'; c.fillText('BIAYA',colAmt,y+37); c.textAlign='left'; }
   y+=rowH;
   c.font=font(500,25);
@@ -4005,25 +4023,25 @@ async function renderInvoiceCanvas(inv, copyDate){
     c.fillStyle='#9ca3af'; c.fillText('Belum ada pertemuan yang perlu dibayar.',colNo,y+37); y+=rowH;
   }
   rows.forEach((r,i)=>{
-    // Izin: baris kuning lembut, tanpa nomor, Rp 0 (tidak ditagih)
-    if(r.izin){ c.fillStyle='#fef6e4'; c.fillRect(M,y,W-2*M,rowH); }
+    // Izin (kuning) / Off guru izin (abu kebiruan): tanpa nomor, Rp 0 (tidak ditagih)
+    const z=r.zero?LLK_INV_ZERO[r.zero]:null;
+    if(z){ c.fillStyle=z.bg; c.fillRect(M,y,W-2*M,rowH); }
     else if(i%2===1){ c.fillStyle='#fafafa'; c.fillRect(M,y,W-2*M,rowH); }
-    const ink=r.izin?'#a15c07':'#1c1c1e';
+    const ink=z?z.ink:'#1c1c1e';
     c.fillStyle=ink;
-    c.fillText(r.izin?'–':String(r.no),colNo,y+37);
+    c.fillText(z?'–':String(r.no),colNo,y+37);
     c.fillText(r.date?fmtInvDate(r.date):'-',colDate,y+37);
-    // Keterangan disembunyikan → baris Izin tetap bertulisan "Izin" supaya tidak membingungkan
-    const full=showKet?r.label:(r.izin?'Izin':'');
+    const full=r.label;
     let lbl=full; while(c.measureText(lbl).width>colAmt-colDesc-200 && lbl.length>4) lbl=lbl.slice(0,-2);
     if(lbl!==full) lbl=lbl.trim()+'…';
-    c.fillStyle=r.izin?ink:'#4b5563'; if(r.izin) c.font=font(700,25); if(lbl) c.fillText(lbl,colDesc,y+37); c.font=font(500,25);
+    c.fillStyle=z?ink:'#4b5563'; if(z) c.font=font(700,25); if(lbl) c.fillText(lbl,colDesc,y+37); c.font=font(500,25);
     if(showPrice){ c.fillStyle=ink; c.textAlign='right'; c.fillText(formatRupiah(r.amount),colAmt,y+37); c.textAlign='left'; }
     y+=rowH;
   });
   c.strokeStyle='#e5e7eb'; c.lineWidth=2; c.beginPath(); c.moveTo(M,y); c.lineTo(W-M,y); c.stroke();
   // Total
   y+=70;
-  c.fillStyle='#6b7280'; c.font=font(600,26); c.fillText(inv.items.length+' pertemuan'+(showPrice?' × '+formatRupiah(inv.rate):'')+(izinN?' · '+izinN+'x izin'+(showPrice?' (Rp 0)':''):''),M,y);
+  c.fillStyle='#6b7280'; c.font=font(600,26); c.fillText(inv.items.length+' pertemuan'+(showPrice?' × '+formatRupiah(inv.rate):'')+(izinN?' · '+izinN+'x izin':'')+(offN?' · '+offN+'x off':''),M,y);
   c.textAlign='right'; c.fillStyle='#1c1c1e'; c.font=font(800,44); c.fillText('Total '+formatRupiah(inv.total),W-M,y); c.textAlign='left';
   // Stempel status
   y+=70;
@@ -4176,7 +4194,7 @@ async function llkRefreshInvoicePreview(inv){
 // Pintasan "Tampilan Invoice" di layar invoice — sama dengan saklar di Pengaturan Pembayaran
 function llkInvChipsHtml(){
   return '<span style="font-size:0.78rem;color:var(--muted);font-weight:600;margin-right:2px">Tampilkan:</span>'
-    +[['ket','Keterangan'],['price','Harga'],['izin','Izin'],['alpa','Alpa']].map(([k,t])=>{ const on=llkInvShow(k);
+    +[['price','Harga'],['izin','Izin'],['off','Off']].map(([k,t])=>{ const on=llkInvShow(k);
       return '<button type="button" class="llk-cp-chip'+(on?' on':'')+'" style="min-height:32px;gap:4px" aria-pressed="'+on+'" onclick="llkInvChipToggle(\''+k+'\')">'+(on?llkI('check'):'')+t+'</button>'; }).join('');
 }
 async function llkInvChipToggle(k){
@@ -4567,7 +4585,7 @@ function openNoteModal(attKey, status, displayName, dateOverride, timeOverride, 
     document.getElementById('noteDateRow').style.display='none';
     document.getElementById('noteDateInput').value='';
     document.getElementById('noteTimeToggleLabel').textContent='Jam sesi ini salah? Perbaiki di sini';
-    document.getElementById('noteTitle').textContent=status==='hadir'?'Catat Kehadiran':status==='izin'?'Catat Izin':'Catat Alpa';
+    document.getElementById('noteTitle').textContent=status==='hadir'?'Catat Kehadiran':status==='izin'?'Catat Izin':status==='off'?'Off — Guru Izin':'Catat Alpa';
     document.getElementById('noteSub').textContent=name+' · '+fmtDateShort(dateKey)+(snapTime?' · '+snapTime+(snapTime2?'–'+snapTime2:''):'');
     document.getElementById('noteTimeInput').value=snapTime;
     document.getElementById('noteTime2Input').value=snapTime2;
@@ -4597,7 +4615,10 @@ function openNoteModal(attKey, status, displayName, dateOverride, timeOverride, 
 function onNoteStatusChange(){
   const st=document.getElementById('noteStatus').value;
   document.getElementById('noteReasonWrap').style.display=st==='hadir'?'none':'flex';
-  document.getElementById('noteProgressWrap').style.display=st!=='alpa'?'flex':'none';
+  document.getElementById('noteProgressWrap').style.display=(st!=='alpa'&&st!=='off')?'flex':'none';
+  // Off (guru berhalangan): cukup alasan, tanpa foto/progres
+  document.getElementById('notePhotoWrap').style.display=st==='off'?'none':'';
+  document.getElementById('noteReason').placeholder=st==='off'?'Guru sakit, ada acara, libur, dll...':'Sakit, acara keluarga, dll...';
 }
 function toggleNoteTimeEdit(){
   const wrap=document.getElementById('noteTimeEditWrap');
@@ -4897,9 +4918,9 @@ function saveNote(){
     else if(wasFromTrack){ currentTab='track'; render(); }
     else render();
     updateMateriBadge();
-    const emoji=status==='hadir'?'✅':status==='izin'?'✋':'✗';
+    const emoji=status==='hadir'?'✅':status==='izin'?'✋':status==='off'?'⏸️':'✗';
     if(movedFrom) toast('✅ '+displayName+' dipindah: '+fmtInvDate(movedFrom)+' → '+fmtInvDate(dateKey),4000);
-    else toast(emoji+' '+displayName+' — '+status);
+    else toast(emoji+' '+displayName+' — '+(status==='off'?'Off (guru izin), tidak dihitung bayar':status));
   }catch(e){
     console.error('saveNote error:',e);
     toast('❌ Error: '+e.message);
@@ -5446,6 +5467,7 @@ function renderStudentProfile(name, period){
   const hadirPer   = filtered.filter(dk=>statusOnDate(dk)==='hadir').length;
   const izinPer    = filtered.filter(dk=>statusOnDate(dk)==='izin').length;
   const alpaPer    = filtered.filter(dk=>statusOnDate(dk)==='alpa').length;
+  const offPer     = filtered.filter(dk=>statusOnDate(dk)==='off').length;
 
   // Billing info
   const payInfo    = computeIsDue(s);
@@ -5488,8 +5510,8 @@ function renderStudentProfile(name, period){
           }
         }
         if(!st&&!note.progress&&!note.reason&&!note.prSiswa&&!notePhotosArr(note,dk+'_'+attKey).length) return '';
-        const stLabel = st==='hadir'?llkI('check','sm')+' Hadir':st==='izin'?llkI('hand','sm')+' Izin':st==='alpa'?llkI('x','sm')+' Alpa':'';
-        const stColor = st==='hadir'?'var(--hadir)':st==='izin'?'var(--izin)':'var(--alpa)';
+        const stLabel = st==='hadir'?llkI('check','sm')+' Hadir':st==='izin'?llkI('hand','sm')+' Izin':st==='alpa'?llkI('x','sm')+' Alpa':st==='off'?llkI('pause','sm')+' Off · Guru izin':'';
+        const stColor = st==='hadir'?'var(--hadir)':st==='izin'?'var(--izin)':st==='off'?'var(--off)':'var(--alpa)';
         const safeName2=jsAttr(name);
         const safeAttKey=jsAttr(attKey);
         const safeDk=jsAttr(dk);
@@ -5627,10 +5649,11 @@ function renderStudentProfile(name, period){
       // Period filter
       +periodBar
       // Stats row
-      +'<div class="stats-row" style="grid-template-columns:repeat(3,1fr);margin:12px 0">'
+      +'<div class="stats-row" style="grid-template-columns:repeat('+(offPer?4:3)+',1fr);margin:12px 0">'
         +'<div class="stat-card s-hadir"><div class="stat-label">Hadir</div><div class="stat-num">'+hadirPer+'</div></div>'
         +'<div class="stat-card s-izin"><div class="stat-label">Izin</div><div class="stat-num">'+izinPer+'</div></div>'
         +'<div class="stat-card s-alpa"><div class="stat-label">Alpa</div><div class="stat-num">'+alpaPer+'</div></div>'
+        +(offPer?'<div class="stat-card s-off"><div class="stat-label">Off</div><div class="stat-num">'+offPer+'</div></div>':'')
       +'</div>'
       // Billing card
       +billingCard
@@ -5877,7 +5900,7 @@ function buildDateDetail(dk){
   }
 
   const todayDk=todayStr();
-  let hadirC=0,izinC=0,alpaC=0,belumC=0;
+  let hadirC=0,izinC=0,alpaC=0,offC=0,belumC=0;
   const rows=scheduled.map(s=>{
     const isSamedayRs=!!s._sameday_reschedule;
     const attKey=s._attKey||s.name;
@@ -5903,6 +5926,7 @@ function buildDateDetail(dk){
       if(status==='hadir') hadirC++;
       else if(status==='izin') izinC++;
       else if(status==='alpa') alpaC++;
+      else if(status==='off') offC++;
       else belumC++;
     }
 
@@ -5923,16 +5947,18 @@ function buildDateDetail(dk){
 
     const isIzin=status==='izin';
     const isAlpa=status==='alpa';
-    const borderStyle=''; // warna Hadir / Izin / Alpa dari class .status-* (CSS)
-    const avatarStyle=isIzin||isAlpa?'opacity:0.5;':'';
-    const nameStyle=isIzin||isAlpa?'color:var(--muted);':'';
-    const timeStyle=isIzin?'color:var(--izin);text-decoration:line-through;':isAlpa?'color:var(--alpa);text-decoration:line-through;':status==='hadir'?'color:var(--hadir);':'color:var(--text);';
+    const isOff=status==='off';
+    const borderStyle=''; // warna Hadir / Izin / Alpa / Off dari class .status-* (CSS)
+    const avatarStyle=isIzin||isAlpa||isOff?'opacity:0.5;':'';
+    const nameStyle=isIzin||isAlpa||isOff?'color:var(--muted);':'';
+    const timeStyle=isIzin?'color:var(--izin);text-decoration:line-through;':isAlpa?'color:var(--alpa);text-decoration:line-through;':isOff?'color:var(--off);text-decoration:line-through;':status==='hadir'?'color:var(--hadir);':'color:var(--text);';
 
     let noteHtml='';
     if(status==='hadir'&&note.progress) noteHtml=`<div class="s-note-preview">${llkI('note')}<span>${escapeHtml(note.progress)}</span></div>`;
     if(status==='hadir'&&note.prSiswa) noteHtml+=`<div class="s-note-preview" style="color:var(--plum)">${llkI('book')}<span>PR: ${escapeHtml(note.prSiswa)}</span></div>`;
     if(status==='alpa'&&note.reason) noteHtml=`<div class="s-note-preview" style="color:var(--alpa)">${llkI('x-circle')}<span>${escapeHtml(note.reason)}</span></div>`;
     if(status==='izin') noteHtml=`<div style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--izin);font-weight:600;margin-top:3px">${llkI('hand','sm')} Izin${note.reason?' · <span style="font-weight:400;color:var(--text2)">'+escapeHtml(note.reason)+'</span>':''}</div>`;
+    if(status==='off') noteHtml=`<div style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--off);font-weight:600;margin-top:3px">${llkI('pause','sm')} Off · Guru izin${note.reason?' · <span style="font-weight:400;color:var(--text2)">'+escapeHtml(note.reason)+'</span>':''}</div>`;
     if(s._isOrphaned) noteHtml+=`<div style="display:flex;align-items:flex-start;gap:5px;font-size:0.76rem;color:var(--muted);margin-top:4px;line-height:1.4">${llkI('pin','sm')} Jadwal sesi ini sudah diubah/dihapus — riwayatnya tetap dijaga di sini</div>`;
 
     const attBtns=`
@@ -5941,7 +5967,8 @@ function buildDateDetail(dk){
           <button class="att-btn a-izin ${status==='izin'?'on':''}" aria-label="Izin" title="Izin" onclick="openNoteModal('${safeKey}','izin','${safeName}','${safeDk}','${s.time||''}','${s.time2||''}');setTimeout(renderTrack,300)">${llkI('hand')}</button>
           <button class="att-btn a-alpa ${status==='alpa'?'on':''}" aria-label="Alpa" title="Alpa" onclick="openNoteModal('${safeKey}','alpa','${safeName}','${safeDk}','${s.time||''}','${s.time2||''}');setTimeout(renderTrack,300)">${llkI('x','bold')}</button>
           <button class="att-btn" aria-label="Edit catatan" title="Edit catatan" onclick="openTrackEditModal('${safeKey}','${status||'hadir'}','${safeName}','${safeDk}')">${llkI('edit')}</button>
-          ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'?`<button class="att-btn sheet-btn-${sidx}" aria-label="Kirim progres" title="Kirim progres" onclick="openSheetLinkByName('${safeName}','${safeDk}','${safeKey}')" style="${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:var(--hadir-bg);border-color:transparent;color:var(--hadir)':'background:var(--blue-bg);border-color:transparent;color:var(--blue)'}">${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?llkI('mail-check'):llkI('mail')}</button>`:''}
+          <button class="att-btn a-off ${status==='off'?'on':''}" aria-label="Off (guru izin)" title="Off — guru izin / berhalangan" onclick="openNoteModal('${safeKey}','off','${safeName}','${safeDk}','${s.time||''}','${s.time2||''}');setTimeout(renderTrack,300)">Off</button>
+          ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'&&status!=='off'?`<button class="att-btn sheet-btn-${sidx}" aria-label="Kirim progres" title="Kirim progres" onclick="openSheetLinkByName('${safeName}','${safeDk}','${safeKey}')" style="${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:var(--hadir-bg);border-color:transparent;color:var(--hadir)':'background:var(--blue-bg);border-color:transparent;color:var(--blue)'}">${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?llkI('mail-check'):llkI('mail')}</button>`:''}
         </div>`;
 
     // Tap kartu untuk expand/collapse tombol aksi (Hadir/Izin/Alpa/Kirim Link),
@@ -5966,7 +5993,7 @@ function buildDateDetail(dk){
     <div class="date-detail-header" style="cursor:default">
       <div class="date-detail-title">${prettyDate}</div>
       <div class="date-detail-sub" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px">
-        <span style="color:var(--hadir);font-weight:700">${hadirC} Hadir</span><span style="color:var(--izin);font-weight:700">${izinC} Izin</span><span style="color:var(--alpa);font-weight:700">${alpaC} Alpa</span><span>${belumC} Belum</span>
+        <span style="color:var(--hadir);font-weight:700">${hadirC} Hadir</span><span style="color:var(--izin);font-weight:700">${izinC} Izin</span><span style="color:var(--alpa);font-weight:700">${alpaC} Alpa</span>${offC?`<span style="color:var(--off);font-weight:700">${offC} Off</span>`:''}<span>${belumC} Belum</span>
       </div>
     </div>
     <div style="background:var(--card);overflow:hidden">
@@ -6440,7 +6467,7 @@ function renderHistoryDetail(){
         </div>
       </div>
       <div class="hist-entry-status">
-        <span class="hist-status-pill ${status==='hadir'?'h':status==='izin'?'i':'a'}">${status==='hadir'?llkI('check')+' Hadir':status==='izin'?llkI('hand')+' Izin':llkI('x')+' Alpa'}</span>
+        <span class="hist-status-pill ${status==='hadir'?'h':status==='izin'?'i':status==='off'?'o':'a'}">${status==='hadir'?llkI('check')+' Hadir':status==='izin'?llkI('hand')+' Izin':status==='off'?llkI('pause')+' Off · Guru izin':llkI('x')+' Alpa'}</span>
       </div>
       ${note.reason?`<div class="llk-note is-reason">${llkI('info')}<span>${escapeHtml(note.reason)}</span></div>`:''}
       ${note.progress?`<div class="llk-note is-progress">${llkI('note')}<span>${escapeHtml(note.progress)}</span></div>`:''}
@@ -7662,7 +7689,7 @@ const BACKUP_SETTINGS_KEYS=[
   'llk_tpl_session','llk_tpl_monthly','llk_progress_dest','llk_progress_fields','llk_tpl_progress',
   'llk_tpl_admin','llk_pay_timing','llk_pay_info','llk_tpl_prepaid_session','llk_tpl_prepaid_monthly',
   'llk_theme','llk_push_lead_minutes','llk_notif_pr_time','llk_rem_jadwal','llk_rem_progres','llk_rem_laporan','llk_rem_pr',
-  'llk_inv_show_ket','llk_inv_show_price','llk_inv_show_izin','llk_inv_show_alpa'
+  'llk_inv_show_price','llk_inv_show_izin','llk_inv_show_off'
 ];
 function collectSettingsData(){
   const out={};
@@ -8536,7 +8563,7 @@ function llkApplyInitialSessions(s, n, oldAuto){
   const statusOn=dk=>(attendance[dk]||{})[name];
   // Tanggal jadwal terakhir sebelum hari ini
   const recent=[]; const d=new Date(today+'T00:00:00');
-  for(let i=0;i<730&&recent.length<n;i++){ d.setDate(d.getDate()-1); if(wd.has(d.getDay())&&statusOn(dateKeyOfDate(d))!=='izin') recent.push(dateKeyOfDate(d)); }
+  for(let i=0;i<730&&recent.length<n;i++){ d.setDate(d.getDate()-1); if(wd.has(d.getDay())&&statusOn(dateKeyOfDate(d))!=='izin'&&statusOn(dateKeyOfDate(d))!=='off') recent.push(dateKeyOfDate(d)); }
   // Riwayat nyata murid (Hadir/Alpa) — kalau ada yang lebih lama dari jendela itu,
   // pertemuan awal diletakkan SEBELUM pertemuan tercatat pertama.
   const real=Object.keys(attendance).filter(dk=>dk<today&&(statusOn(dk)==='hadir'||statusOn(dk)==='alpa')).sort();
@@ -8548,7 +8575,7 @@ function llkApplyInitialSessions(s, n, oldAuto){
     c.setDate(c.getDate()-1);
     if(!wd.has(c.getDay())) continue;
     const dk=dateKeyOfDate(c), st=statusOn(dk);
-    if(st==='izin') continue;
+    if(st==='izin'||st==='off') continue;
     if(st==='hadir'||st==='alpa'){ if(countExisting) found++; continue; }
     attendance[dk]=attendance[dk]||{}; attendance[dk][name]='hadir'; auto.push(dk); found++;
   }
@@ -8702,11 +8729,10 @@ function renderPaymentSettings(){
       </div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin-bottom:14px">
         <div class="llk-section-label" style="padding-top:0">${llkI('eye')}Tampilan Invoice</div>
-        <div style="font-size:0.8rem;color:var(--muted);margin-bottom:6px;line-height:1.5">Pilih yang ditampilkan di invoice/kuitansi & pesan WA. Total tagihan tidak berubah.</div>
-        ${[['ket','Keterangan','Kolom status Hadir / Alpa'],
-           ['price','Harga per pertemuan','Kolom biaya tiap baris (Total tetap tampil)'],
-           ['izin','Baris Izin','Pertemuan yang izin, ditulis Rp 0'],
-           ['alpa','Tulisan Alpa','Kalau dimatikan, baris Alpa tetap ada (tetap ditagih) tanpa tulisan "Alpa"']
+        <div style="font-size:0.8rem;color:var(--muted);margin-bottom:6px;line-height:1.5">Pertemuan <b>Hadir</b> & <b>Alpa</b> (yang ditagih) selalu tampil. Pilih yang lain di bawah — berlaku untuk invoice/kuitansi & pesan WA. Total tagihan tidak berubah.</div>
+        ${[['price','Harga per pertemuan','Kolom biaya tiap baris (Total tetap tampil)'],
+           ['izin','Baris Izin','Pertemuan yang murid izin, ditulis Rp 0'],
+           ['off','Baris Off (guru izin)','Pertemuan yang guru berhalangan, ditulis Rp 0']
           ].map(([k,t,d])=>{ const on=llkInvShow(k); return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border)">
           <div style="flex:1;min-width:0"><div style="font-size:0.92rem;font-weight:700;color:var(--text)">${t}</div><div style="font-size:0.78rem;color:var(--muted);margin-top:2px;line-height:1.45">${d}</div></div>
           <button type="button" id="llkInvOpt-${k}" class="llk-switch${on?' on':''}" role="switch" aria-checked="${on}" aria-label="Tampilkan ${t}" onclick="llkToggleInvOpt('${k}',this)"><i></i></button></div>`; }).join('')}
