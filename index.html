@@ -1036,6 +1036,7 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
 <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.3 9.3l5.4 5.4M14.7 9.3l-5.4 5.4"/></symbol>
 <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.5 2.5 4.9-5.1"/></symbol>
 <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M4.5 11a7.5 7.5 0 0 1 13.1-4.4L19.5 8.5"/><path d="M19.5 4.5v4h-4"/><path d="M19.5 13a7.5 7.5 0 0 1-13.1 4.4L4.5 15.5"/><path d="M4.5 19.5v-4h4"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M4.5 8h14.5"/><path d="M15.5 4.5L19 8l-3.5 3.5"/><path d="M19.5 16H5"/><path d="M8.5 12.5L5 16l3.5 3.5"/></symbol>
 <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.3-5.4L19.5 9"/><path d="M19.5 4.5V9H15"/></symbol>
 <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14.5 4.5 10 9 5.5"/><path d="M4.5 10h9.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
 <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M4.5 7.5l7.5 5.5 7.5-5.5"/></symbol>
@@ -1415,7 +1416,7 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
     <!-- RIWAYAT RESCHEDULE -->
     <div id="reschedule-section-form" style="display:none;border-top:1px dashed var(--border);margin-top:14px;padding-top:14px">
       <div id="rescue-header-form" onclick="toggleFormSection('rescue-body-form','rescue-arrow-form')" class="llk-acc">
-        <span class="llk-acc-label"><svg class="ico" aria-hidden="true"><use href="#i-repeat"/></svg> Riwayat Reschedule</span>
+        <span class="llk-acc-label"><svg class="ico" aria-hidden="true"><use href="#i-swap"/></svg> Riwayat Reschedule</span>
         <span id="rescue-arrow-form" class="llk-acc-arrow"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></span>
       </div>
       <div id="rescue-body-form" style="display:none;margin-top:10px">
@@ -3146,7 +3147,7 @@ function renderAbsensi(){
       :''; // Hadir / Izin / Alpa: warna dari class .status-* (CSS)
     const avatarOpacity=samedayRs||hasActiveReschedule||isIzin||isAlpa||isOff?'opacity:0.5;':'';
     const badgeHtml=samedayRs
-      ?'<span class="llk-av-badge" style="background:var(--plum-solid)">'+llkI('repeat')+'</span>'
+      ?'<span class="llk-av-badge" style="background:var(--plum-solid)">'+llkI('swap')+'</span>'
       :hasActiveReschedule
       ?'<span class="llk-av-badge" style="background:var(--amber-solid)">'+llkI('arrow-right')+'</span>'
       :isIzin
@@ -3164,7 +3165,7 @@ function renderAbsensi(){
     const timeFontWeight='700';
     const timeDecor=samedayRs||hasActiveReschedule||isIzin||isAlpa||isOff?';text-decoration:line-through':'';
     const infoRow=samedayRs
-      ?`<div style="font-size:0.8rem;color:var(--plum);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:5px">${llkI('repeat','sm')} Diganti ke jam <b>${samedayRs.time}${samedayRs.time2?'–'+samedayRs.time2:''}</b></div>`
+      ?`<div style="font-size:0.8rem;color:var(--plum);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:5px">${llkI('swap','sm')} Diganti ke jam <b>${samedayRs.time}${samedayRs.time2?'–'+samedayRs.time2:''}</b></div>`
       :hasActiveReschedule
       ?`<div style="font-size:0.8rem;color:var(--amber);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:5px">${llkI('arrow-right','sm')} Pindah ke <b>${rescueDateFmt}</b>${rsInfo&&rsInfo.time?' · '+rsInfo.time+(rsInfo.time2?'–'+rsInfo.time2:''):''}</div>`
       :isIzin
@@ -3188,7 +3189,7 @@ function renderAbsensi(){
         </div>
         ${infoRow}
         <div class="s-pills" style="margin-top:${hasActiveReschedule||isIzin||isAlpa||isOff?2:5}px">
-          ${isRescued?`<span class="s-pill rescue-pill">${llkI('repeat')} Reschedule</span>`:''}
+          ${isRescued?`<span class="s-pill rescue-pill">${llkI('swap')} Reschedule</span>`:''}
           ${s._isExtra?`<span class="s-pill" style="background:var(--blue-bg);color:var(--blue)">${llkI('plus')} ${escapeHtml(s._extraNote||'Tambahan Kelas')}</span>`:''}
         </div>
         ${note.progress?`<div class="s-note-preview">${llkI('note')}<span>${escapeHtml(note.progress)}</span>${notePhotosArr(note,noteKey).length?llkI('camera')+(notePhotosArr(note,noteKey).length>1?'×'+notePhotosArr(note,noteKey).length:''):''}</div>`:(notePhotosArr(note,noteKey).length?`<div class="s-note-preview">${llkI('camera')}<span>${notePhotosArr(note,noteKey).length>1?notePhotosArr(note,noteKey).length+' foto progress':'Ada foto progress'}</span></div>`:'')}
@@ -3200,7 +3201,7 @@ function renderAbsensi(){
               : `<button class="att-btn a-hadir ${status==='hadir'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','hadir','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Hadir" title="Hadir">${llkI('check','bold')}</button>
             <button class="att-btn a-izin ${status==='izin'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','izin','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Izin" title="Izin">${llkI('hand')}</button>
             <button class="att-btn a-alpa ${status==='alpa'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','alpa','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Alpa" title="Alpa">${llkI('x','bold')}</button>
-            <button class="att-btn" onclick="openRescheduleModal('${jsAttr(s.name)}','${s.day}',${sidx},${s._isExtra?s._extraIdx:'null'},'${s._isExtra?s._extraDate:''}');event.stopPropagation()" title="Reschedule" aria-label="Reschedule" style="${(s._hasActiveReschedule||s._isRescheduled)?'background:var(--amber-bg);border-color:transparent;color:var(--amber)':''}">${llkI('repeat')}</button>
+            <button class="att-btn" onclick="openRescheduleModal('${jsAttr(s.name)}','${s.day}',${sidx},${s._isExtra?s._extraIdx:'null'},'${s._isExtra?s._extraDate:''}');event.stopPropagation()" title="Reschedule" aria-label="Reschedule" style="${(s._hasActiveReschedule||s._isRescheduled)?'background:var(--amber-bg);border-color:transparent;color:var(--amber)':''}">${llkI('swap')}</button>
             <button class="att-btn a-off ${status==='off'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','off','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Off (guru izin)" title="Off — guru izin / berhalangan">Off</button>`
             }
             ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'&&status!=='off'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${jsAttr(s.name)}','${attDateKey}','${jsAttr(attKey)}')" aria-label="Kirim progres" title="Kirim progres" style="${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:var(--hadir-bg);border-color:transparent;color:var(--hadir)':'background:var(--blue-bg);border-color:transparent;color:var(--blue)'}">
@@ -5940,7 +5941,7 @@ function buildDateDetail(dk){
             <div class="s-name" style="color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.name)}</div>
             <div style="flex-shrink:0;font-weight:700;font-variant-numeric:tabular-nums"><span style="color:var(--plum);text-decoration:line-through">${s.time}${s.time2?'–'+s.time2:''}</span></div>
           </div>
-          <div style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--plum);font-weight:600;margin-top:2px">${llkI('repeat','sm')} Diganti ke jam ${rs.time}${rs.time2?'–'+rs.time2:''}</div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--plum);font-weight:600;margin-top:2px">${llkI('swap','sm')} Diganti ke jam ${rs.time}${rs.time2?'–'+rs.time2:''}</div>
         </div>
       </div>`;
     }
@@ -5981,7 +5982,7 @@ function buildDateDetail(dk){
           <div class="s-name" onclick="event.stopPropagation();openHistoryDetail('${safeName}','track')" style="${nameStyle}flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px;text-decoration-color:var(--border)">${escapeHtml(s.name)}</div>
           <div style="flex-shrink:0;font-weight:700;font-variant-numeric:tabular-nums"><span style="${timeStyle}">${s.time}${s.time2?'–'+s.time2:''}</span></div>
         </div>
-        ${s._isRescheduled?`<div style="margin-top:4px"><span class="s-pill rescue-pill">${llkI('repeat')} Reschedule</span></div>`:''}
+        ${s._isRescheduled?`<div style="margin-top:4px"><span class="s-pill rescue-pill">${llkI('swap')} Reschedule</span></div>`:''}
         ${s._isExtra?`<div style="margin-top:4px"><span class="s-pill" style="background:var(--blue-bg);color:var(--blue)">${llkI('plus')} ${escapeHtml(s._extraNote||'Tambahan Kelas')}</span></div>`:''}
         ${noteHtml}
         ${attBtns}
@@ -9239,7 +9240,7 @@ function renderFormRescheduleList(s){
     <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:10px;border:1.5px solid ${r.date>=today?'var(--amber)':'var(--border)'};background:${r.date>=today?'var(--amber-bg)':'var(--bg)'}">
       <div>
         <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:2px">Dari hari <b style="color:var(--text)">${r.day}</b></div>
-        <div style="font-size:0.82rem;font-weight:600;color:${r.date>=today?'var(--izin)':'var(--muted)'};display:flex;align-items:center;gap:6px">${llkI('repeat','sm')} ${fmt(r)}</div>
+        <div style="font-size:0.82rem;font-weight:600;color:${r.date>=today?'var(--izin)':'var(--muted)'};display:flex;align-items:center;gap:6px">${llkI('swap','sm')} ${fmt(r)}</div>
       </div>
       <span style="font-size:0.68rem;padding:2px 8px;border-radius:20px;font-weight:700;background:${r.date>=today?'var(--amber-bg)':'var(--bg)'};color:${r.date>=today?'var(--izin-text)':'var(--muted)'}">${r.date>=today?'Aktif':'Selesai'}</span>
     </div>`).join('');
@@ -9424,7 +9425,7 @@ function clearReschedule(){
 <div class="overlay" id="rescheduleOverlay">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title"><svg class="ico" aria-hidden="true"><use href="#i-repeat"/></svg> Reschedule</div>
+    <div class="modal-title"><svg class="ico" aria-hidden="true"><use href="#i-swap"/></svg> Reschedule</div>
     <div id="rescheduleSubtitle" style="font-size:0.86rem;color:var(--muted);margin-bottom:16px"></div>
     <div class="mfield" style="margin-bottom:12px">
       <label>Tanggal Reschedule</label>
@@ -9949,7 +9950,7 @@ const LLK_PRO_FEATURES=[
   ['bell','Pengingat jadwal les','Notifikasi sebelum les dimulai, walau aplikasi tertutup.'],
   ['receipt','Tagihan & invoice otomatis','Bayar di depan / di belakang, invoice PDF atau kirim ke WA.'],
   ['track','Track record & penghasilan','Rekap hadir-izin-alpa, kalender, dan estimasi pemasukan.'],
-  ['repeat','Reschedule & kelas tambahan','Pindah jadwal tanpa merusak riwayat absensi.'],
+  ['swap','Reschedule & kelas tambahan','Pindah jadwal tanpa merusak riwayat absensi.'],
   ['book','Kurikulum, materi & PR guru','Tersusun rapi per mata pelajaran, siap dipakai tiap les.'],
   ['palette','Branding les kamu','Nama, logo, dan warna tema lembaga les sendiri.'],
   ['cloud','Data aman di cloud','Tersinkron otomatis di HP & laptop, ada backup.']
