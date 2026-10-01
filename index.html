@@ -3820,12 +3820,21 @@ function buildInvoiceDraft(s){
     }
   }
   items.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  // Tanggal Izin di periode yang sama — ikut tampil di invoice (Rp 0), tidak menambah tagihan
+  let izin;
+  if(mode==='monthly') izin=llkIzinDates(s.name, period+'-00', today<=period+'-31'?today:period+'-31');
+  else {
+    const list=countedSessionList(s.name);
+    const paidN=Math.min(list.length, timing==='belakang'?(s.lastPaidAt||0):((s.prepaidThrough!=null)?s.prepaidThrough:(s.lastPaidAt||0)));
+    izin=llkIzinDates(s.name, paidN>0?list[paidN-1].date:null, today);
+  }
   return {
     no:'INV-'+today.replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),
     createdAt:new Date().toISOString(),
     studentName:s.name, instrument:s.instrument||'',
     timing, mode, period, desc, rate,
     items:items.map(x=>({date:x.date,label:x.label})),
+    izin:izin,
     total:items.length*rate,
     paidAt:null
   };
@@ -3851,7 +3860,7 @@ function buildInvoiceWaText(inv, copyDate){
   text+='\n\n🧾 *'+(inv.paidAt?'KUITANSI LUNAS':'INVOICE')+' '+inv.no+'*\n';
   if(copyDate&&inv.paidAt) text+='_Salinan · dikirim ulang '+new Date(copyDate+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+'_\n';
   text+=inv.desc+'\n';
-  inv.items.forEach((it,i)=>{ text+=(i+1)+'. '+(it.date?fmtInvDate(it.date):'-')+' — '+llkInvItemLabel(it.label)+'\n'; });
+  llkInvoiceRows(inv).forEach(r=>{ text+=(r.izin?'• ':r.no+'. ')+(r.date?fmtInvDate(r.date):'-')+' — '+r.label+(r.izin?' (Rp 0)':'')+'\n'; });
   text+='*Total: '+formatRupiah(inv.total)+'*';
   if(inv.paidAt) text+='\nStatus: LUNAS ('+new Date(inv.paidAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+')';
   const payInfo=(localStorage.getItem('llk_pay_info')||'').trim();
@@ -3885,6 +3894,36 @@ function llkInvItemLabel(label){
   if(t) return 'Terjadwal'+(t[1]?' · '+t[1]:'')+unpaid;
   return label;
 }
+// Tanggal Izin murid (termasuk sesi tambahan) di rentang (afterDk, untilDk].
+// afterDk null = tanpa batas bawah. Satu entri per sesi yang izin.
+function llkIzinDates(name, afterDk, untilDk){
+  const out=[], prefix=name+'_extra_';
+  Object.keys(attendance).sort().forEach(dk=>{
+    if((afterDk&&dk<=afterDk)||(untilDk&&dk>untilDk)) return;
+    const dayAtt=attendance[dk]||{};
+    if(dayAtt[name]==='izin') out.push(dk);
+    Object.keys(dayAtt).forEach(k=>{ if(k.startsWith(prefix)&&dayAtt[k]==='izin') out.push(dk); });
+  });
+  return out;
+}
+// Baris invoice untuk ditampilkan: pertemuan ditagih (bernomor) + Izin (Rp 0),
+// urut tanggal. Invoice lama tanpa data izin → ambil Izin di antara tanggal
+// pertemuan pertama & terakhirnya (maks. tanggal invoice dibuat).
+function llkInvoiceRows(inv){
+  let izin=inv.izin;
+  if(!Array.isArray(izin)){
+    const dates=inv.items.map(x=>x.date).filter(Boolean).sort();
+    const made=dateKeyOfDate(new Date(inv.createdAt||Date.now()));
+    izin=dates.length?llkIzinDates(inv.studentName, (()=>{const d=new Date(dates[0]+'T00:00:00'); d.setDate(d.getDate()-1); return dateKeyOfDate(d);})(), dates[dates.length-1]<made?dates[dates.length-1]:made):[];
+  }
+  const rows=inv.items.map((it,i)=>({no:i+1,date:it.date,label:llkInvItemLabel(it.label),amount:inv.rate}));
+  // Sisipkan Izin sebelum pertemuan bertanggal pertama yang lebih baru (baris tanpa tanggal tetap di tempatnya)
+  izin.forEach(dk=>{
+    const at=rows.findIndex(r=>r.date&&r.date>dk);
+    rows.splice(at<0?rows.length:at,0,{izin:true,date:dk,label:'Izin',amount:0});
+  });
+  return rows;
+}
 function loadImageSafe(src){
   return new Promise(res=>{ if(!src) return res(null); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
 }
@@ -3901,7 +3940,8 @@ async function renderInvoiceCanvas(inv, copyDate){
   const meas=document.createElement('canvas').getContext('2d');
   meas.font=font(400,26);
   const payLines=payInfo?wrapCanvasText(meas,payInfo,W-2*M-40):[];
-  const H=Math.max(1754, 620+rowH*(inv.items.length+1)+120+(payLines.length?80+payLines.length*36:0)+160);
+  const rows=llkInvoiceRows(inv), izinN=rows.filter(r=>r.izin).length;
+  const H=Math.max(1754, 620+rowH*(rows.length+1)+120+(payLines.length?80+payLines.length*36:0)+160);
   const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
   const c=cv.getContext('2d');
   c.fillStyle='#ffffff'; c.fillRect(0,0,W,H);
@@ -3938,22 +3978,24 @@ async function renderInvoiceCanvas(inv, copyDate){
   if(!inv.items.length){
     c.fillStyle='#9ca3af'; c.fillText('Belum ada pertemuan yang perlu dibayar.',colNo,y+37); y+=rowH;
   }
-  inv.items.forEach((it,i)=>{
-    if(i%2===1){ c.fillStyle='#fafafa'; c.fillRect(M,y,W-2*M,rowH); }
-    c.fillStyle='#1c1c1e';
-    c.fillText(String(i+1),colNo,y+37);
-    c.fillText(it.date?fmtInvDate(it.date):'-',colDate,y+37);
-    const full=llkInvItemLabel(it.label);
-    let lbl=full; while(c.measureText(lbl).width>colAmt-colDesc-200 && lbl.length>4) lbl=lbl.slice(0,-2);
-    if(lbl!==full) lbl=lbl.trim()+'…';
-    c.fillStyle='#4b5563'; c.fillText(lbl,colDesc,y+37);
-    c.fillStyle='#1c1c1e'; c.textAlign='right'; c.fillText(formatRupiah(inv.rate),colAmt,y+37); c.textAlign='left';
+  rows.forEach((r,i)=>{
+    // Izin: baris kuning lembut, tanpa nomor, Rp 0 (tidak ditagih)
+    if(r.izin){ c.fillStyle='#fef6e4'; c.fillRect(M,y,W-2*M,rowH); }
+    else if(i%2===1){ c.fillStyle='#fafafa'; c.fillRect(M,y,W-2*M,rowH); }
+    const ink=r.izin?'#a15c07':'#1c1c1e';
+    c.fillStyle=ink;
+    c.fillText(r.izin?'–':String(r.no),colNo,y+37);
+    c.fillText(r.date?fmtInvDate(r.date):'-',colDate,y+37);
+    let lbl=r.label; while(c.measureText(lbl).width>colAmt-colDesc-200 && lbl.length>4) lbl=lbl.slice(0,-2);
+    if(lbl!==r.label) lbl=lbl.trim()+'…';
+    c.fillStyle=r.izin?ink:'#4b5563'; if(r.izin) c.font=font(700,25); c.fillText(lbl,colDesc,y+37); c.font=font(500,25);
+    c.fillStyle=ink; c.textAlign='right'; c.fillText(formatRupiah(r.amount),colAmt,y+37); c.textAlign='left';
     y+=rowH;
   });
   c.strokeStyle='#e5e7eb'; c.lineWidth=2; c.beginPath(); c.moveTo(M,y); c.lineTo(W-M,y); c.stroke();
   // Total
   y+=70;
-  c.fillStyle='#6b7280'; c.font=font(600,26); c.fillText(inv.items.length+' pertemuan × '+formatRupiah(inv.rate),M,y);
+  c.fillStyle='#6b7280'; c.font=font(600,26); c.fillText(inv.items.length+' pertemuan × '+formatRupiah(inv.rate)+(izinN?' · '+izinN+'x izin (Rp 0)':''),M,y);
   c.textAlign='right'; c.fillStyle='#1c1c1e'; c.font=font(800,44); c.fillText('Total '+formatRupiah(inv.total),W-M,y); c.textAlign='left';
   // Stempel status
   y+=70;

@@ -12,6 +12,9 @@ _Terakhir diperbarui: 30 Sep 2026 (pengingat otomatis 7 hari ke depan)_
 ## 🧾 Invoice: keterangan cukup status (1 Okt 2026)
 - Kolom KETERANGAN invoice/kuitansi (gambar & pesan WA) kini hanya status: **Hadir / Izin / Alpa** (atau "Terjadwal · jam" untuk bayar di depan). Catatan tambahan kelas seperti "Karena pulang pagi" dan "(tetap dihitung)" tidak ditampilkan. Penanda "· belum dibayar" (tunggakan) tetap.
 - Lewat `llkInvItemLabel()` saat menampilkan → invoice lama yang sudah tersimpan juga ikut bersih; data label asli tidak diubah.
+- **Izin ikut tampil** (gambar & WA) sebagai baris kuning lembut tanpa nomor, biaya **Rp 0**; total & jumlah pertemuan ditagih tidak berubah. Footer: "10 pertemuan × Rp 45.000 · 2x izin (Rp 0)". Di WA ditandai "• … — Izin (Rp 0)".
+  - Draft baru menyimpan `inv.izin` (daftar tanggal): bulanan = Izin di bulan itu s.d. hari ini; per pertemuan = Izin setelah pertemuan terakhir yang sudah dibayar s.d. hari ini (`llkIzinDates`).
+  - Invoice lama/custom tanpa `inv.izin` → Izin diambil di antara tanggal pertemuan pertama & terakhirnya (`llkInvoiceRows`). `inv.items` (dasar hitungan bayar) tidak disentuh.
 
 ## 🔔 Teks notifikasi: nama murid paling depan (30 Sep 2026)
 - Notifikasi di HP sering terpotong ("🎵 Sebent…") sehingga nama murid tidak terlihat. Pengingat les sekarang berjudul `🎵 {Nama} · {jam}` dan isinya diawali nama: `{Nama} · {Alat} · mulai 5 menit lagi (jam 19:00). Siapkan materinya ya…`. Awalan 🎵 tetap (dipakai worker untuk membersihkan reminder).
