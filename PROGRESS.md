@@ -7,7 +7,24 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 1. Pastikan PR #15 sudah di-merge → buka leslesanku.com (Ctrl+Shift+R): badge masih PRO, murid lengkap, Tambah Murid tidak bergembok.
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
-4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
+4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 🚀 Rencana rilis Play Store (disusun 2 Okt 2026)
+Aturan Google yang menentukan urutan:
+- Akun developer **pribadi** baru wajib **closed testing ≥12 penguji selama 14 hari berturut-turut** sebelum boleh rilis Production.
+- Aplikasi di Play yang menjual langganan digital wajib **Google Play Billing**; Midtrans tidak boleh dipakai di dalam aplikasi Play (tetap boleh di versi web).
+- Aplikasi dengan login wajib punya **link hapus akun** (`https://leslesanku.com/hapus-akun.html` ✅) & **kebijakan privasi** (`https://leslesanku.com/privacy-policy.html` ✅).
+- Setelah AAB pertama diunggah, Google menandatangani ulang (Play App Signing) → **sidik jari kunci Play wajib ditambahkan ke `.well-known/assetlinks.json`**, kalau tidak, bilah alamat browser muncul di aplikasi.
+
+Tahapan:
+- **Tahap 0 — Persiapan (bisa mulai sekarang, gratis):**
+  - Claude: deteksi aplikasi dibuka dari Play (TWA) → sembunyikan pembayaran Midtrans di aplikasi Play (penguji pakai trial 31 hari); screenshot Play Store baru (desain sekarang, 1080×1920) + feature graphic 1024×500; draf teks listing (judul, deskripsi singkat ≤80 huruf, deskripsi panjang) & jawaban Data Safety.
+  - Pemilik: kumpulkan ≥12 penguji (Gmail aktif, mau pasang & buka aplikasi selama 14 hari) — guru les, keluarga, teman; siapkan 1 akun Google khusus untuk reviewer Google (isian "App access").
+- **Tahap 1 — Akun Play Console:** daftar akun pribadi ($25), verifikasi identitas & nomor HP (bisa beberapa hari).
+- **Tahap 2 — Build Android:** PWABuilder → host `leslesanku.com`, package `com.leslesanku.app`, kunci lama (folder 09/09/2026), notification delegation aktif → unggah AAB ke **Internal testing** → cek login Google, notifikasi, data tersinkron. Claude menambah sidik jari Play App Signing ke `assetlinks.json`.
+- **Tahap 3 — Closed testing 14 hari:** buat track Closed testing, undang ≥12 penguji lewat email/Google Group, mereka wajib opt-in & tetap terdaftar 14 hari. Isi Store listing, Data Safety, rating konten, target usia **18+** (guru, bukan anak), tanpa iklan.
+- **Tahap 4 — Play Billing (paralel dengan Tahap 3):** Pemilik: payments profile, 3 langganan (`llk_basic`, `llk_up`, `llk_unlimited`), aktifkan Play Developer API + service account. Claude: tombol beli via Digital Goods API di aplikasi Play, verifikasi & acknowledge pembelian di worker Cloudflare, tombol "Pulihkan Langganan".
+- **Tahap 5 — Production:** ajukan akses Production (kuesioner hasil testing) → rilis bertahap (mis. 20% → 100%). Review biasanya beberapa hari.
 
 ## 🔕 Pengingat PR guru/progres/laporan tidak bunyi berulang (2 Okt 2026)
 - Bug: tanda "sudah diingatkan" pengingat harian di dalam aplikasi (`notifShown`) hanya di memori → tiap aplikasi dibuka ulang setelah jamnya, notifikasi PR guru (juga Kirim progres & Salin laporan) bunyi lagi; push hari itu sudah tidak tercatat karena jadwal push pindah ke besok.
