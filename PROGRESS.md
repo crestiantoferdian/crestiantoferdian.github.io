@@ -11,7 +11,7 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 
 ## ✉️ Tombol Kirim Progres: beda jelas sudah/belum (2 Okt 2026)
 - **Belum kirim** = biru solid, ikon putih (`.att-btn.is-send`); **sudah kirim** = hijau muda bergaris hijau + ikon amplop centang (`.att-btn.is-sent`). Dipakai di Absensi & Track; `markSheetSent` cukup ganti class.
-- `.att-btn{flex-shrink:0}` → tombol tidak lagi terpotong (mis. "Off"); kalau layar sempit, tombol turun ke baris kedua.
+- (Sempat ditambah `.att-btn{flex-shrink:0}` supaya tombol turun ke baris kedua, lalu dikembalikan atas permintaan pemilik — tombol tetap satu baris seperti semula.)
 
 ## ⏸️ Konfirmasi Nonaktifkan & Hapus pakai jendela melayang (2 Okt 2026)
 - Dulu tombol berubah jadi "Yakin?" (harus dipencet lagi) — membingungkan. Sekarang **Nonaktifkan** membuka jendela konfirmasi (menutupi layar, tombol lain tak bisa dipencet): "Anda yakin ingin menonaktifkan {nama}?" + jadwal tidak lagi ditampilkan + riwayat aman + cara mengaktifkan lagi (menu Siswa → Aktifkan Kembali) · tombol **Batal / OK**.
