@@ -10,7 +10,7 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
 ## ✉️ Tombol Kirim Progres: beda jelas sudah/belum (2 Okt 2026)
-- **Belum kirim** = biru solid, ikon putih (`.att-btn.is-send`); **sudah kirim** = hijau muda bergaris hijau + ikon amplop centang (`.att-btn.is-sent`). Dipakai di Absensi & Track; `markSheetSent` cukup ganti class.
+- **Belum kirim** = kotak biasa bergaris biru, ikon amplop biru (`.att-btn.is-send`); **sudah kirim** = biru solid + ikon amplop centang putih (`.att-btn.is-sent`) — dibalik atas permintaan pemilik. Dipakai di Absensi & Track; `markSheetSent` cukup ganti class.
 - (Sempat ditambah `.att-btn{flex-shrink:0}` supaya tombol turun ke baris kedua, lalu dikembalikan atas permintaan pemilik — tombol tetap satu baris seperti semula.)
 
 ## ⏸️ Konfirmasi Nonaktifkan & Hapus pakai jendela melayang (2 Okt 2026)
