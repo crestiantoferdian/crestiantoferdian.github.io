@@ -9,6 +9,10 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## ⏸️ Konfirmasi Nonaktifkan & Hapus pakai jendela melayang (2 Okt 2026)
+- Dulu tombol berubah jadi "Yakin?" (harus dipencet lagi) — membingungkan. Sekarang **Nonaktifkan** membuka jendela konfirmasi (menutupi layar, tombol lain tak bisa dipencet): "Anda yakin ingin menonaktifkan {nama}?" + jadwal tidak lagi ditampilkan + riwayat aman + cara mengaktifkan lagi (menu Siswa → Aktifkan Kembali) · tombol **Batal / OK**.
+- **Hapus Permanen** juga pakai jendela konfirmasi merah (Batal / Ya, Hapus). Logika nonaktif/hapus tidak berubah.
+
 ## ⇄ Ikon Reschedule (1 Okt 2026)
 - Ikon baru `i-swap` (dua panah berlawanan ⇄) untuk semua yang terkait Reschedule: tombol di kartu absen, lencana avatar, pill "Reschedule", "Diganti ke jam", modal & riwayat Reschedule, daftar fitur. Ikon `repeat` tetap dipakai untuk "Setiap Pertemuan"/"Pertemuan ke-".
 

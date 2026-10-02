@@ -8601,33 +8601,26 @@ function toggleInactiveFromModal(){
     return;
   }
 
-  // Nonaktifkan perlu konfirmasi dulu (klik pertama = peringatan, klik kedua = eksekusi)
-  if(btn.dataset.confirm!=='yes'){
-    btn.dataset.confirm='yes';
-    btn.innerHTML=llkI('alert')+' Yakin?';
-    btn.style.background='var(--amber-bg)';
-    btn.style.setProperty('border','1.5px solid var(--izin)','important');
-    btn.style.color='var(--izin-text)';
-    setTimeout(()=>{
-      if(btn.dataset.confirm==='yes'){
-        btn.dataset.confirm='';
-        btn.innerHTML=llkI('pause')+' Nonaktifkan';
-        btn.style.background='var(--izin-bg)';
-        btn.style.setProperty('border','none','important');
-        btn.style.color='var(--izin-text)';
-      }
-    },3000);
-    return;
-  }
-
-  // Konfirmasi kedua kali — eksekusi
-  btn.dataset.confirm='';
-  s.inactive=true;
-  s.inactiveSince=todayStr(); // tandai tanggal nonaktif, dipakai buat sembunyikan jadwal SETELAH tanggal ini di Kalender
-  save();
-  closeModal();
-  render();
-  toast(`⏸️ ${s.name} dinonaktifkan — riwayat tetap tersimpan`);
+  // Nonaktifkan: konfirmasi lewat jendela melayang (menutupi layar, tombol lain
+  // tidak bisa dipencet) — dulu tombolnya berubah jadi "Yakin?" dan membingungkan.
+  if(btn) btn.dataset.confirm='';
+  const name=s.name;
+  showGenericConfirm('Nonaktifkan siswa?',
+    'Anda yakin ingin menonaktifkan <b>'+escapeHtml(name)+'</b>?'
+    +'<div style="text-align:left;margin-top:12px;display:flex;flex-direction:column;gap:8px">'
+    +'<div style="display:flex;gap:8px;align-items:flex-start">'+llkI('calendar','sm')+'<span>Jadwal siswa tidak lagi ditampilkan.</span></div>'
+    +'<div style="display:flex;gap:8px;align-items:flex-start">'+llkI('shield','sm')+'<span>Riwayat absensi & pembayaran tetap tersimpan aman.</span></div>'
+    +'<div style="display:flex;gap:8px;align-items:flex-start">'+llkI('play','sm')+'<span>Untuk mengaktifkan lagi: buka menu <b>Siswa</b>, cari nama <b>'+escapeHtml(name)+'</b>, lalu ketuk <b>Aktifkan Kembali</b>.</span></div>'
+    +'</div>',
+    'OK', function(){
+      const st=students.find(x=>x.name===name); if(!st) return;
+      st.inactive=true;
+      st.inactiveSince=todayStr(); // tandai tanggal nonaktif, dipakai buat sembunyikan jadwal SETELAH tanggal ini di Kalender
+      save();
+      closeModal();
+      render();
+      toast(`⏸️ ${name} dinonaktifkan — riwayat tetap tersimpan`);
+    }, false, 'pause');
 }
 
 function reactivateStudent(name){
@@ -8643,26 +8636,16 @@ function reactivateStudent(name){
 
 function doDelete(){
   if(editIdx===null) return;
-  const name=students[editIdx].name;
-  // Show inline confirm inside modal
-  const btn=document.getElementById('delBtn');
-  if(btn.dataset.confirm!=='yes'){
-    btn.dataset.confirm='yes';
-    btn.innerHTML=llkI('alert')+' Yakin hapus murid ini?';
-    btn.style.background='var(--alpa)';
-    btn.style.color='#fff';
-    setTimeout(()=>{
-      btn.dataset.confirm='';
-      btn.innerHTML=llkI('trash')+' Hapus Permanen';
-      btn.style.background='';
-      btn.style.color='';
-    },3000);
-    return;
-  }
-  // Confirmed
-  students.splice(editIdx,1);
-  save();closeModal();render();
-  toast('🗑 '+name+' dihapus');
+  const idx=editIdx, name=students[idx].name;
+  // Konfirmasi lewat jendela melayang (menutupi layar) — bukan tombol yang berubah tulisan
+  showGenericConfirm('Hapus permanen?',
+    'Anda yakin ingin menghapus <b>'+escapeHtml(name)+'</b> secara permanen?<br><br>Semua riwayatnya akan hilang dan <b>tidak bisa dikembalikan</b>. Kalau siswa hanya berhenti, pilih <b>Nonaktifkan</b> saja.',
+    'Ya, Hapus', function(){
+      if(students[idx]&&students[idx].name===name) students.splice(idx,1);
+      else { const i=students.findIndex(x=>x.name===name); if(i<0) return; students.splice(i,1); }
+      save();closeModal();render();
+      toast('🗑 '+name+' dihapus');
+    }, true, 'trash');
 }
 
 // ── FITUR PEMBAYARAN ───────────────────────────────────
