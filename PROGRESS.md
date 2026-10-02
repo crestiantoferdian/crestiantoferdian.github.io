@@ -9,6 +9,10 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Setelah gajian: Play Console ($25) → PWABuilder (package `com.leslesanku.app`, host `leslesanku.com`, kunci lama) → Play Billing.
 
+## 🔕 Pengingat PR guru/progres/laporan tidak bunyi berulang (2 Okt 2026)
+- Bug: tanda "sudah diingatkan" pengingat harian di dalam aplikasi (`notifShown`) hanya di memori → tiap aplikasi dibuka ulang setelah jamnya, notifikasi PR guru (juga Kirim progres & Salin laporan) bunyi lagi; push hari itu sudah tidak tercatat karena jadwal push pindah ke besok.
+- Perbaikan: `llkRemShown`/`llkMarkRemShown` menyimpan tanda per tanggal di `localStorage.llk_rem_shown` (dibersihkan >10 hari). `setPushId` untuk `{tgl}|__pr/__progres/__laporan` ikut menandai tanggal itu (push sudah mewakili → tidak dobel). Hasil: maksimal 1x per hari per jenis.
+
 ## ✉️ Tombol Kirim Progres: beda jelas sudah/belum (2 Okt 2026)
 - **Belum kirim** = kotak biasa bergaris biru, ikon amplop biru (`.att-btn.is-send`); **sudah kirim** = biru solid + ikon amplop centang putih (`.att-btn.is-sent`) — dibalik atas permintaan pemilik. Dipakai di Absensi & Track; `markSheetSent` cukup ganti class.
 - (Sempat ditambah `.att-btn{flex-shrink:0}` supaya tombol turun ke baris kedua, lalu dikembalikan atas permintaan pemilik — tombol tetap satu baris seperti semula.)

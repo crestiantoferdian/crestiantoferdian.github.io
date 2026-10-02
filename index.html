@@ -2085,6 +2085,22 @@ setInterval(updateClock,10000);
 
 // ── NOTIFICATIONS ─────────────────────────────────────
 let notifShown={};
+// Pengingat harian (progres / laporan / PR guru) cukup SEKALI per hari. Dulu
+// tandanya cuma di memori, jadi tiap aplikasi dibuka ulang setelah jamnya
+// notifikasi bunyi lagi. Sekarang disimpan per tanggal di localStorage, dan
+// ikut ditandai saat push untuk tanggal itu dijadwalkan (push sudah mewakili).
+const LLK_REM_SHOWN_KEY='llk_rem_shown';
+function llkRemShownMap(){ try{ return JSON.parse(localStorage.getItem(LLK_REM_SHOWN_KEY)||'{}')||{}; }catch(e){ return {}; } }
+function llkRemShown(remKey){ return !!notifShown[remKey] || !!llkRemShownMap()[remKey]; }
+function llkMarkRemShown(remKey){
+  notifShown[remKey]=true;
+  const map=llkRemShownMap(); map[remKey]=1;
+  // Buang catatan lebih dari 10 hari supaya tidak menumpuk
+  const old=new Date(); old.setDate(old.getDate()-10); const oldDk=dateKeyOfDate(old);
+  Object.keys(map).forEach(k=>{ const m=k.match(/(\d{4}-\d{2}-\d{2})$/); if(m&&m[1]<oldDk) delete map[k]; });
+  try{ localStorage.setItem(LLK_REM_SHOWN_KEY, JSON.stringify(map)); }catch(e){}
+}
+const LLK_DAILY_REM_KEYS={__progres:'sheet_remind_',__laporan:'kirim_remind_',__pr:'pr_remind_'};
 function checkNotifications(){
   const now=new Date();
   const todayName=todayDayName();
@@ -2128,7 +2144,7 @@ function checkNotifications(){
 
 function checkSheetSentReminder(dateKey, todayName){
   const remKey='sheet_remind_'+dateKey;
-  if(notifShown[remKey]) return; // sudah diingatkan hari ini
+  if(llkRemShown(remKey)) return; // sudah diingatkan hari ini
   if(!llkRemOn('progres')) return;
   if(getPushIdMap()[dateKey+'|__progres']) return; // sudah dijadwalkan lewat push
 
@@ -2152,7 +2168,7 @@ function checkSheetSentReminder(dateKey, todayName){
   });
 
   if(belumKirim.length){
-    notifShown[remKey]=true;
+    llkMarkRemShown(remKey);
     const names=belumKirim.length<=2?belumKirim.join(', '):belumKirim.slice(0,2).join(', ')+` +${belumKirim.length-2} lagi`;
     showNotif(`📝 ${names} · kirim progres`,`Progres ${names} belum terkirim — buka tab Kirim, cuma sebentar kok 😊`);
   }
@@ -2160,7 +2176,7 @@ function checkSheetSentReminder(dateKey, todayName){
 
 function checkKirimCopyReminder(dateKey){
   const remKey='kirim_remind_'+dateKey;
-  if(notifShown[remKey]) return; // sudah diingatkan hari ini
+  if(llkRemShown(remKey)) return; // sudah diingatkan hari ini
   if(!llkRemOn('laporan')) return;
   if(getPushIdMap()[dateKey+'|__laporan']) return; // sudah dijadwalkan lewat push
   if(localStorage.getItem('kirim_copied_'+dateKey)) return; // sudah pernah di-copy
@@ -2176,19 +2192,19 @@ function checkKirimCopyReminder(dateKey){
   const hasActivity=Object.values(dayAtt).some(st=>st==='hadir'||st==='izin'||st==='alpa');
   if(!hasActivity) return; // belum ada yang diabsen sama sekali, belum perlu diingatkan
 
-  notifShown[remKey]=true;
+  llkMarkRemShown(remKey);
   showNotif('📋 Rekap absensi hari ini sudah siap','Salin laporan di tab Kirim biar catatanmu tetap rapi ✨');
 }
 function checkPrGuruReminder(dateKey){
   const remKey='pr_remind_'+dateKey;
-  if(notifShown[remKey]||!llkRemOn('pr')) return;
+  if(llkRemShown(remKey)||!llkRemOn('pr')) return;
   if(getPushIdMap()[dateKey+'|__pr']) return; // sudah dijadwalkan lewat push
   const [rh,rm]=llkRemTime('pr').split(':').map(Number);
   const now=new Date();
   if(now<new Date(now.getFullYear(),now.getMonth(),now.getDate(),rh,rm)) return;
   const pend=teacherTasks.filter(t=>!t.done);
   if(!pend.length) return;
-  notifShown[remKey]=true;
+  llkMarkRemShown(remKey);
   showNotif('📚 Ada '+pend.length+' PR guru menunggu', llkShortText(pend[0].text,60)+(pend.length>1?' +'+(pend.length-1)+' lagi':'')+' — cek di tab Materi 💪');
 }
 
@@ -2258,6 +2274,9 @@ function setPushId(pushKey, notifId, sig){
   const map=getPushIdMap();
   map[pushKey]=sig?{id:notifId,sig:sig}:notifId;
   localStorage.setItem(PUSH_ID_STORE_KEY, JSON.stringify(map));
+  // Push harian untuk tanggal ini sudah dijadwalkan → versi dalam aplikasi tidak perlu bunyi lagi
+  const m=String(pushKey).match(/^(\d{4}-\d{2}-\d{2})\|(__\w+)$/);
+  if(m&&LLK_DAILY_REM_KEYS[m[2]]) llkMarkRemShown(LLK_DAILY_REM_KEYS[m[2]]+m[1]);
 }
 function popPushId(pushKey){
   const map=getPushIdMap();
