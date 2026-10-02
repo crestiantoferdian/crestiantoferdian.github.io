@@ -460,8 +460,10 @@ button:disabled{opacity:.55;cursor:default}
 .att-btn.a-alpa.on{background:var(--alpa-solid);border-color:var(--alpa);color:#fff}
 .att-btn.a-off.on{background:var(--off-solid);border-color:var(--off);color:#fff}
 .att-btn.on .ico{animation:llkPop var(--d3) var(--ease-spring)}
-.att-btn.is-sent{background:var(--hadir-bg);border-color:transparent;color:var(--hadir)}
-.att-btn.is-send{background:var(--blue-bg);border-color:transparent;color:var(--blue)}
+.att-btn{flex-shrink:0}
+/* Kirim progres: BELUM = biru solid (perlu tindakan), SUDAH = hijau garis + centang */
+.att-btn.is-send{background:var(--blue-solid);border-color:var(--blue-solid);color:#fff}
+.att-btn.is-sent{background:var(--hadir-bg);border:1.5px solid var(--hadir);color:var(--hadir)}
 .att-btn.is-rs{background:var(--amber-bg);border-color:transparent;color:var(--amber)}
 .pay-warn{
   display:inline-flex;align-items:center;gap:6px;
@@ -3204,7 +3206,7 @@ function renderAbsensi(){
             <button class="att-btn" onclick="openRescheduleModal('${jsAttr(s.name)}','${s.day}',${sidx},${s._isExtra?s._extraIdx:'null'},'${s._isExtra?s._extraDate:''}');event.stopPropagation()" title="Reschedule" aria-label="Reschedule" style="${(s._hasActiveReschedule||s._isRescheduled)?'background:var(--amber-bg);border-color:transparent;color:var(--amber)':''}">${llkI('swap')}</button>
             <button class="att-btn a-off ${status==='off'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','off','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Off (guru izin)" title="Off — guru izin / berhalangan">Off</button>`
             }
-            ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'&&status!=='off'?`<button class="att-btn sheet-btn-${sidx}" onclick="openSheetLinkByName('${jsAttr(s.name)}','${attDateKey}','${jsAttr(attKey)}')" aria-label="Kirim progres" title="Kirim progres" style="${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:var(--hadir-bg);border-color:transparent;color:var(--hadir)':'background:var(--blue-bg);border-color:transparent;color:var(--blue)'}">
+            ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'&&status!=='off'?`<button class="att-btn sheet-btn-${sidx} ${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'is-sent':'is-send'}" onclick="openSheetLinkByName('${jsAttr(s.name)}','${attDateKey}','${jsAttr(attKey)}')" aria-label="Kirim progres" title="Kirim progres">
               ${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?llkI('mail-check'):llkI('mail')}
             </button>`:''}
         </div>
@@ -5969,7 +5971,7 @@ function buildDateDetail(dk){
           <button class="att-btn a-alpa ${status==='alpa'?'on':''}" aria-label="Alpa" title="Alpa" onclick="openNoteModal('${safeKey}','alpa','${safeName}','${safeDk}','${s.time||''}','${s.time2||''}');setTimeout(renderTrack,300)">${llkI('x','bold')}</button>
           <button class="att-btn" aria-label="Edit catatan" title="Edit catatan" onclick="openTrackEditModal('${safeKey}','${status||'hadir'}','${safeName}','${safeDk}')">${llkI('edit')}</button>
           <button class="att-btn a-off ${status==='off'?'on':''}" aria-label="Off (guru izin)" title="Off — guru izin / berhalangan" onclick="openNoteModal('${safeKey}','off','${safeName}','${safeDk}','${s.time||''}','${s.time2||''}');setTimeout(renderTrack,300)">Off</button>
-          ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'&&status!=='off'?`<button class="att-btn sheet-btn-${sidx}" aria-label="Kirim progres" title="Kirim progres" onclick="openSheetLinkByName('${safeName}','${safeDk}','${safeKey}')" style="${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'background:var(--hadir-bg);border-color:transparent;color:var(--hadir)':'background:var(--blue-bg);border-color:transparent;color:var(--blue)'}">${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?llkI('mail-check'):llkI('mail')}</button>`:''}
+          ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'&&status!=='off'?`<button class="att-btn sheet-btn-${sidx} ${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'is-sent':'is-send'}" aria-label="Kirim progres" title="Kirim progres" onclick="openSheetLinkByName('${safeName}','${safeDk}','${safeKey}')">${localStorage.getItem('sheet_sent_'+safeDk+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?llkI('mail-check'):llkI('mail')}</button>`:''}
         </div>`;
 
     // Tap kartu untuk expand/collapse tombol aksi (Hadir/Izin/Alpa/Kirim Link),
@@ -9174,9 +9176,7 @@ function markSheetSent(idx,sentKey){
   const popup=document.getElementById('sheetPopup');
   if(popup) popup.remove();
   document.querySelectorAll('.sheet-btn-'+idx).forEach(btn=>{
-    btn.style.background='var(--hadir-bg)';
-    btn.style.setProperty('border-color','transparent','important');
-    btn.style.color='var(--hadir)';
+    btn.classList.remove('is-send'); btn.classList.add('is-sent');
     btn.innerHTML=llkI('mail-check');
   });
   toast('✅ Ditandai sudah tercatat');
