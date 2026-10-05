@@ -731,6 +731,7 @@ button:disabled{opacity:.55;cursor:default}
 .llk-rem-ctl select,.llk-rem-ctl input{flex:1;min-width:0;height:44px;padding:0 12px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--bg);color:var(--text);font:inherit;font-size:16px}
 .llk-rem.off .llk-rem-ctl{opacity:0.45;pointer-events:none}
 .llk-rem.off .llk-rem-head .menu-icon{filter:grayscale(1);opacity:0.6}
+.llk-kirim-note{flex:1;min-width:0;max-height:84px;overflow-y:auto;font-size:0.8rem;line-height:1.45;color:var(--text2);white-space:pre-wrap;word-break:break-word;background:var(--card2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:7px 9px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .llk-switch{position:relative;flex-shrink:0;width:50px;height:30px;border-radius:999px;border:none;background:var(--border);cursor:pointer;padding:0;transition:background-color var(--d2) var(--ease-out)}
 .llk-switch i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.25);transition:transform var(--d2) var(--ease-spring)}
 .llk-switch.on{background:var(--hadir-solid)}
@@ -6564,16 +6565,24 @@ function renderKirim(){
     const attDateKey=s._extraDate||dateKey;
     const attForDate=attendance[attDateKey]||{};
     const st=attForDate[attKey]||'belum';
-    if(st==='hadir'||st==='alpa') rows.push({s,st});
+    // Progres & PR yang ditulis guru untuk sesi ini (tampil di tabel & ikut tersalin ke Sheets)
+    const note=attNotes[attDateKey+'_'+attKey]||{};
+    if(st==='hadir'||st==='alpa') rows.push({s,st,progress:(note.progress||'').trim(),pr:(note.prSiswa||'').trim()});
   });
 
-  // Buat teks untuk di-copy ke Sheets (tab-separated)
-  const lines=rows.map(({s,st})=>hariName+'\t'+tgl+'\t'+s.name+'\t'+(s.instrument||''));
+  // Teks untuk di-copy ke Sheets. Kolom lama (Hari, Tanggal, Nama, Mapel) tetap
+  // di urutan yang sama; Progres & PR ditambahkan di kolom ke-5 & ke-6.
+  // text/plain: baris baru di dalam catatan diganti " / " supaya 1 murid = 1 baris.
+  // text/html: tabel, baris baru jadi <br> → di Sheets tetap 1 sel, multi-baris.
+  const flat=t=>String(t||'').replace(/\s*\n+\s*/g,' / ').replace(/\t/g,' ');
+  const lines=rows.map(({s,progress,pr})=>[hariName,tgl,s.name,s.instrument||'',flat(progress),flat(pr)].join('\t'));
   const copyText=lines.join('\n');
+  const cellHtml=t=>escapeHtml(String(t||'')).replace(/\n/g,'<br>');
+  const copyHtml='<table>'+rows.map(({s,progress,pr})=>'<tr>'+[hariName,tgl,s.name,s.instrument||'',progress,pr].map(v=>'<td>'+cellHtml(v)+'</td>').join('')+'</tr>').join('')+'</table>';
 
   // HTML preview tabel
   const thS='padding:9px 12px;font-size:0.72rem;font-weight:700;color:var(--muted);text-align:left;white-space:nowrap';
-  const rowsHtml=rows.length?rows.map(({s,st})=>`
+  const rowsHtml=rows.length?rows.map(({s,st,progress,pr})=>`
     <tr style="border-top:1px solid var(--border2)">
       <td style="padding:11px 12px;font-size:0.86rem;color:var(--muted);white-space:nowrap">${hariName}</td>
       <td style="padding:11px 12px;font-size:0.86rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums">${tgl}</td>
@@ -6584,9 +6593,13 @@ function renderKirim(){
           background:${st==='hadir'?'var(--hadir-bg)':'var(--alpa-bg)'};
           color:${st==='hadir'?'var(--hadir-text)':'var(--alpa-text)'}">${st==='hadir'?llkI('check','sm')+'Hadir':llkI('x','sm')+'Alpa'}</span>
       </td>
-      <td style="padding:6px 10px;text-align:center">${(s.phone&&s.phone.replace(/\D/g,''))||(s.sheetLink&&s.sheetLink.trim())
+      <td style="padding:6px 10px;min-width:220px;vertical-align:middle"><div style="display:flex;align-items:flex-start;gap:8px">
+        <div class="llk-kirim-note">${progress||pr
+          ?(progress?'<div><b>Progres:</b><br>'+escapeHtml(progress)+'</div>':'')+(pr?'<div style="margin-top:'+(progress?6:0)+'px;color:var(--plum)"><b>PR:</b> '+escapeHtml(pr)+'</div>':'')
+          :'<span style="color:var(--muted2)">Belum ada catatan</span>'}</div>
+        ${(s.phone&&s.phone.replace(/\D/g,''))||(s.sheetLink&&s.sheetLink.trim())
         ?`<button onclick="openSheetLinkByName('${jsAttr(s.name)}','${s._extraDate||dateKey}','${jsAttr(s._attKey||s.name)}')" class="llk-icon-btn sm" aria-label="Kirim progres ${escapeHtml(s.name)}" title="Kirim progres" style="color:${localStorage.getItem('sheet_sent_'+(s._extraDate||dateKey)+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'var(--hadir)':'var(--wa)'}">${llkI(localStorage.getItem('sheet_sent_'+(s._extraDate||dateKey)+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'mail-check':'chat')}</button>`
-        :'<span style="font-size:0.74rem;color:var(--muted2)">—</span>'}</td>
+        :''}</div></td>
     </tr>`).join('')
   :`<tr><td colspan="6">
     <div class="empty" style="padding:28px 20px">
@@ -6630,7 +6643,7 @@ function renderKirim(){
                 <th style="${thS}">Nama</th>
                 <th style="${thS}">Mata Pelajaran</th>
                 <th style="${thS};text-align:center">Status</th>
-                <th style="${thS};text-align:center">Progres</th>
+                <th style="${thS}">Progres & PR</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
@@ -6643,11 +6656,12 @@ function renderKirim(){
       </button>`:''}
 
       <div style="margin-top:12px;display:flex;gap:10px;align-items:flex-start;background:var(--blue-bg);border-radius:var(--r-md);padding:13px 15px;font-size:0.84rem;color:var(--blue);line-height:1.6">
-        ${llkI('bulb')}<div><b>Cara pakai:</b> Tap tombol Salin → buka Google Sheets → klik sel pertama → Paste</div>
+        ${llkI('bulb')}<div><b>Cara pakai:</b> Tap tombol Salin → buka Google Sheets → klik sel pertama → Paste. Kolom yang tersalin: Hari, Tanggal, Nama, Mata Pelajaran, Progres, PR.</div>
       </div>
     </div>`;
 
   window._kirimText = copyText;
+  window._kirimHtml = copyHtml;
   window._kirimDateKey = dateKey;
 }
 
@@ -6667,6 +6681,22 @@ function kirimCopy(){
   const txt = window._kirimText||'';
   if(!txt){toast('Tidak ada data untuk disalin');return;}
   const dk=window._kirimDateKey||todayStr();
+  const html=window._kirimHtml||'';
+  // Salin sebagai tabel HTML + teks biasa: Google Sheets memakai versi HTML, jadi
+  // progres yang berbaris-baris tetap masuk ke SATU sel per murid.
+  if(html&&navigator.clipboard&&navigator.clipboard.write&&window.ClipboardItem){
+    try{
+      const item=new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([txt],{type:'text/plain'})});
+      navigator.clipboard.write([item]).then(()=>{
+        localStorage.setItem('kirim_copied_'+dk,'1');
+        toast('✅ Tersalin (termasuk progres & PR)! Buka Sheets lalu Paste.');
+      }).catch(()=>kirimCopyPlain(txt,dk));
+      return;
+    }catch(e){}
+  }
+  kirimCopyPlain(txt,dk);
+}
+function kirimCopyPlain(txt,dk){
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(txt).then(()=>{
       localStorage.setItem('kirim_copied_'+dk,'1');
