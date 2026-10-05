@@ -9,6 +9,10 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## 📋 Tab Kirim: kolom Progres & PR + ikut tersalin ke Sheets (5 Okt 2026)
+- Kolom "Progres & PR" di tabel Kirim menampilkan tulisan progres & PR siswa sesi itu (`attNotes[tgl_attKey]`) dalam kotak yang bisa digulir (`.llk-kirim-note`, maks. 84px); tombol kirim progres tetap di sebelahnya. Kosong → "Belum ada catatan".
+- **Salin & Paste ke Google Sheets** kini 6 kolom: Hari, Tanggal, Nama, Mata Pelajaran, **Progres**, **PR** (4 kolom lama tetap di urutan yang sama). Disalin sebagai tabel HTML (Sheets memakai ini → progres berbaris-baris tetap 1 sel) + teks biasa cadangan (baris baru jadi " / ").
+
 ## 🚀 Rencana rilis Play Store (disusun 2 Okt 2026)
 Aturan Google yang menentukan urutan:
 - Akun developer **pribadi** baru wajib **closed testing ≥12 penguji selama 14 hari berturut-turut** sebelum boleh rilis Production.
