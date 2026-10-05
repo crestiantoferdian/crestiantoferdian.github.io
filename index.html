@@ -2520,7 +2520,7 @@ function llkDesiredReminders(now){
   for(let i=0;i<LLK_REMINDER_DAYS;i++){
     const d=new Date(now); d.setHours(0,0,0,0); d.setDate(d.getDate()+i);
     const dk=dateKeyOfDate(d);
-    const list=getStudentsForDay(dayNameFromDate(dk),dk,false).filter(s=>!s._hasActiveReschedule&&!s._sameday_reschedule);
+    const list=getStudentsForDay(dayNameFromDate(dk),dk,false).filter(s=>!llkIsMovedAwayCard(s,dk));
     list.forEach(s=>{
       const skip=why=>{ if(dk===today) out.push({skip:true,name:s.name,time:s.time,why:why}); };
       if(!s.time) return skip('tidak ada jam');
@@ -3795,7 +3795,9 @@ function upcomingSessionList(s, fromDk, opts){
     const dayName=DAYS[DAYS_JS.indexOf(cur.getDay())];
     getStudentsForDay(dayName, dk).forEach(x=>{
       if(x._originalIdx!==idx) return;
-      if(x._sameday_reschedule||x._hasActiveReschedule) return; // kartu info saja
+      // Kartu asal yang dipindah = info saja. Hari rutin SETELAH tanggal reschedule
+      // tetap terjadwal (dulu ikut hilang selama reschedule masih berlaku).
+      if(llkIsMovedAwayCard(x,dk)) return;
       const attKey=x._attKey||x.name;
       const attDk=x._extraDate||dk;
       const st=(attendance[attDk]||{})[attKey];
