@@ -7708,6 +7708,11 @@ function renderLainnya(){
           <div class="menu-text"><div class="menu-label">Pulihkan dari File</div><div class="menu-desc">Import dari file backup .txt atau .json</div></div>
           <span class="menu-arrow">${llkI('chevron-right')}</span>
         </div>
+        <div class="menu-item" onclick="llkPageEnter();renderImportRiwayat()">
+          <div class="menu-icon plum">${llkI('table')}</div>
+          <div class="menu-text"><div class="menu-label">Impor Riwayat dari Spreadsheet</div><div class="menu-desc">Masukkan absensi & materi lama (sebelum pakai LesLesanKu)</div></div>
+          <span class="menu-arrow">${llkI('chevron-right')}</span>
+        </div>
         ${localStorage.getItem('rms4_emergency_backup')?`<div class="menu-item" onclick="restoreEmergencyBackup()">
           <div class="menu-icon" style="background:var(--alpa-bg);color:var(--alpa)">${llkI('shield')}</div>
           <div class="menu-text"><div class="menu-label">Pulihkan Cadangan Darurat</div><div class="menu-desc">Backup otomatis sesaat sebelum data ditimpa cloud</div></div>
@@ -7814,6 +7819,149 @@ function restoreSettingsData(obj){
 
 // Pulihkan cadangan darurat yang otomatis dibuat sesaat sebelum data lokal
 // ditimpa oleh data dari cloud (lihat saveEmergencyBackup di bagian sinkronisasi).
+// ── IMPOR RIWAYAT DARI SPREADSHEET ─────────────────────
+// Data disiapkan di luar aplikasi (teks berawalan "LLK-RIWAYAT-1"), berisi
+// baris [tanggal, nama, kelas, status, progres, pr, alasan]. Aturan:
+// - HANYA MENAMBAH: tanggal yang sudah punya absen untuk murid itu dilewati.
+// - Murid yang belum ada dibuat sebagai murid NONAKTIF (tanpa jadwal).
+// - Pertemuan impor dianggap SUDAH LUNAS: jumlah pertemuan yang belum dibayar
+//   tiap murid dijaga sama persis (lastPaidAt / prepaidThrough digeser), dan
+//   mode bulanan: paidThruDate dimajukan ke tanggal impor terakhir.
+// - "Pertemuan Awal" murid diganti riwayat asli (dihapus, tanda Hadir
+//   otomatisnya yang tanpa catatan ikut dibersihkan).
+// - Sebelum menyimpan: cadangan darurat dibuat (bisa dipulihkan di Lainnya).
+let _llkImp=null;
+function renderImportRiwayat(){
+  history.pushState({tab:'lainnya', view:'sub'},'');
+  _llkImp=null;
+  document.getElementById('mainContent').innerHTML=`
+    <div class="page-title-area">
+      <div class="hist-back" onclick="llkPageEnter();renderLainnya()"><span><svg class="ico" aria-hidden="true"><use href="#i-chevron-left"/></svg></span><div class="hist-back-label">Kembali</div></div>
+      <div class="page-title">Impor Riwayat</div>
+      <div class="page-sub">Masukkan absensi & materi lama dari spreadsheet presensi. Data yang sudah ada di LesLesanKu tidak akan ditimpa.</div>
+    </div>
+    <div style="padding:10px 20px 80px">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin-bottom:14px">
+        <div class="llk-section-label" style="padding-top:0">${llkI('copy')}1. Tempel data impor</div>
+        <div style="font-size:0.82rem;color:var(--muted);margin-bottom:10px;line-height:1.5">Salin dari tombol <b>"Copy data untuk LLK"</b> di halaman Materi Presensi, lalu tempel di kotak ini.</div>
+        <textarea id="llkImpText" rows="5" class="llk-textarea" placeholder="LLK-RIWAYAT-1 …"></textarea>
+        <button onclick="llkImpCheck()" class="llk-btn primary block" style="margin-top:10px">${llkI('search')} Periksa Data</button>
+      </div>
+      <div id="llkImpResult"></div>
+    </div>`;
+}
+function llkImpParse(txt){
+  txt=String(txt||'').trim();
+  const i=txt.indexOf('{');
+  if(!/^LLK-RIWAYAT-1/.test(txt)||i<0) throw new Error('Ini bukan data impor LesLesanKu. Pastikan yang ditempel diawali "LLK-RIWAYAT-1".');
+  let d; try{ d=JSON.parse(txt.slice(i)); }catch(e){ throw new Error('Data tidak lengkap atau rusak. Ulangi Copy lalu tempel lagi.'); }
+  const ok=r=>Array.isArray(r)&&/^\d{4}-\d{2}-\d{2}$/.test(r[0])&&typeof r[1]==='string'&&r[1].trim()&&['hadir','izin','alpa'].includes(r[3]);
+  const rows=(d.rows||[]).filter(ok);
+  if(!rows.length) throw new Error('Tidak ada baris yang bisa diimpor.');
+  return rows;
+}
+function llkImpPlan(rows){
+  const byLower={}; students.forEach((s,i)=>{ byLower[(s.name||'').trim().toLowerCase()]=i; });
+  const groups={}, order=[];
+  rows.forEach(r=>{
+    const lk=r[1].trim().toLowerCase();
+    if(!groups[lk]){ const idx=byLower[lk]; groups[lk]={lk, idx:(idx===undefined?-1:idx), name:(idx===undefined?r[1].trim():students[idx].name), kelas:{}, items:{}, skip:0}; order.push(lk); }
+    const g=groups[lk]; g.kelas[r[2]]=(g.kelas[r[2]]||0)+1;
+    const cur=g.items[r[0]];
+    if(cur){ // 2 baris di tanggal sama = 1 pertemuan; catatan digabung
+      if(r[4]) cur.progress=cur.progress?cur.progress+'\n'+r[4]:r[4];
+      if(r[5]) cur.pr=cur.pr?cur.pr+'\n'+r[5]:r[5];
+      if(r[6]&&!cur.reason) cur.reason=r[6];
+    } else g.items[r[0]]={dk:r[0], status:r[3], progress:r[4]||'', pr:r[5]||'', reason:r[6]||''};
+  });
+  const list=order.map(lk=>{
+    const g=groups[lk], s=g.idx>=0?students[g.idx]:null;
+    const hasInit=!!(s&&(s.initialSessions||s.initialCount||(s.initialDates&&s.initialDates.length)));
+    const autoInit=new Set(hasInit&&s.initialDates?s.initialDates:[]);
+    const add=[]; let skip=0;
+    Object.keys(g.items).sort().forEach(dk=>{
+      const ex=(attendance[dk]||{})[g.name];
+      // Tanda Hadir otomatis dari "Pertemuan Awal" (tanpa catatan) akan diganti → boleh diisi
+      if(ex && !(autoInit.has(dk)&&ex==='hadir'&&!llkNoteHasContent(attNotes[dk+'_'+g.name]))){ skip++; return; }
+      add.push(g.items[dk]);
+    });
+    const kelas=Object.keys(g.kelas).sort((a,b)=>g.kelas[b]-g.kelas[a])[0]||'';
+    return {name:g.name, idx:g.idx, kelas, add, skip, hasInit};
+  }).filter(x=>x.add.length||x.skip);
+  return list;
+}
+function llkImpCheck(){
+  const box=document.getElementById('llkImpResult');
+  let rows;
+  try{ rows=llkImpParse(document.getElementById('llkImpText').value); }
+  catch(e){ box.innerHTML='<div class="llk-callout danger">'+llkI('alert')+'<div>'+escapeHtml(e.message)+'</div></div>'; return; }
+  const plan=llkImpPlan(rows); _llkImp=plan;
+  const addN=plan.reduce((a,x)=>a+x.add.length,0), skipN=plan.reduce((a,x)=>a+x.skip,0);
+  const match=plan.filter(x=>x.idx>=0), baru=plan.filter(x=>x.idx<0), init=plan.filter(x=>x.hasInit);
+  const dates=rows.map(r=>r[0]).sort();
+  const row=x=>'<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--border2);font-size:0.86rem"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>'+escapeHtml(x.name)+'</b> <span style="color:var(--muted)">· '+escapeHtml(x.kelas)+(x.hasInit?' · Pertemuan Awal diganti':'')+'</span></span><span style="flex-shrink:0;font-variant-numeric:tabular-nums;color:var(--text2)">+'+x.add.length+(x.skip?' <span style="color:var(--muted)">('+x.skip+' dilewati)</span>':'')+'</span></div>';
+  box.innerHTML=`
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin-bottom:14px">
+      <div class="llk-section-label" style="padding-top:0">${llkI('eye')}2. Periksa sebelum disimpan</div>
+      <div style="font-size:0.86rem;color:var(--text2);line-height:1.6;margin-bottom:10px">Rentang ${escapeHtml(fmtInvDate(dates[0]))} – ${escapeHtml(fmtInvDate(dates[dates.length-1]))}.<br>
+        <b>${addN}</b> pertemuan akan ditambahkan untuk <b>${plan.filter(x=>x.add.length).length}</b> murid${skipN?', '+skipN+' dilewati karena tanggalnya sudah ada di LesLesanKu':''}.</div>
+      <div class="llk-callout ok" style="font-size:0.82rem;line-height:1.55;margin-bottom:12px">${llkI('check-circle')}<div>Semua pertemuan impor dianggap <b>sudah lunas</b>: status bayar murid tidak berubah. Murid baru dibuat <b>Nonaktif</b> (tanpa jadwal, tidak dihitung batas paket).</div></div>
+      ${match.length?'<div style="font-weight:700;font-size:0.84rem;margin:6px 0 2px">Murid yang sudah ada ('+match.length+')</div>'+match.map(row).join(''):''}
+      ${baru.length?'<div style="font-weight:700;font-size:0.84rem;margin:14px 0 2px">Murid baru, dibuat Nonaktif ('+baru.length+')</div>'+baru.map(row).join(''):''}
+      ${init.length?'<div style="font-size:0.78rem;color:var(--muted);margin-top:10px;line-height:1.5">"Pertemuan Awal" pada '+init.length+' murid dikosongkan karena sudah diganti riwayat asli.</div>':''}
+      ${addN?`<button onclick="llkImpConfirm()" class="llk-btn primary block" style="margin-top:14px;height:50px">${llkI('check')} Simpan ${addN} Pertemuan</button>`:'<div class="llk-callout" style="margin-top:12px">Tidak ada data baru — semua tanggal sudah ada di LesLesanKu.</div>'}
+    </div>`;
+}
+function llkImpConfirm(){
+  if(!_llkImp) return;
+  const addN=_llkImp.reduce((a,x)=>a+x.add.length,0), baru=_llkImp.filter(x=>x.idx<0&&x.add.length).length;
+  showGenericConfirm('Simpan riwayat?', 'Sebanyak <b>'+addN+'</b> pertemuan akan ditambahkan'+(baru?' dan <b>'+baru+'</b> murid lama dibuat sebagai murid Nonaktif':'')+'.<br><br>Data yang sudah ada tidak ditimpa. Cadangan darurat dibuat otomatis sebelum menyimpan.', 'Ya, Simpan', llkImpApply, false, 'table');
+}
+function llkImpApply(){
+  const plan=_llkImp; if(!plan) return;
+  saveEmergencyBackup();
+  let added=0, created=0;
+  plan.forEach(p=>{
+    if(!p.add.length) return;
+    let s, unpaid=0, prepOff=null;
+    if(p.idx>=0){
+      s=students[p.idx];
+      const before=countSessions(s.name);
+      unpaid=Math.max(0,before-(s.lastPaidAt||0));
+      if(s.prepaidThrough!=null) prepOff=s.prepaidThrough-before;
+      if(p.hasInit) llkApplyInitialSessions(s, 0, s.initialDates||[]);
+      p._own=countedSessionList(s.name).map(x=>x.date).filter(Boolean); // pertemuan asli LLK (sebelum impor)
+    } else {
+      const last=p.add[p.add.length-1].dk, d=new Date(last+'T00:00:00'); d.setDate(d.getDate()+1);
+      s={name:p.name, instrument:p.kelas||'', curriculumSubject:'', day:'', time:'', time2:'', day2:'', time2a:'', time2b:'', day3:'', time3a:'', time3b:'', day4:'', time4a:'', time4b:'',
+         phone:'', notes:'Diimpor dari spreadsheet presensi', extraDates:[], extraNote:'', payCycle:4, payTiming:'', rate:40000, initialSessions:0, sheetLink:'',
+         inactive:true, inactiveSince:dateKeyOfDate(d)};
+      students.push(s); created++;
+    }
+    const name=s.name;
+    p.add.forEach(it=>{
+      if((attendance[it.dk]||{})[name]) return; // jaga-jaga: tetap tidak menimpa
+      attendance[it.dk]=attendance[it.dk]||{};
+      attendance[it.dk][name]=it.status;
+      if(it.progress||it.pr||it.reason) attNotes[it.dk+'_'+name]={reason:it.reason||'', progress:it.progress||'', prSiswa:it.pr||'', prGuru:''};
+      added++;
+    });
+    const after=countSessions(name);
+    s.lastPaidAt=Math.max(0, after-unpaid);
+    if(prepOff!=null) s.prepaidThrough=after+prepOff;
+    // Mode bulanan: tanggal impor dianggap lunas, tapi jangan ikut melunasi
+    // pertemuan asli LLK yang memang belum dibayar.
+    let lastDk=p.add[p.add.length-1].dk;
+    const firstOwnUnpaid=(p._own||[]).filter(dk=>!s.paidThruDate||dk>s.paidThruDate).sort()[0];
+    if(firstOwnUnpaid&&firstOwnUnpaid<=lastDk){ const d=new Date(firstOwnUnpaid+'T00:00:00'); d.setDate(d.getDate()-1); lastDk=dateKeyOfDate(d); }
+    if(!s.paidThruDate||s.paidThruDate<lastDk) s.paidThruDate=lastDk;
+  });
+  _llkImp=null;
+  save();
+  render();
+  renderLainnya();
+  toast('✅ '+added+' pertemuan diimpor'+(created?', '+created+' murid lama dibuat Nonaktif':''),5000);
+}
 function restoreEmergencyBackup(){
   const raw=localStorage.getItem('rms4_emergency_backup');
   if(!raw){ toast('Tidak ada cadangan darurat tersimpan.'); return; }

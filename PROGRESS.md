@@ -9,6 +9,12 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## 📥 Impor Riwayat dari Spreadsheet (5 Okt 2026)
+- Menu **Lainnya → Impor Riwayat dari Spreadsheet** (`renderImportRiwayat`): tempel teks berawalan `LLK-RIWAYAT-1` + JSON `{rows:[[tanggal,nama,kelas,status,progres,pr,alasan],…]}` → **Periksa Data** (pratinjau per murid) → **Simpan** (konfirmasi melayang).
+- Aturan (keputusan pemilik): rentang Jan 2025–Mei 2026; **hanya menambah** (tanggal yang sudah punya absen dilewati, impor ulang tidak dobel); murid yang belum ada dibuat **Nonaktif** tanpa jadwal (`notes:'Diimpor dari spreadsheet presensi'`, tarif default 40.000 — bisa diedit); pertemuan impor **dianggap lunas** (selisih belum-dibayar `countSessions - lastPaidAt` & saldo `prepaidThrough` dijaga sama; mode bulanan `paidThruDate` dimajukan, tapi tidak melewati pertemuan asli LLK yang belum dibayar); **Pertemuan Awal diganti** riwayat asli (`llkApplyInitialSessions(s,0,…)`); 2 baris di tanggal sama = 1 pertemuan (catatan digabung); `saveEmergencyBackup()` sebelum menyimpan.
+- Data impor disiapkan Claude dari sheet presensi pemilik (tab Januari 25 – Mei 2026, materi rekonstruksi) dan disediakan lewat tombol "Copy data untuk LLK" di halaman artifact Materi Presensi.
+- Teruji (`imptest.js`, 19 cek): status bayar tidak berubah, catatan asli tidak tertimpa, nama beda huruf besar/kecil tetap cocok, izin/alpa tercatat dengan alasan.
+
 ## 📅 Kalender: "Copy semua materi {bulan}" (5 Okt 2026)
 - Tombol di bawah Kalender (Track → Kalender) menyalin **1 kolom menurun**: progres + "PR: …" tiap pertemuan Hadir/Alpa di bulan yang ditampilkan (s.d. hari ini), urutan **sama persis** dengan salinan harian tab Kirim (per tanggal, lalu jam) → di Sheet presensi pemilik (kolom E "MATERI") cukup klik sel MATERI baris pertama bulan itu → Paste.
 - Pertemuan tanpa catatan tetap jadi baris kosong (baris tidak bergeser). Disalin sebagai tabel HTML 1 kolom (catatan berbaris-baris tetap 1 sel) + teks biasa cadangan. Tidak menandai laporan harian sebagai "sudah disalin".
