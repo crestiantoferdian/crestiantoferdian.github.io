@@ -5852,7 +5852,55 @@ function buildCalendar(){
       <button class="cal-nav" aria-label="Bulan berikutnya" onclick="calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderTrack()">${llkI('chevron-right')}</button>
     </div>
     <div class="cal-grid">${cells}</div>
+    <button onclick="llkCopyMonthMateri(${y},${m})" class="llk-btn secondary block" style="margin-top:12px;min-height:44px;height:auto">${llkI('copy')} Copy semua materi ${monthNames[m]} ${y}</button>
+    <div style="font-size:0.76rem;color:var(--muted);margin-top:6px;line-height:1.5;text-align:center">Isi progres & PR tiap pertemuan (Hadir/Alpa), menurun sesuai urutan laporan. Di Google Sheets: klik sel <b>MATERI</b> baris pertama bulan ini → Paste.</div>
   </div>`;
+}
+
+// Salin kolom "Materi" sebulan (progres + PR) — SATU kolom menurun, satu baris
+// per pertemuan Hadir/Alpa, urutan sama dengan tombol Salin di tab Kirim
+// (per tanggal, lalu jam). Pertemuan tanpa catatan tetap jadi baris kosong
+// supaya baris di Sheets tidak bergeser.
+function llkMonthMateriRows(y, m){
+  const out=[], days=new Date(y,m+1,0).getDate(), today=todayStr();
+  for(let d=1; d<=days; d++){
+    const dk=y+'-'+pad(m+1)+'-'+pad(d);
+    if(dk>today) break;
+    llkKirimRows(dk).rows.forEach(r=>{
+      const parts=[];
+      if(r.progress) parts.push(r.progress);
+      if(r.pr) parts.push('PR: '+r.pr);
+      out.push({date:dk, name:r.s.name, text:parts.join('\n')});
+    });
+  }
+  return out;
+}
+function llkCopyMonthMateri(y, m){
+  const MN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const rows=llkMonthMateriRows(y,m);
+  if(!rows.length){ toast('Belum ada pertemuan Hadir/Alpa di '+MN[m]+' '+y); return; }
+  const filled=rows.filter(r=>r.text).length;
+  // HTML: 1 kolom, baris baru di dalam catatan jadi <br> → tetap 1 sel di Sheets
+  const html='<table>'+rows.map(r=>'<tr><td>'+escapeHtml(r.text).replace(/\n/g,'<br>')+'</td></tr>').join('')+'</table>';
+  const txt=rows.map(r=>r.text.replace(/\s*\n+\s*/g,' / ').replace(/\t/g,' ')).join('\n');
+  const done=()=>toast('✅ '+rows.length+' baris materi '+MN[m]+' tersalin ('+filled+' berisi catatan). Klik sel MATERI baris pertama → Paste.',5000);
+  const legacy=()=>{
+    const ta=document.createElement('textarea'); ta.value=txt; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ toast('Gagal salin otomatis'); }
+    document.body.removeChild(ta);
+  };
+  const plain=()=>{
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(legacy);
+    else legacy();
+  };
+  if(navigator.clipboard&&navigator.clipboard.write&&window.ClipboardItem){
+    try{
+      navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([txt],{type:'text/plain'})})]).then(done).catch(plain);
+      return;
+    }catch(e){}
+  }
+  plain();
 }
 
 function selectCalDate(dk){
@@ -6517,8 +6565,9 @@ function renderHistoryDetail(){
 }
 
 // ── KIRIM ─────────────────────────────────────────────
-function renderKirim(){
-  const dateKey=kirimSelectedDate||todayStr();
+// Baris laporan (Hadir + Alpa) untuk 1 tanggal — urutan sama persis dengan
+// tabel & salinan di tab Kirim (dipakai juga oleh "Salin Materi Sebulan").
+function llkKirimRows(dateKey){
   const isToday=dateKey===todayStr();
   const todayName=dayNameFromDate(dateKey);
   const att=attendance[dateKey]||{};
@@ -6569,6 +6618,12 @@ function renderKirim(){
     const note=attNotes[attDateKey+'_'+attKey]||{};
     if(st==='hadir'||st==='alpa') rows.push({s,st,progress:(note.progress||'').trim(),pr:(note.prSiswa||'').trim()});
   });
+  return {rows, hariName, tgl, isToday};
+}
+
+function renderKirim(){
+  const dateKey=kirimSelectedDate||todayStr();
+  const {rows, hariName, tgl, isToday}=llkKirimRows(dateKey);
 
   // Teks untuk di-copy ke Sheets. Kolom lama (Hari, Tanggal, Nama, Mapel) tetap
   // di urutan yang sama; Progres & PR ditambahkan di kolom ke-5 & ke-6.
