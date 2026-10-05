@@ -8033,20 +8033,31 @@ function showBackupText(json, tgl){
         '<textarea readonly id="backupText" class="llk-textarea" style="height:160px;font-family:var(--font-mono);font-size:0.74rem;resize:none">'+json+'</textarea>'+
       '</div>'+
       '<div class="llk-callout" style="flex-direction:column;gap:6px;font-size:0.84rem">'+
-        '<div class="llk-ic-inline">'+llkI('download')+'<span><b>Download</b> \u2192 file tersimpan di folder Downloads HP</span></div>'+
+        '<div class="llk-ic-inline">'+llkI('download')+'<span><b>Download</b> \u2192 file tersimpan di folder Downloads (di HP bisa muncul menu Bagikan → pilih Simpan/Files)</span></div>'+
         '<div class="llk-ic-inline">'+llkI('chat')+'<span><b>Kirim WA</b> \u2192 pilih chat diri sendiri \u2192 kirim</span></div>'+
         '<div class="llk-ic-inline">'+llkI('copy')+'<span><b>Salin</b> \u2192 tempel di Google Keep / Notes / Drive</span></div>'+
       '</div>'+
     '</div>';
 }
 
+// HP/tablet (bukan PC/laptop). Dipakai untuk memilih "Bagikan" vs unduhan biasa.
+function llkIsMobileDevice(){
+  try{ if(navigator.userAgentData && navigator.userAgentData.mobile===true) return true; }catch(e){}
+  const ua=navigator.userAgent||'';
+  if(/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return true;
+  // iPadOS menyamar sebagai Mac: Mac + layar sentuh = iPad
+  return /Macintosh/.test(ua) && (navigator.maxTouchPoints||0)>1;
+}
 function downloadBackup(){
   var json = window._backupJson || '';
   var tgl = window._backupTgl || 'backup';
   var filename = 'LLK-Backup-'+tgl+'.txt';
 
-  // Prioritas 1: Web Share API dengan file (Chrome Android modern)
-  if(navigator.canShare){
+  // Prioritas 1 (HANYA di HP): Web Share API dengan file (Chrome Android modern).
+  // Di PC/laptop (Windows/Mac) fitur Bagikan juga ada, tapi yang diharapkan
+  // tombol Download adalah file tersimpan di folder Downloads — jadi di PC
+  // langsung ke unduhan biasa (Prioritas 2).
+  if(navigator.canShare && llkIsMobileDevice()){
     try{
       var b1 = new Blob([json],{type:'text/plain;charset=utf-8'});
       var f1 = new File([b1], filename, {type:'text/plain'});

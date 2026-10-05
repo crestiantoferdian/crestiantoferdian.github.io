@@ -9,6 +9,10 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## 💾 Backup Manual: Download di PC benar-benar mengunduh (5 Okt 2026)
+- Bug: di PC (Chrome/Edge Windows) tombol **Download File Backup** membuka jendela "Bagikan/Kirim" karena `navigator.canShare({files})` juga true di Windows.
+- Perbaikan: `downloadBackup()` memakai menu Bagikan **hanya di HP** (`llkIsMobileDevice()`: userAgentData.mobile / UA Android-iPhone-iPad / iPad bermode Mac); di PC langsung unduhan biasa → `LLK-Backup-dd-mm-yyyy.txt` di folder Downloads. Teruji `bkptest.js` (PC terunduh, HP tetap Bagikan).
+
 ## 📥 Impor Riwayat dari Spreadsheet (5 Okt 2026)
 - Menu **Lainnya → Impor Riwayat dari Spreadsheet** (`renderImportRiwayat`): tempel teks berawalan `LLK-RIWAYAT-1` + JSON `{rows:[[tanggal,nama,kelas,status,progres,pr,alasan],…]}` → **Periksa Data** (pratinjau per murid) → **Simpan** (konfirmasi melayang).
 - Aturan (keputusan pemilik): rentang Jan 2025–Mei 2026; **hanya menambah** (tanggal yang sudah punya absen dilewati, impor ulang tidak dobel); murid yang belum ada dibuat **Nonaktif** tanpa jadwal (`notes:'Diimpor dari spreadsheet presensi'`, tarif default 40.000 — bisa diedit); pertemuan impor **dianggap lunas** (selisih belum-dibayar `countSessions - lastPaidAt` & saldo `prepaidThrough` dijaga sama; mode bulanan `paidThruDate` dimajukan, tapi tidak melewati pertemuan asli LLK yang belum dibayar); **Pertemuan Awal diganti** riwayat asli (`llkApplyInitialSessions(s,0,…)`); 2 baris di tanggal sama = 1 pertemuan (catatan digabung); `saveEmergencyBackup()` sebelum menyimpan.
