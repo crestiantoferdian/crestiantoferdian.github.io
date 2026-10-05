@@ -9,6 +9,12 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## 📅 Kalender: "Copy semua materi {bulan}" (5 Okt 2026)
+- Tombol di bawah Kalender (Track → Kalender) menyalin **1 kolom menurun**: progres + "PR: …" tiap pertemuan Hadir/Alpa di bulan yang ditampilkan (s.d. hari ini), urutan **sama persis** dengan salinan harian tab Kirim (per tanggal, lalu jam) → di Sheet presensi pemilik (kolom E "MATERI") cukup klik sel MATERI baris pertama bulan itu → Paste.
+- Pertemuan tanpa catatan tetap jadi baris kosong (baris tidak bergeser). Disalin sebagai tabel HTML 1 kolom (catatan berbaris-baris tetap 1 sel) + teks biasa cadangan. Tidak menandai laporan harian sebagai "sudah disalin".
+- Refactor: baris laporan per tanggal kini dari `llkKirimRows(dateKey)` (dipakai `renderKirim` & `llkMonthMateriRows`).
+- Catatan: Claude tidak bisa membuka Google Sheets / data Firebase pemilik dari sesi cloud (docs.google.com diblokir jaringan, tanpa konektor Sheets).
+
 ## 📋 Tab Kirim: kolom Progres & PR + ikut tersalin ke Sheets (5 Okt 2026)
 - Kolom "Progres & PR" di tabel Kirim menampilkan tulisan progres & PR siswa sesi itu (`attNotes[tgl_attKey]`) dalam kotak yang bisa digulir (`.llk-kirim-note`, maks. 84px); tombol kirim progres tetap di sebelahnya. Kosong → "Belum ada catatan".
 - **Salin & Paste ke Google Sheets** kini 6 kolom: Hari, Tanggal, Nama, Mata Pelajaran, **Progres**, **PR** (4 kolom lama tetap di urutan yang sama). Disalin sebagai tabel HTML (Sheets memakai ini → progres berbaris-baris tetap 1 sel) + teks biasa cadangan (baris baru jadi " / ").
