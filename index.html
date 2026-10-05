@@ -3432,7 +3432,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
               _isExtra:true,
               _extraIdx:ei,
               _extraTotal:s.extraDates.length,
-              _extraNote:s.extraNote||'Tambahan Kelas',
+              _extraNote:ed.note||s.extraNote||'Tambahan Kelas',
               _attKey:extraAttKey,
               _extraDate:ed.date,
               _hasActiveReschedule:true,
@@ -3447,7 +3447,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
               _isExtra:true,
               _extraIdx:ei,
               _extraTotal:s.extraDates.length,
-              _extraNote:s.extraNote||'Tambahan Kelas',
+              _extraNote:ed.note||s.extraNote||'Tambahan Kelas',
               _attKey:extraAttKey,
               _extraDate:ed.date
             }));
@@ -3773,7 +3773,8 @@ function countedSessionList(name){
     if(st==='hadir'||st==='alpa') out.push({date:dk,label:st==='hadir'?'Hadir':'Alpa (tetap dihitung)'});
     Object.keys(dayAtt).forEach(k=>{
       if(k.startsWith(prefix)&&(dayAtt[k]==='hadir'||dayAtt[k]==='alpa')){
-        out.push({date:dk,label:(dayAtt[k]==='hadir'?'Hadir':'Alpa (tetap dihitung)')+' · '+(s.extraNote||'Tambahan Kelas')});
+        const ed=(s.extraDates||[]).find((e,i)=>String(e.id!==undefined&&e.id!==null?e.id:i)===k.slice(prefix.length));
+        out.push({date:dk,label:(dayAtt[k]==='hadir'?'Hadir':'Alpa (tetap dihitung)')+' · '+((ed&&ed.note)||s.extraNote||'Tambahan Kelas')});
       }
     });
   });
@@ -8533,7 +8534,7 @@ function renderExtraDates(){
     return `
     <div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r-md);padding:12px;margin-bottom:2px">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-        <span style="display:inline-flex;align-items:center;gap:6px;font-size:0.84rem;font-weight:700;color:var(--blue)">${llkI('calendar','sm')} Sesi ${n+1}</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;font-size:0.84rem;font-weight:700;color:var(--blue)">${llkI('calendar','sm')} Sesi ${n+1}</span>${ed.note?`<span style="font-size:0.78rem;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">· ${escapeHtml(ed.note)}</span>`:''}
         <button type="button" onclick="removeExtraDate(${i})" class="llk-btn danger sm" style="margin-left:auto;height:34px">${llkI('x','sm')} Hapus</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
@@ -9576,6 +9577,12 @@ function saveReschedule(){
     return;
   }
 
+  // Reschedule disimpan per HARI rutin (bukan per tanggal asal). Kalau tanggal
+  // barunya melewati hari rutin itu lebih dari sekali, semua hari rutin di
+  // antaranya ikut dianggap "pindah" → sarankan Izin + Jadwal Tambahan saja.
+  const crossed=llkRsCrossedDates(_rsDay,date);
+  if(crossed.length>=2){ llkOpenRsLong(s,_rsDay,date,time,time2,crossed); return; }
+
   if(!s.reschedules) s.reschedules=[];
   // Hapus reschedule lama untuk hari ini jika ada
   s.reschedules=s.reschedules.filter(r=>r.day!==_rsDay);
@@ -9587,6 +9594,102 @@ function saveReschedule(){
   closeRescheduleModal();
   render();
   toast('✅ '+displayName+' direschedule ke '+dn+', '+d.getDate()+'/'+(d.getMonth()+1));
+}
+
+// Tanggal hari rutin `day` mulai hari ini sampai SEBELUM tanggal tujuan —
+// semuanya akan tampil "Pindah ke …" di Absensi kalau disimpan sebagai reschedule.
+function llkRsCrossedDates(day, toDk){
+  const out=[], cur=new Date(todayStr()+'T00:00:00');
+  for(let i=0;i<400;i++){
+    const dk=dateKeyOfDate(cur);
+    if(dk>=toDk) break;
+    if(dayNameFromDate(dk)===day) out.push(dk);
+    cur.setDate(cur.getDate()+1);
+  }
+  return out;
+}
+function llkRsShort(dk){ const d=new Date(dk+'T00:00:00'); return DAY_SHORT_ID[d.getDay()]+', '+d.getDate()+' '+MONTH_SHORT_ID[d.getMonth()]; }
+function llkRsAutoNote(dk){
+  const today=todayStr();
+  if(dk<today){
+    const back=new Date(today+'T00:00:00'); back.setDate(back.getDate()-7);
+    if(dk>=dateKeyOfDate(back)) return 'Reschedule minggu lalu ('+llkRsShort(dk)+')';
+  }
+  return 'Ganti les '+llkRsShort(dk);
+}
+// Jendela saran: reschedule yang melewati >1 minggu → Izin di tanggal les yang
+// diganti + Jadwal Tambahan di tanggal baru (tagihan tetap 1x).
+function llkOpenRsLong(s, day, toDk, time, time2, crossed){
+  const idx=students.indexOf(s);
+  window._rsl={idx, day, date:toDk, time, time2, noteEdited:false};
+  const today=todayStr();
+  // Pilihan "les yang diganti": hari rutin 4 minggu terakhir + yang terlewati
+  const opts=[];
+  const back=new Date(today+'T00:00:00'); back.setDate(back.getDate()-28);
+  for(const cur=back; dateKeyOfDate(cur)<today; cur.setDate(cur.getDate()+1)){
+    const dk=dateKeyOfDate(cur); if(dayNameFromDate(dk)===day) opts.push(dk);
+  }
+  crossed.forEach(dk=>opts.push(dk));
+  const stTxt={hadir:'sudah Hadir',alpa:'sudah Alpa',izin:'sudah Izin',off:'Off'};
+  const optHtml=opts.map(dk=>{
+    const st=(attendance[dk]||{})[s.name];
+    const done=st==='hadir'||st==='alpa';
+    return '<option value="'+dk+'"'+(done?' disabled':'')+'>'+llkRsShort(dk)+(dk===today?' (hari ini)':'')+(stTxt[st]?' — '+stTxt[st]:'')+'</option>';
+  }).join('');
+  const crossTxt=crossed.map(dk=>'<b>'+llkRsShort(dk)+'</b>').join(', ');
+  const toTxt=llkRsShort(toDk)+(time?' · '+time:'');
+  let el=document.getElementById('rsLongOverlay'); if(el) el.remove();
+  el=document.createElement('div');
+  el.id='rsLongOverlay'; el.className='overlay open'; el.style.zIndex='10002';
+  el.addEventListener('click',e=>{ if(e.target===el) llkCloseRsLong(); });
+  el.innerHTML='<div class="modal" style="max-width:420px">'
+    +'<div class="llk-dialog-ic warn">'+llkI('alert')+'</div>'
+    +'<div class="modal-title" style="justify-content:center;text-align:center">Reschedule lebih dari 1 minggu</div>'
+    +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.6;text-align:center;margin-bottom:12px">Kalau disimpan sebagai reschedule, les <b>'+escapeHtml(day)+'</b> '+escapeHtml(s.name)+' tanggal '+crossTxt+' akan sama-sama dianggap pindah, padahal yang pindah cuma 1 pertemuan.</div>'
+    +'<div class="llk-callout" style="font-size:0.86rem;margin-bottom:14px;line-height:1.55">'+llkI('info')+'<div><b>Saran:</b> tandai <b>Izin</b> di tanggal les yang diganti, lalu buat <b>Jadwal Tambahan</b> di <b>'+escapeHtml(toTxt)+'</b>. Tagihan tetap dihitung 1x.</div></div>'
+    +'<div class="mfield" style="margin-bottom:10px"><label>Les yang diganti</label><select id="rsl_from" onchange="llkRsLongPick()"><option value="">— pilih tanggal —</option>'+optHtml+'</select></div>'
+    +'<div class="mfield" style="margin-bottom:4px"><label>Judul jadwal tambahan</label><input id="rsl_note" type="text" maxlength="60" placeholder="mis. Reschedule minggu lalu" oninput="window._rsl&&(window._rsl.noteEdited=true)"/></div>'
+    +'<div class="llk-hint" style="margin-bottom:6px">Tampil di kartu Absensi tanggal '+escapeHtml(llkRsShort(toDk))+'. Contoh: "Reschedule minggu lalu", "Ganti les Senin 12 Okt".</div>'
+    +'<div class="mactions">'
+      +'<button class="mbtn mbtn-cancel" onclick="llkCloseRsLong()">Ganti Tanggal</button>'
+      +'<button class="mbtn mbtn-save" onclick="llkRsLongApply()">'+llkI('check')+' Izin + Jadwal Tambahan</button>'
+    +'</div></div>';
+  document.body.appendChild(el);
+}
+function llkRsLongPick(){
+  const v=document.getElementById('rsl_from').value, inp=document.getElementById('rsl_note');
+  if(v&&inp&&!(window._rsl&&window._rsl.noteEdited)) inp.value=llkRsAutoNote(v);
+}
+function llkCloseRsLong(){
+  const el=document.getElementById('rsLongOverlay'); if(el) el.remove();
+  window._rsl=null;
+}
+function llkRsLongApply(){
+  const r=window._rsl; if(!r) return;
+  const s=students[r.idx]; if(!s){ toast('❌ Data murid tidak ditemukan'); return; }
+  const from=document.getElementById('rsl_from').value;
+  if(!from){ toast('⚠️ Pilih dulu tanggal les yang diganti'); return; }
+  const note=(document.getElementById('rsl_note').value||'').trim()||llkRsAutoNote(from);
+  const cur=(attendance[from]||{})[s.name];
+  if(cur==='hadir'||cur==='alpa'){ toast('⚠️ '+llkRsShort(from)+' sudah '+cur+', pilih tanggal lain'); return; }
+  // 1) Tanggal asal → Izin (Izin/Off yang sudah ada dibiarkan)
+  if(!cur||cur==='belum'){
+    attendance[from]=attendance[from]||{};
+    attendance[from][s.name]='izin';
+    cancelReminderPush(from, s.name);
+  }
+  const key=from+'_'+s.name, n=attNotes[key]||{};
+  if(!n.reason) attNotes[key]=Object.assign({reason:'',progress:'',prSiswa:'',prGuru:''},n,{reason:'Reschedule ke '+llkRsShort(r.date)+(r.time?' '+r.time:'')});
+  // 2) Jadwal Tambahan di tanggal baru, dengan judulnya sendiri
+  if(!s.extraDates) s.extraDates=[];
+  s.extraDates.push({id:'ex_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),date:r.date,time:r.time||s.time||'',time2:r.time2||'',attended:false,note:note});
+  // 3) Reschedule lama untuk hari ini (kalau sedang diedit) diganti cara ini
+  s.reschedules=(s.reschedules||[]).filter(x=>x.day!==r.day);
+  save();
+  llkCloseRsLong();
+  closeRescheduleModal();
+  render();
+  toast('✅ '+s.name+': Izin '+llkRsShort(from)+' + Jadwal Tambahan '+llkRsShort(r.date),4500);
 }
 
 function clearReschedule(){
