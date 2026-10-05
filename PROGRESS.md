@@ -9,6 +9,11 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## 🧾 Kartu Siswa: tombol kuitansi hilang setelah dikirim + tanda murid impor (5 Okt 2026)
+- Dulu tombol "Kirim Ulang Kuitansi" selalu ada di kartu murid yang pernah bayar. Sekarang kartu menampilkan **"Kirim Kuitansi"** hanya selama kuitansi pembayaran terakhir **belum** dikirim (`receiptSentAt` terisi saat dikirim WA/dibagikan/diunduh/dicetak). Kirim ulang kuitansi lama tetap di **profil murid**.
+- Kartu murid Nonaktif: hasil impor bertanda **"riwayat dari spreadsheet"**, murid lain menampilkan **"nonaktif sejak …"** (memudahkan mencari murid yang tidak sengaja nonaktif). Jadwal kosong tidak lagi tampil sebagai " · Vokal".
+- Catatan: nama di spreadsheet bisa beda ejaan dari LLK (mis. "Ayu" vs "Ayu Kinanthi", "Azkana" vs "Azkhana") → impor membuat murid Nonaktif terpisah; jangan diaktifkan, biarkan sebagai riwayat.
+
 ## 👥 Tab Siswa: label "Semua Siswa" tidak menyesatkan lagi (5 Okt 2026)
 - Saat ada kelompok "Perlu Bayar" (mis. awal bulan di mode Akhir Bulan), daftar di bawahnya dulu berlabel "Semua Siswa · N" padahal hanya sisa murid → pemilik mengira murid aktif berkurang (54 → 44). Sekarang berlabel **"Siswa Lainnya · N (total aktif M)"**; tanpa kelompok Perlu Bayar tetap "Semua Siswa · N".
 - Dicek juga: Impor Riwayat tidak mengubah status "Perlu Bayar" di mode bulanan (`impmonthly.js`).
