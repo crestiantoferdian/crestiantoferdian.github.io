@@ -5188,7 +5188,8 @@ function buildSiswaListHtml(needPay,ok,filtered,inactiveList){
       needPay.forEach(({s,total,cycle,isDue})=>{ html+=siswaCardHtml(s,total,cycle,isDue); });
     }
     if(ok.length){
-      html+='<div class="llk-section-label" style="margin-top:'+(needPay.length?'14':'0')+'px">'+llkI('users')+'Semua Siswa · '+ok.length+'</div>';
+      // Kalau ada kelompok "Perlu Bayar" di atas, kelompok ini BUKAN semua siswa — beri nama yang jujur
+      html+='<div class="llk-section-label" style="margin-top:'+(needPay.length?'14':'0')+'px">'+llkI('users')+(needPay.length?'Siswa Lainnya · '+ok.length+' <span style="font-weight:500;color:var(--muted)">(total aktif '+(needPay.length+ok.length)+')</span>':'Semua Siswa · '+ok.length)+'</div>';
       ok.forEach(({s,total,cycle,isDue})=>{ html+=siswaCardHtml(s,total,cycle,isDue); });
     }
     if(inactiveList.length){

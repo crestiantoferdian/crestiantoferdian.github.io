@@ -9,6 +9,10 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## 👥 Tab Siswa: label "Semua Siswa" tidak menyesatkan lagi (5 Okt 2026)
+- Saat ada kelompok "Perlu Bayar" (mis. awal bulan di mode Akhir Bulan), daftar di bawahnya dulu berlabel "Semua Siswa · N" padahal hanya sisa murid → pemilik mengira murid aktif berkurang (54 → 44). Sekarang berlabel **"Siswa Lainnya · N (total aktif M)"**; tanpa kelompok Perlu Bayar tetap "Semua Siswa · N".
+- Dicek juga: Impor Riwayat tidak mengubah status "Perlu Bayar" di mode bulanan (`impmonthly.js`).
+
 ## 💾 Backup Manual: Download di PC benar-benar mengunduh (5 Okt 2026)
 - Bug: di PC (Chrome/Edge Windows) tombol **Download File Backup** membuka jendela "Bagikan/Kirim" karena `navigator.canShare({files})` juga true di Windows.
 - Perbaikan: `downloadBackup()` memakai menu Bagikan **hanya di HP** (`llkIsMobileDevice()`: userAgentData.mobile / UA Android-iPhone-iPad / iPad bermode Mac); di PC langsung unduhan biasa → `LLK-Backup-dd-mm-yyyy.txt` di folder Downloads. Teruji `bkptest.js` (PC terunduh, HP tetap Bagikan).
