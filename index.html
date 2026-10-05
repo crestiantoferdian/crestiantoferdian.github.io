@@ -5082,7 +5082,9 @@ function siswaCardHtml(s,total,cycle,isDue){
       ih+='<div class="track-avatar'+(isVokal?' vocal':'')+'" style="opacity:0.6">'+llkSubjectIcon(s.instrument)+'</div>';
       ih+='<div style="flex:1;min-width:0">';
       ih+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:0.98rem;color:var(--text2)">'+escapeHtml(s.name)+' <span style="font-size:0.68rem;font-weight:700;background:var(--paper-2);color:var(--muted);border-radius:var(--r-pill);padding:2px 8px;letter-spacing:0.03em">NONAKTIF</span></div>';
-      ih+='<div style="font-size:0.8rem;color:var(--muted);margin-top:2px">'+s.day+' '+s.time+(s.instrument?' · '+escapeHtml(s.instrument):'')+'</div>';
+      const fromSheet=s.notes==='Diimpor dari spreadsheet presensi';
+      const since=s.inactiveSince?' · nonaktif sejak '+fmtInvDate(s.inactiveSince):'';
+      ih+='<div style="font-size:0.8rem;color:var(--muted);margin-top:2px">'+(s.day?escapeHtml(s.day+' '+(s.time||''))+' · ':'')+escapeHtml(s.instrument||'')+(fromSheet?' · <b>riwayat dari spreadsheet</b>':since)+'</div>';
       ih+='</div>';
       ih+='<span class="menu-arrow">'+llkI('chevron-right')+'</span>';
       ih+='</div>';
@@ -5116,8 +5118,11 @@ function siswaCardHtml(s,total,cycle,isDue){
       html+='<button onclick="confirmMarkPaid(this,\''+safeName+'\')" class="llk-btn outline-success sm" style="flex:1">'+llkI('check')+' Sudah Bayar</button>';
       html+='</div>';
     } else if(!paymentOff){
+      // Tombol di kartu hanya selama kuitansi pembayaran terakhir BELUM dikirim
+      // (dikirim/dibagikan/diunduh/dicetak → receiptSentAt terisi → tombol hilang).
+      // Kirim ulang kuitansi lama tetap tersedia di profil murid.
       const rc=llkLastReceipt(s);
-      if(rc) html+='<button onclick="openInvoice(\''+safeName+'\',\''+jsAttr(rc.no)+'\')" class="llk-btn soft sm" style="margin-top:10px;height:38px;font-size:0.8rem">'+llkI('receipt','sm')+' Kirim Ulang Kuitansi</button>';
+      if(rc&&!rc.receiptSentAt) html+='<button onclick="openInvoice(\''+safeName+'\',\''+jsAttr(rc.no)+'\')" class="llk-btn soft sm" style="margin-top:10px;height:38px;font-size:0.8rem">'+llkI('receipt','sm')+' Kirim Kuitansi</button>';
     }
     html+='</div>';
     return html;
