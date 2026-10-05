@@ -9636,7 +9636,6 @@ function llkOpenRsLong(s, day, toDk, time, time2, crossed){
     const done=st==='hadir'||st==='alpa';
     return '<option value="'+dk+'"'+(done?' disabled':'')+'>'+llkRsShort(dk)+(dk===today?' (hari ini)':'')+(stTxt[st]?' — '+stTxt[st]:'')+'</option>';
   }).join('');
-  const crossTxt=crossed.map(dk=>'<b>'+llkRsShort(dk)+'</b>').join(', ');
   const toTxt=llkRsShort(toDk)+(time?' · '+time:'');
   let el=document.getElementById('rsLongOverlay'); if(el) el.remove();
   el=document.createElement('div');
@@ -9644,8 +9643,7 @@ function llkOpenRsLong(s, day, toDk, time, time2, crossed){
   el.addEventListener('click',e=>{ if(e.target===el) llkCloseRsLong(); });
   el.innerHTML='<div class="modal" style="max-width:420px">'
     +'<div class="llk-dialog-ic warn">'+llkI('alert')+'</div>'
-    +'<div class="modal-title" style="justify-content:center;text-align:center">Reschedule lebih dari 1 minggu</div>'
-    +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.6;text-align:center;margin-bottom:12px">Kalau disimpan sebagai reschedule, les <b>'+escapeHtml(day)+'</b> '+escapeHtml(s.name)+' tanggal '+crossTxt+' akan sama-sama dianggap pindah, padahal yang pindah cuma 1 pertemuan.</div>'
+    +'<div class="modal-title" style="justify-content:center;text-align:center">Reschedule lebih dari 1 minggu tidak bisa</div>'
     +'<div class="llk-callout" style="font-size:0.86rem;margin-bottom:14px;line-height:1.55">'+llkI('info')+'<div><b>Saran:</b> tandai <b>Izin</b> di tanggal les yang diganti, lalu buat <b>Jadwal Tambahan</b> di <b>'+escapeHtml(toTxt)+'</b>. Tagihan tetap dihitung 1x.</div></div>'
     +'<div class="mfield" style="margin-bottom:10px"><label>Les yang diganti</label><select id="rsl_from" onchange="llkRsLongPick()"><option value="">— pilih tanggal —</option>'+optHtml+'</select></div>'
     +'<div class="mfield" style="margin-bottom:4px"><label>Judul jadwal tambahan</label><input id="rsl_note" type="text" maxlength="60" placeholder="mis. Reschedule minggu lalu" oninput="window._rsl&&(window._rsl.noteEdited=true)"/></div>'
