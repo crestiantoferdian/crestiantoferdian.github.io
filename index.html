@@ -6137,127 +6137,63 @@ function toggleIncomeVisibility(){
   if(incomeAmt) incomeAmt.textContent=incomeHidden?'••••••••':'Rp '+totalPenghasilan.toLocaleString('id-ID');
 }
 
-function calcProjectionSessions(){
-  // Hitung sesi yang BELUM terjadi di periode ini (hari > hari ini)
+// Kartu "asal" yang jadwalnya sudah dipindah (reschedule) — hanya info,
+// bukan sesi. Penting untuk proyeksi supaya 1 pertemuan yang dipindah tidak
+// terhitung 2x (di tanggal asal DAN di tanggal barunya).
+// Catatan: _rsInfo dihitung relatif ke HARI INI, jadi untuk hari rutin yang
+// jatuh SETELAH tanggal reschedule, kartunya kembali normal (bukan dipindah) —
+// sama persis dengan yang nanti tampil di Absensi pada hari itu.
+function llkIsMovedAwayCard(x, dk){
+  if(x._sameday_reschedule) return true;
+  if(!x._hasActiveReschedule) return false;
+  if(x._isExtra) return true; // sesi tambahan yang sudah dipindah (movedTo)
+  return !x._rsInfo||!x._rsInfo.date||x._rsInfo.date>=dk;
+}
+
+// Proyeksi: sesi yang BELUM terjadi/BELUM ditandai dari HARI INI sampai akhir
+// periode. Satu sumber untuk jumlah sesi & rupiah supaya selalu konsisten.
+// - Reschedule: hanya dihitung di tanggal barunya (kartu asal dilewati).
+// - Tambahan Kelas: ikut dihitung (juga yang dipindah, di tanggal tujuannya).
+// - Sesi yang sudah ditandai (termasuk Izin/Off di muka, atau Hadir/Alpa yang
+//   sudah masuk angka aktual) TIDAK dihitung lagi.
+function llkProjectionScan(){
   // PENTING: gunakan tanggal LOKAL (bukan toISOString/UTC), karena untuk
   // zona waktu UTC+ (mis. WIB), toISOString() bisa mundur 1 hari saat
   // dikonversi dari tengah malam lokal ke UTC.
   const dateKeyOf=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const now=new Date(); now.setHours(0,0,0,0);
-  const todayStr=dateKeyOf(now);
-
-  // Tentukan periode
-  let fromDate=null, toDate=null;
-  const n=new Date();
-  if(trackPeriod==='semua'){
-    return 0;
-  } else if(trackPeriod==='hari'){
-    // Proyeksi hari ini = siswa yang BELUM diabsen × tarif
-    // Pakai getStudentsForDay (sama persis dengan tab Absensi) supaya
-    // reschedule/extra/day2-4 selalu konsisten dengan yang tampil di Absensi.
-    const todayDk=todayStr;
-    const todayName=DAYS[DAYS_JS.indexOf(now.getDay())];
-    let sessions=0;
-    const dayS=getStudentsForDay(todayName,todayDk).filter(s=>!s._sameday_reschedule&&s.name.toLowerCase().includes(trackSearch.toLowerCase()));
-    dayS.forEach(s=>{
-      const attKey=s._attKey||s.name;
-      const attDateKey=s._extraDate||todayDk;
-      const status=(attendance[attDateKey]||{})[attKey];
-      if(!status||status==='belum') sessions++;
-    });
-    return sessions;
-  } else if(trackPeriod==='minggu'){
-    const diff=n.getDay()===0?-6:1-n.getDay();
-    fromDate=new Date(n); fromDate.setDate(n.getDate()+diff); fromDate.setHours(0,0,0,0);
-    toDate=new Date(fromDate); toDate.setDate(fromDate.getDate()+6);
-  } else if(trackPeriod==='bulan'){
-    fromDate=new Date(n.getFullYear(),n.getMonth(),1);
-    toDate=new Date(n.getFullYear(),n.getMonth()+1,0);
-  } else if(trackPeriod==='tahun'){
-    fromDate=new Date(n.getFullYear(),0,1);
-    toDate=new Date(n.getFullYear(),11,31);
-  }
-
-  let projectedSessions=0;
-
-  // Loop setiap hari MULAI HARI INI sampai akhir periode, pakai getStudentsForDay
-  // (sama persis dengan Absensi) supaya reschedule/extra selalu konsisten.
-  const cursor=new Date(now);
-  while(cursor<=toDate){
-    const dk=dateKeyOf(cursor);
-    const dayName=DAYS[DAYS_JS.indexOf(cursor.getDay())];
-    const dayS=getStudentsForDay(dayName,dk).filter(s=>!s._sameday_reschedule&&s.name.toLowerCase().includes(trackSearch.toLowerCase()));
-    dayS.forEach(s=>{
-      const attKey=s._attKey||s.name;
-      const attDateKey=s._extraDate||dk;
-      // Untuk hari ini: hanya hitung yang BELUM diabsen
-      if(dk===todayStr){
-        const status=(attendance[attDateKey]||{})[attKey];
-        if(!status||status==='belum') projectedSessions++;
-      } else {
-        // Hari mendatang: semua dianggap akan hadir
-        projectedSessions++;
-      }
-    });
-    cursor.setDate(cursor.getDate()+1);
-  }
-  return projectedSessions;
-}
-
-function calcProjectionIncome(){
-  let total=0;
-  const dateKeyOf=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const n=new Date();
-  let fromDate=null, toDate=null;
+  let toDate=null;
   if(trackPeriod==='hari'){
-    // Proyeksi hari ini = siswa belum diabsen × tarif
-    // Pakai getStudentsForDay (sama persis dengan tab Absensi)
-    const todayDk=dateKeyOf(n);
-    const todayName=DAYS[DAYS_JS.indexOf(n.getDay())];
-    const dayS=getStudentsForDay(todayName,todayDk).filter(s=>!s._sameday_reschedule&&s.name.toLowerCase().includes(trackSearch.toLowerCase()));
-    dayS.forEach(s=>{
-      const rate=s.rate||40000;
-      const attKey=s._attKey||s.name;
-      const attDateKey=s._extraDate||todayDk;
-      const status=(attendance[attDateKey]||{})[attKey];
-      if(!status||status==='belum') total+=rate;
-    });
-    return total;
+    toDate=new Date(now);
   } else if(trackPeriod==='minggu'){
-    const diff=n.getDay()===0?-6:1-n.getDay();
-    fromDate=new Date(n); fromDate.setDate(n.getDate()+diff); fromDate.setHours(0,0,0,0);
-    toDate=new Date(fromDate); toDate.setDate(fromDate.getDate()+6);
+    const diff=now.getDay()===0?-6:1-now.getDay();
+    toDate=new Date(now); toDate.setDate(now.getDate()+diff+6);
   } else if(trackPeriod==='bulan'){
-    fromDate=new Date(n.getFullYear(),n.getMonth(),1);
-    toDate=new Date(n.getFullYear(),n.getMonth()+1,0);
+    toDate=new Date(now.getFullYear(),now.getMonth()+1,0);
   } else if(trackPeriod==='tahun'){
-    fromDate=new Date(n.getFullYear(),0,1);
-    toDate=new Date(n.getFullYear(),11,31);
-  } else { return 0; }
-
-  if(!fromDate||!toDate) return 0;
-  const now=new Date(); now.setHours(0,0,0,0);
-  const todayDkX=dateKeyOf(now);
+    toDate=new Date(now.getFullYear(),11,31);
+  } else {
+    return {sessions:0,income:0}; // "Semua" tidak punya akhir periode
+  }
+  const q=trackSearch.toLowerCase();
+  let sessions=0, income=0;
   const cursor=new Date(now);
   while(cursor<=toDate){
     const dk=dateKeyOf(cursor);
     const dayName=DAYS[DAYS_JS.indexOf(cursor.getDay())];
-    const dayS=getStudentsForDay(dayName,dk).filter(s=>!s._sameday_reschedule&&s.name.toLowerCase().includes(trackSearch.toLowerCase()));
-    dayS.forEach(s=>{
-      const rate=s.rate||40000;
-      const attKey=s._attKey||s.name;
-      const attDateKey=s._extraDate||dk;
-      if(dk===todayDkX){
-        const status=(attendance[attDateKey]||{})[attKey];
-        if(!status||status==='belum') total+=rate;
-      } else {
-        total+=rate;
-      }
+    getStudentsForDay(dayName,dk).forEach(s=>{
+      if(llkIsMovedAwayCard(s,dk)) return;
+      if(!s.name.toLowerCase().includes(q)) return;
+      const status=(attendance[s._extraDate||dk]||{})[s._attKey||s.name];
+      if(status&&status!=='belum') return;
+      sessions++; income+=s.rate||40000;
     });
     cursor.setDate(cursor.getDate()+1);
   }
-  return total;
+  return {sessions,income};
 }
+function calcProjectionSessions(){ return llkProjectionScan().sessions; }
+function calcProjectionIncome(){ return llkProjectionScan().income; }
 
 function calcTrackTotals(monthOverride){
   const now=new Date();

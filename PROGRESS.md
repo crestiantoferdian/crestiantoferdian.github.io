@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
+_Terakhir diperbarui: 6 Okt 2026 (perbaikan Proyeksi akhir di Track)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,12 @@ _Terakhir diperbarui: 1 Okt 2026 (status Off guru izin + tampilan invoice)_
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 📈 Track: Proyeksi akhir tidak dobel lagi (6 Okt 2026)
+- Angka Estimasi "Semua" = seluruh riwayat (termasuk hasil Impor Riwayat) × tarif murid **saat ini**; Hadir + Alpa dihitung, Izin/Off tidak.
+- Bug Proyeksi (tombol ✨): kartu **asal** reschedule ("Pindah ke …") ikut dihitung → 1 pertemuan yang dipindah terhitung 2x; sama untuk Tambahan Kelas yang dipindah; Izin/Off yang dicatat **di muka** tetap diproyeksikan; di "Hari Ini" murid yang dipindah ke hari lain masih dihitung.
+- Perbaikan: `llkProjectionScan()` (satu sumber untuk jumlah sesi & rupiah) + `llkIsMovedAwayCard(x,dk)` — kartu asal dilewati selama tanggal barunya ≥ tanggal itu (sama dengan yang tampil di Absensi), sesi yang sudah bertanda apa pun tidak diproyeksikan lagi. Reschedule diubah berkali-kali tetap 1 data (`reschedules` per hari) → tetap 1 sesi. Tambahan Kelas ikut dihitung. Teruji `projtest.js`/`projui.js`.
+- Belum diubah (perlu izin pemilik karena menyentuh tagihan): `upcomingSessionList` (daftar "Terjadwal" invoice/Bayar Custom) & pengingat 7 hari melewati **semua** hari rutin yang sama selama reschedule masih aktif, bukan hanya pertemuan yang dipindah.
 
 ## 🧾 Kartu Siswa: tombol kuitansi hilang setelah dikirim + tanda murid impor (5 Okt 2026)
 - Dulu tombol "Kirim Ulang Kuitansi" selalu ada di kartu murid yang pernah bayar. Sekarang kartu menampilkan **"Kirim Kuitansi"** hanya selama kuitansi pembayaran terakhir **belum** dikirim (`receiptSentAt` terisi saat dikirim WA/dibagikan/diunduh/dicetak). Kirim ulang kuitansi lama tetap di **profil murid**.
