@@ -88,6 +88,29 @@ console.log('\n[Kursi penuh]');
 for(let i=1;i<=5;i++){ if(i===1||i===2||i===3) await inviteBatch(admin,'org1','LLK-GGGG-000'+i,i).catch(()=>{}); else await inviteBatch(admin,'org1','LLK-GGGG-000'+i,i); }
 await t('Undangan ke-6 saat 5 kursi penuh ditolak', assertFails(inviteBatch(admin,'org1','LLK-GGGG-0006',6)));
 
+console.log('\n[Tahap 2: pelajaran, murid, jadwal]');
+const a2=as('admin2','a2@x.com'), m3=as('mitra3','m3@x.com');
+await t('Mitra bergabung ke lembaga 2', assertSucceeds(redeemBatch(mitra2,'mitra2','m2@x.com','LLK-FFFF-1111','org2',1,{name:'Budi',honor:30000})));
+await inviteBatch(a2,'org2','LLK-HHHH-1111',2,{by:'admin2',name:'Rina'});
+await redeemBatch(m3,'mitra3','m3@x.com','LLK-HHHH-1111','org2',2,{name:'Rina',honor:30000});
+await t('Admin menambah mata pelajaran', assertSucceeds(setDoc(doc(a2,'orgs','org2','subjects','piano'),{name:'Piano',rate:50000,active:true})));
+await t('Tarif pelajaran harus angka', assertFails(setDoc(doc(a2,'orgs','org2','subjects','gitar'),{name:'Gitar',rate:'50rb',active:true})));
+await t('Mitra tidak bisa membaca tarif pelajaran', assertFails(getDoc(doc(mitra2,'orgs','org2','subjects','piano'))));
+await t('Mitra tidak bisa menambah pelajaran', assertFails(setDoc(doc(mitra2,'orgs','org2','subjects','x'),{name:'X',rate:1,active:true})));
+const stu={name:'Brilian',parentName:'Bu Rina',phone:'08123',note:'',active:true,classes:[{id:'c1',subjectId:'piano',mitraUid:'mitra2',rate:null,schedule:[{day:'Senin',start:'14:00',end:'15:00'}]}]};
+const sch={studentId:'s1',studentName:'Brilian',subjectId:'piano',subjectName:'Piano',mitraUid:'mitra2',schedule:[{day:'Senin',start:'14:00',end:'15:00'}],active:true};
+await t('Admin menyimpan murid + jadwal kelas', assertSucceeds((async()=>{ const b=writeBatch(a2); b.set(doc(a2,'orgs','org2','students','s1'),stu); b.set(doc(a2,'orgs','org2','sched','c1'),sch); await b.commit(); })()));
+await t('Mitra TIDAK bisa membaca data murid (No HP ortu)', assertFails(getDoc(doc(mitra2,'orgs','org2','students','s1'))));
+await t('Mitra TIDAK bisa melihat daftar murid', assertFails(getDocs(collection(mitra2,'orgs','org2','students'))));
+await t('Mitra membaca jadwal kelas miliknya', assertSucceeds(getDocs(query(collection(mitra2,'orgs','org2','sched'),where('mitraUid','==','mitra2')))));
+await t('Mitra lain tidak bisa membaca jadwal kelas itu', assertFails(getDoc(doc(m3,'orgs','org2','sched','c1'))));
+await t('Mitra tidak bisa membaca semua jadwal sekaligus', assertFails(getDocs(collection(m3,'orgs','org2','sched'))));
+await t('Jadwal kelas tidak boleh memuat No HP', assertFails(setDoc(doc(a2,'orgs','org2','sched','c2'),{...sch,phone:'08123'})));
+await t('Mitra tidak bisa memindahkan kelas ke dirinya', assertFails(updateDoc(doc(m3,'orgs','org2','sched','c1'),{mitraUid:'mitra3'})));
+await t('Mitra tidak bisa menambah murid', assertFails(setDoc(doc(mitra2,'orgs','org2','students','s2'),stu)));
+await t('Admin lembaga lain tidak bisa membaca murid', assertFails(getDoc(doc(admin,'orgs','org2','students','s1'))));
+await t('Admin bisa menghapus murid + jadwalnya', assertSucceeds((async()=>{ const b=writeBatch(a2); b.delete(doc(a2,'orgs','org2','students','s1')); b.delete(doc(a2,'orgs','org2','sched','c1')); await b.commit(); })()));
+
 console.log('\n[V1 tetap aman]');
 await t('Guru Lepas bisa baca/tulis backup miliknya', assertSucceeds(setDoc(doc(other,'backups','other1','parts','students'),{data:[]})));
 await t('Orang lain tidak bisa baca backup milik orang lain', assertFails(getDoc(doc(mitra,'backups','other1','parts','students'))));

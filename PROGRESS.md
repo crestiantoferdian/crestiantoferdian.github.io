@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 6 Okt 2026 (saran Izin + Jadwal Tambahan untuk reschedule jauh)_
+_Terakhir diperbarui: 6 Okt 2026 (LLK V2 Tahap 2: murid, kelas, jadwal mingguan)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -275,7 +275,14 @@ Murni tampilan: **tidak ada logika, alur data, key localStorage, nama fungsi/var
   - Kuota 5 kursi, bergabung lewat `?kode=`.
   - Tab Guru untuk Admin; Mitra bisa mengatur honor, link spreadsheet, dan keluar dari organisasi.
   - Tampilan HP dan desktop (sidebar muncul di layar ≥900px).
-- **Tahap 2 (belum):** murid, mata pelajaran, tarif, jadwal, dan penugasan Mitra.
+- **Tahap 2 (selesai, 6 Okt 2026 — perlu publish `firestore.rules`):** tab **Murid** Admin, dibuat untuk PC (tabel lebar) & tetap rapi di HP (kartu). Keputusan pemilik: 1 murid bisa ikut **beberapa kelas** (pelajaran + guru + jadwal + tarif masing-masing); tarif = **standar per pelajaran**, bisa diganti **tarif khusus** per kelas; **Admin tidak mengajar** (guru = Mitra saja, boleh "Belum ditentukan"); ada **impor dari LLK V1**.
+  - Data: `orgs/{org}/subjects/{id}` {name, rate, active} · `orgs/{org}/students/{id}` {name, parentName, phone, note, active, source, classes:[{id, subjectId, mitraUid, rate|null, schedule:[{day,start,end}]}]} — **hanya Admin** · `orgs/{org}/sched/{classId}` salinan ringkas per kelas untuk Mitra {studentId, studentName, subjectId, subjectName, mitraUid, schedule, active} — **tanpa No HP & tarif** (dikunci rules: field lain ditolak). Mitra hanya bisa `list` sched dengan `where mitraUid == uid` selama masih anggota.
+  - Sub-halaman: **Daftar Murid** (cari, filter guru/pelajaran/status, tombol Ubah; nama kembar ditolak; hapus permanen pakai ketik HAPUS, disarankan Nonaktif), **Jadwal Mingguan** (Senin–Minggu, warna per guru, rekap sesi/minggu per guru, tanda **BENTROK** kalau guru yang sama jamnya bertumpuk; jam selesai kosong = dianggap 60 menit), **Mata Pelajaran** (tarif standar, nonaktif, hapus hanya kalau tidak dipakai; ganti nama ikut memperbarui `sched`).
+  - **Impor dari LLK V1**: membaca `localStorage.rms4_s` di browser yang sama (V1 tidak diubah, riwayat absensi tidak disalin); instrumen dicocokkan ke pelajaran (huruf besar/kecil diabaikan) atau dibuat baru dengan tarif terbanyak; tarif murid ≠ standar → tarif khusus; jadwal day..day4 ikut; murid tanpa jadwal rutin & yang sudah ada tidak bisa dipilih; bisa langsung memilih 1 guru untuk semua.
+  - Mitra: tab **Jadwal Saya** kini menampilkan murid & jadwal yang ditugaskan (per hari), tanpa No HP/tarif.
+  - Tes: `tests/firestore-rules.test.mjs` 58 lulus (16 baru), `tests/v2-tahap2.test.cjs` 25 lulus (`npm run test:v2t2`), `v2-e2e` 21 lulus.
+  - ⚠️ **Langkah pemilik:** publish `firestore.rules` terbaru (Firebase Console → Firestore → Rules → tempel isi file → Publish). Sebelum dipublish, menyimpan murid di V2 ditolak server ("Akses ditolak"). Bagian V1 di rules tidak berubah.
+- **Tahap 3 (berikutnya):** Mitra mengabsen (Hadir/Alpa + progres wajib, edit hari yang sama), Izin oleh Admin, honor otomatis.
 
 ## ⏳ Yang belum / berikutnya
 1. **Google Play Billing untuk V1** (sedang dikerjakan):
@@ -308,7 +315,7 @@ Murni tampilan: **tidak ada logika, alur data, key localStorage, nama fungsi/var
    - Setelah pindah: pakai `https://leslesanku.com` untuk isian website di Play Console, dan `https://leslesanku.com/privacy-policy.html` untuk kebijakan privasi. Aplikasi Android (TWA) versi baru harus memakai host `leslesanku.com`.
 3. **Closed testing** 12 penguji × 14 hari, lalu isi formulir **Data Safety** di Play Console.
 4. ✅ **Celah reset trial** — kode siap di PR #14, aktif setelah functions di-deploy.
-5. **V2 Tahap 2.**
+5. **V2 Tahap 3** (Tahap 2 selesai 6 Okt 2026).
 6. **Midtrans** tetap dipakai untuk versi web. Saat rilis, ganti ke URL dan Client Key production.
 
 ## 💻 Tampilan laptop (V1)
