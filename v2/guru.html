@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<meta name="theme-color" content="#a8372a"/>
+<title>LesLesanKu · Guru Mitra</title>
+<link rel="icon" href="../icon-192.png"/>
+<script>
+  // Tema sama dengan LLK V1 (Caffe Latte / Happy Time / Dark Mode) — dipasang sebelum digambar.
+  (function(){try{
+    var t=localStorage.getItem('llk_theme');
+    if(t==='happy'||t==='dark'){
+      document.documentElement.setAttribute('data-theme',t);
+      if(t==='happy') document.write('<link id="llkHappyFont" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"/>');
+    }
+  }catch(e){}})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500..700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<!-- Tampilan V1 apa adanya (salinan otomatis, lihat tools/sync-v1-to-v2.py) -->
+<link rel="stylesheet" href="v1.css"/>
+<style>
+/* Tambahan kecil khusus Guru Mitra (di luar CSS V1) */
+.llk-lock{display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--muted);font-weight:600;padding:8px 10px;background:var(--paper-2);border-radius:var(--r-sm)}
+.llk-lock .ico{width:15px;height:15px}
+.mg-boot{min-height:60vh;display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight:600}
+.mg-sheet-row{display:flex;gap:8px;align-items:center}
+.mg-sheet-row input{flex:1;min-width:0}
+</style>
+</head>
+<body>
+<!--V1-SPRITE-START-->
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+<defs>
+<!-- Navigasi -->
+<symbol id="i-absensi" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4.5v-.7c0-.7.6-1.3 1.3-1.3h3.4c.7 0 1.3.6 1.3 1.3v.7"/><path d="M8.8 13.2l2.2 2.2 4.2-4.4"/></symbol>
+<symbol id="i-cap" viewBox="0 0 24 24"><path d="M2.5 9.5 12 5l9.5 4.5L12 14z"/><path d="M6.5 11.4V16c1.5 1.6 3.3 2.5 5.5 2.5s4-.9 5.5-2.5v-4.6"/><path d="M21.5 9.5v5"/></symbol>
+<symbol id="i-track" viewBox="0 0 24 24"><path d="M3.5 20.5h17"/><path d="M4.5 16l4.5-5 3.5 3 6.5-7.5"/><path d="M15 6.5h4v4"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M20.5 3.5 10.6 13.4"/><path d="M20.5 3.5 14 20.5l-3.4-7.1-7.1-3.4z"/></symbol>
+<symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 6.8C10.2 5.3 7.7 4.5 3.5 4.5v13c4.2 0 6.7.8 8.5 2.3 1.8-1.5 4.3-2.3 8.5-2.3v-13c-4.2 0-6.7.8-8.5 2.3z"/><path d="M12 6.8v13"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></symbol>
+<!-- Aksi -->
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+<symbol id="i-hand" viewBox="0 0 24 24"><path d="M8.5 12V6.3a1.5 1.5 0 0 1 3 0V11"/><path d="M11.5 10.5V4.8a1.5 1.5 0 0 1 3 0v5.7"/><path d="M14.5 10.5V6.3a1.5 1.5 0 0 1 3 0v7.2"/><path d="M8.5 12 7.3 10.8a1.6 1.6 0 0 0-2.4 2.1l3 4.4a6.3 6.3 0 0 0 5.2 2.7h.4a4 4 0 0 0 4-4v-2.5"/></symbol>
+<symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.3 9.3l5.4 5.4M14.7 9.3l-5.4 5.4"/></symbol>
+<symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.5 2.5 4.9-5.1"/></symbol>
+<symbol id="i-repeat" viewBox="0 0 24 24"><path d="M4.5 11a7.5 7.5 0 0 1 13.1-4.4L19.5 8.5"/><path d="M19.5 4.5v4h-4"/><path d="M19.5 13a7.5 7.5 0 0 1-13.1 4.4L4.5 15.5"/><path d="M4.5 19.5v-4h4"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M4.5 8h14.5"/><path d="M15.5 4.5L19 8l-3.5 3.5"/><path d="M19.5 16H5"/><path d="M8.5 12.5L5 16l3.5 3.5"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.3-5.4L19.5 9"/><path d="M19.5 4.5V9H15"/></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14.5 4.5 10 9 5.5"/><path d="M4.5 10h9.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+<symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M4.5 7.5l7.5 5.5 7.5-5.5"/></symbol>
+<symbol id="i-mail-check" viewBox="0 0 24 24"><path d="M20.5 11.5V8A2.5 2.5 0 0 0 18 5.5H6A2.5 2.5 0 0 0 3.5 8v8A2.5 2.5 0 0 0 6 18.5h6"/><path d="M4.5 7.5l7.5 5.5 7.5-5.5"/><path d="M15 18.3l2 2 4-4.3"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3.5v11"/><path d="M8 7.2l4-3.7 4 3.7"/><path d="M8.5 10.5H7A2.5 2.5 0 0 0 4.5 13v5A2.5 2.5 0 0 0 7 20.5h10a2.5 2.5 0 0 0 2.5-2.5v-5a2.5 2.5 0 0 0-2.5-2.5h-1.5"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+<symbol id="i-calendar-day" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><rect x="7.5" y="13" width="3.5" height="3.5" rx="0.8"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15"/><path d="M9.5 7V5a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 5v2"/><path d="M6.5 7l.9 11.6a2 2 0 0 0 2 1.9h5.2a2 2 0 0 0 2-1.9L17.5 7"/><path d="M10 11v5.5M14 11v5.5"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M15.2 4.8a2.1 2.1 0 0 1 3 3L8.5 17.5 4.5 18.5l1-4z"/><path d="M13.5 6.5l3 3"/></symbol>
+<symbol id="i-note" viewBox="0 0 24 24"><path d="M14 3.5H7A2.5 2.5 0 0 0 4.5 6v12A2.5 2.5 0 0 0 7 20.5h10a2.5 2.5 0 0 0 2.5-2.5V9z"/><path d="M14 3.5V9h5.5"/><path d="M8.5 13h7M8.5 16.5h4.5"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M5 19V5.5A2 2 0 0 1 7 3.5h12v14H7a2 2 0 0 0-2 2 2 2 0 0 0 2 2h12"/><path d="M9 7.5h6"/></symbol>
+<symbol id="i-tasks" viewBox="0 0 24 24"><path d="M10.5 6.5h9.5M10.5 12h9.5M10.5 17.5h9.5"/><path d="M4 6.5l1.4 1.4L8 5.3M4 12l1.4 1.4L8 10.8"/><circle cx="5.8" cy="17.5" r="1.3"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5a2 2 0 0 1 2-2h1.8L9.5 4h5l1.7 2.5H18a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.7"/><path d="M20.5 15.5 16 11l-8.5 8.5"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+<symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M8.3 5.9A6 6 0 0 1 18 11v4M6 11v5.5l-1.5 2H17"/><path d="M10 20.5a2 2 0 0 0 4 0"/><path d="M4 4l16 16"/></symbol>
+<symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h3"/></symbol>
+<symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3.5h12v17l-2.2-1.4-1.9 1.4-1.9-1.4-1.9 1.4-1.9-1.4L6 20.5z"/><path d="M9 8h6M9 11.5h6M9 15h3.5"/></symbol>
+<symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19.5 7.5H6.5a2 2 0 0 1 0-4h11v4"/><path d="M4.5 5.5v12a3 3 0 0 0 3 3h12v-13"/><path d="M16 14h.01"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18.5a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 9.6a4.5 4.5 0 0 1-.5 8.9z"/></symbol>
+<symbol id="i-cloud-up" viewBox="0 0 24 24"><path d="M8 18.5H7a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 9.6a4.5 4.5 0 0 1-.5 8.9h-1.5"/><path d="M12 20.5v-7M9.3 16 12 13.3 14.7 16"/></symbol>
+<symbol id="i-cloud-down" viewBox="0 0 24 24"><path d="M8 17.5H7a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 8.6a4.5 4.5 0 0 1-.5 8.9h-1.5"/><path d="M12 12.5v8M9.3 17.8 12 20.5l2.7-2.7"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5v-3a3.5 3.5 0 0 1 7 0v3"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.5 5 6v5.5c0 4.3 3 7.6 7 9 4-1.4 7-4.7 7-9V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.01"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.3 3 17a2 2 0 0 0 1.7 3h14.6A2 2 0 0 0 21 17L13.7 4.3a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 16.8v.01"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.6a2.4 2.4 0 0 1 4.6.9c0 1.6-2.3 2.1-2.3 3.6M12 16.8v.01"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+<symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M6.5 3.5h11M6.5 20.5h11"/><path d="M7.5 3.5c0 4 4.5 5 4.5 8.5S7.5 16.5 7.5 20.5M16.5 3.5c0 4-4.5 5-4.5 8.5s4.5 4.5 4.5 8.5"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-folder-open" viewBox="0 0 24 24"><path d="M3.5 17V7a2 2 0 0 1 2-2h4l2 2.5h6a2 2 0 0 1 2 2v1"/><path d="M3.5 17l2.3-5.3A2 2 0 0 1 7.6 10.5H20a1 1 0 0 1 .9 1.4l-2.3 5.6a2 2 0 0 1-1.8 1.5H5.5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+<symbol id="i-external" viewBox="0 0 24 24"><path d="M13.5 4.5h6v6M19.5 4.5l-8 8"/><path d="M17.5 13.5v4a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h4"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></symbol>
+<symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
+<symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 14.5l6-6 6 6"/></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></symbol>
+<symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19.5 12h-15M10.5 6l-6 6 6 6"/></symbol>
+<symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19.5v-15M6 10.5l6-6 6 6"/></symbol>
+<symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 4.5v15M6 13.5l6 6 6-6"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M4 4l16 16"/><path d="M10 5.7a9.6 9.6 0 0 1 2-.2c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.6 3.4M6.6 6.7C4 8.4 2.5 12 2.5 12S6 18.5 12 18.5c1.6 0 3.1-.4 4.4-1.1"/><path d="M9.9 10a3 3 0 0 0 4.1 4.1"/></symbol>
+<symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M11 3.5l1.8 5.2 5.2 1.8-5.2 1.8L11 17.5l-1.8-5.2L4 10.5l5.2-1.8z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+<symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 20.5a8.5 8.5 0 1 1 8.5-8.5c0 2.3-1.8 3.5-3.6 3.5h-1.6a1.8 1.8 0 0 0-1.3 3c.6.8.1 2-2 2z"/><circle cx="7.8" cy="11.2" r="1"/><circle cx="11" cy="7.6" r="1"/><circle cx="15.6" cy="8.6" r="1"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c.8-3.8 3.8-6 7.5-6s6.7 2.2 7.5 6"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.2" r="3.2"/><path d="M3.5 19.5c.6-3 2.8-4.8 5.5-4.8s4.9 1.8 5.5 4.8"/><path d="M15.5 5.3a3 3 0 0 1 0 5.8"/><path d="M17.3 14.9c1.8.6 2.9 2.2 3.2 4.6"/></symbol>
+<symbol id="i-user-plus" viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.8"/><path d="M3 20.5c.8-3.8 3.6-6 7-6 1.4 0 2.7.4 3.8 1.1"/><path d="M18.5 14v6M15.5 17h6"/></symbol>
+<symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4.5H7A2.5 2.5 0 0 0 4.5 7v10A2.5 2.5 0 0 0 7 19.5h7"/><path d="M16 8l4 4-4 4M20 12H10"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M4.5 17v1.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V17"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4.5 17v1.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V17"/></symbol>
+<symbol id="i-printer" viewBox="0 0 24 24"><path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M4.3 19.7l1.2-3.7a8 8 0 1 1 3 2.8z"/><path d="M9 11h.01M12 11h.01M15 11h.01"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/></symbol>
+<symbol id="i-table" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.8l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z"/></symbol>
+<symbol id="i-crown" viewBox="0 0 24 24"><path d="M4 17.5 3 7.5l5 4 4-6.5 4 6.5 5-4-1 10z"/><path d="M5 20.5h14"/></symbol>
+<symbol id="i-gift" viewBox="0 0 24 24"><rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5M12 8.5v12"/><path d="M12 8.5C10.6 5.2 7.2 4.6 7.2 6.8c0 1.5 2.8 1.7 4.8 1.7s4.8-.2 4.8-1.7c0-2.2-3.4-1.6-4.8 1.7z"/></symbol>
+<symbol id="i-volume" viewBox="0 0 24 24"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+<symbol id="i-volume-off" viewBox="0 0 24 24"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z"/><path d="M16 10l4 4M20 10l-4 4"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 4.5h6l-1 5 3 3V14H7v-1.5l3-3z"/><path d="M12 14v6"/></symbol>
+<symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9.5 17.5h5M10.5 20.5h3"/><path d="M8.5 14.5a6 6 0 1 1 7 0c-.6.5-1 1.2-1 2v1h-5v-1c0-.8-.4-1.5-1-2z"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5" width="3.5" height="14" rx="1"/><rect x="14" y="5" width="3.5" height="14" rx="1"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M7.5 5.2v13.6a.8.8 0 0 0 1.2.7l10.6-6.8a.8.8 0 0 0 0-1.4L8.7 4.5a.8.8 0 0 0-1.2.7z"/></symbol>
+<symbol id="i-play-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M10.3 8.8v6.4l5-3.2z"/></symbol>
+<symbol id="i-grip" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></g></symbol>
+<symbol id="i-dots" viewBox="0 0 24 24"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01" stroke-width="3"/></symbol>
+<symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3.5 13.5 6 5.5h12l2.5 8V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 13.5h5l1.5 2.5h4l1.5-2.5h5"/></symbol>
+<symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 19.5 3.5M16.5 6.5l2.5 2.5M14 9l2 2"/></symbol>
+<symbol id="i-google" viewBox="0 0 24 24"><path d="M18.4 6.4A8.5 8.5 0 1 0 20.5 12h-8"/></symbol>
+<!-- Mata pelajaran -->
+<symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></symbol>
+<symbol id="i-piano" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M12 12.5v7M8 12.5v7M16 12.5v7"/><path d="M6.8 4.5v8h2.4v-8M14.8 4.5v8h2.4v-8"/></symbol>
+<symbol id="i-guitar" viewBox="0 0 24 24"><path d="M13.6 10.4 19 5"/><path d="M17.5 3.5l3 3"/><path d="M11 9.3c-1.4-.6-3.1-.3-4.2.8-.8.8-1 1.9-.9 2.8-1.3 0-2.3.4-2.9 1-1.6 1.6-1 4.6 1.3 6.9s5.3 2.9 6.9 1.3c.6-.6 1-1.6 1-2.9.9.1 2-.1 2.8-.9 1.1-1.1 1.4-2.8.8-4.2"/><circle cx="10.5" cy="13.5" r="1.4"/></symbol>
+<symbol id="i-violin" viewBox="0 0 24 24"><path d="M14.5 9.5 20 4"/><path d="M18.5 2.5l3 3"/><path d="M13 8.5c-1-.9-2.6-.8-3.4.2l-.4.5c-.5.5-1.3.6-1.9.3-1.3-.6-2.9-.2-3.7 1-1 1.4-.6 3.3.8 4.2.4.3.6.9.3 1.4-.8 1.3-.3 3.1 1 3.9 1.2.7 2.8.4 3.6-.8.4-.5 1-.7 1.5-.5 1.4.5 3-.1 3.6-1.5.6-1.3.1-2.8-1-3.6-.5-.4-.6-1-.3-1.6l.5-.7c.7-1 .5-2.3-.4-3.1z"/><path d="M7.5 16.5l2-2"/></symbol>
+<symbol id="i-drum" viewBox="0 0 24 24"><ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v6.5c0 1.7 3.6 3 8 3s8-1.3 8-3V10"/><path d="M7 3.5l3.2 5.2M17 3.5l-3.2 5.2"/></symbol>
+<symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5v3.5M9 21h6"/></symbol>
+<symbol id="i-math" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M7 8.5h4M9 6.5v4M13.5 8.5h4M7.5 14.3l3 3M10.5 14.3l-3 3M13.5 14.7h4M13.5 17h4"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5S14.3 18.1 12 20.5c-2.3-2.4-3.4-5.2-3.4-8.5S9.7 5.9 12 3.5z"/></symbol>
+<symbol id="i-lang" viewBox="0 0 24 24"><path d="M3.5 5.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2V10a2 2 0 0 1-2 2H9l-3 2.5V12h-.5a2 2 0 0 1-2-2z"/><path d="M17.5 9h1a2 2 0 0 1 2 2v4.5a2 2 0 0 1-2 2H18V20l-3-2.5h-3a2 2 0 0 1-2-2V15"/></symbol>
+<symbol id="i-flask" viewBox="0 0 24 24"><path d="M9.5 3.5h5M10.5 3.5V9L5 18.3a1.5 1.5 0 0 0 1.3 2.2h11.4a1.5 1.5 0 0 0 1.3-2.2L13.5 9V3.5"/><path d="M7.5 14.5h9"/></symbol>
+<symbol id="i-atom" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.2"/><ellipse cx="12" cy="12" rx="9" ry="3.8"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(120 12 12)"/></symbol>
+<symbol id="i-dna" viewBox="0 0 24 24"><path d="M7 3.5c0 5 10 5 10 8.5s-10 3.5-10 8.5M17 3.5c0 5-10 5-10 8.5s10 3.5 10 8.5"/><path d="M8.5 6.5h7M8.5 17.5h7"/></symbol>
+<symbol id="i-microscope" viewBox="0 0 24 24"><path d="M5.5 20.5h13M9 17.5h6"/><path d="M12 17.5a5.5 5.5 0 0 0 3.3-9.9"/><path d="M8.2 4.2l2.6-1.5 3.5 6.1-2.6 1.5z"/><path d="M9.8 10.5l-1.3.8"/></symbol>
+<symbol id="i-scroll" viewBox="0 0 24 24"><path d="M8 20.5h10a2.5 2.5 0 0 0 2.5-2.5v-1h-10v1A2.5 2.5 0 0 1 8 20.5a2.5 2.5 0 0 1-2.5-2.5V6A2.5 2.5 0 0 0 3 3.5h11A2.5 2.5 0 0 1 16.5 6v11"/><path d="M9 8h4.5M9 11.5h4.5"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4.5 20.5h15"/><rect x="6" y="11" width="3" height="6.5" rx="1"/><rect x="10.5" y="7" width="3" height="10.5" rx="1"/><rect x="15" y="4" width="3" height="13.5" rx="1"/></symbol>
+<symbol id="i-laptop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M2.5 19h19l-1.5-4h-16z"/></symbol>
+<symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 4v16.5M7.5 20.5h9M5 7.5h14"/><path d="M5 7.5 2.5 13a2.5 2.5 0 0 0 5 0zM19 7.5 16.5 13a2.5 2.5 0 0 0 5 0z"/></symbol>
+<symbol id="i-pencil" viewBox="0 0 24 24"><path d="M15.2 4.8a2.1 2.1 0 0 1 3 3L8.5 17.5 4.5 18.5l1-4z"/><path d="M4 21.5h16"/></symbol>
+
+<!-- ═══ ILUSTRASI EMPTY STATE (viewBox 160×120, garis tinta + blok aksen lembut) ═══ -->
+<symbol id="ill-notebook" viewBox="0 0 160 120"><rect x="34" y="18" width="92" height="84" rx="10" fill="#fffcf7" stroke="#6f6459" stroke-width="2"/><path style="stroke:var(--red)" d="M48 18v84" stroke-width="2" opacity=".55"/><path d="M58 40h52M58 54h52M58 68h36" stroke="#d6c9b6" stroke-width="3" stroke-linecap="round"/><rect style="fill:var(--red)" x="100" y="12" width="12" height="26" rx="2" opacity=".85"/><path d="M112 80l14-14 7 7-14 14-9 2z" fill="#efe8dc" stroke="#6f6459" stroke-width="2" stroke-linejoin="round"/><circle cx="30" cy="30" r="3" fill="#d6c9b6"/><circle cx="136" cy="96" r="4" fill="#d6c9b6"/></symbol>
+<symbol id="ill-students" viewBox="0 0 160 120"><ellipse cx="80" cy="104" rx="54" ry="6" fill="#efe8dc"/><circle cx="62" cy="46" r="15" fill="#fffcf7" stroke="#6f6459" stroke-width="2"/><path d="M36 100c2-17 13-27 26-27s24 10 26 27" fill="#fffcf7" stroke="#6f6459" stroke-width="2"/><circle cx="104" cy="52" r="12" fill="#fffcf7" stroke="#6f6459" stroke-width="2" stroke-dasharray="4 4"/><path d="M86 100c1.5-13 9-21 18-21s16.5 8 18 21" fill="none" stroke="#6f6459" stroke-width="2" stroke-dasharray="4 4"/><path style="fill:var(--red)" d="M40 36 62 26l22 10-22 10z" opacity=".85"/><path style="stroke:var(--red)" d="M118 24v12M112 30h12" stroke-width="2.5" stroke-linecap="round"/></symbol>
+<symbol id="ill-search" viewBox="0 0 160 120"><rect x="30" y="22" width="76" height="80" rx="10" fill="#fffcf7" stroke="#6f6459" stroke-width="2"/><path d="M44 42h48M44 56h48M44 70h30" stroke="#d6c9b6" stroke-width="3" stroke-linecap="round"/><circle cx="108" cy="72" r="20" fill="#f6f1e9" stroke="#6f6459" stroke-width="2"/><path d="M122 86l14 14" stroke="#6f6459" stroke-width="4" stroke-linecap="round"/><path style="stroke:var(--red)" d="M100 72h16" stroke-width="2.5" stroke-linecap="round"/></symbol>
+<symbol id="ill-folder" viewBox="0 0 160 120"><path d="M28 36a8 8 0 0 1 8-8h26l10 10h52a8 8 0 0 1 8 8v48a8 8 0 0 1-8 8H36a8 8 0 0 1-8-8z" fill="#fffcf7" stroke="#6f6459" stroke-width="2"/><path d="M28 50h104" stroke="#d6c9b6" stroke-width="2"/><rect x="92" y="18" width="30" height="40" rx="4" fill="#efe8dc" stroke="#6f6459" stroke-width="2" transform="rotate(8 107 38)"/><path style="stroke:var(--red)" d="M64 74l10 10 20-20" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/></symbol>
+<symbol id="ill-calendar" viewBox="0 0 160 120"><rect x="36" y="22" width="88" height="80" rx="10" fill="#fffcf7" stroke="#6f6459" stroke-width="2"/><path d="M36 44h88" stroke="#6f6459" stroke-width="2"/><path d="M58 14v16M102 14v16" stroke="#6f6459" stroke-width="3" stroke-linecap="round"/><g fill="#e4d9c9"><rect x="50" y="54" width="12" height="10" rx="2"/><rect x="68" y="54" width="12" height="10" rx="2"/><rect x="86" y="54" width="12" height="10" rx="2"/><rect x="50" y="72" width="12" height="10" rx="2"/><rect x="68" y="72" width="12" height="10" rx="2"/></g><rect style="fill:var(--red)" x="86" y="72" width="12" height="10" rx="2" opacity=".85"/><circle cx="130" cy="30" r="4" fill="#d6c9b6"/></symbol>
+</defs>
+</svg>
+<!--V1-SPRITE-END-->
+
+<div class="app-header">
+  <div class="header-logo" id="schoolLogo">LLK</div>
+  <div class="header-info">
+    <div class="header-name" id="schoolName">LesLesanKu</div>
+    <div class="header-sub" id="schoolSub">Guru Mitra</div>
+  </div>
+  <div class="header-time">
+    <div class="header-clock" id="clockEl">00:00</div>
+    <div class="header-date" id="dateEl"></div>
+  </div>
+</div>
+
+<div id="mainContent"><div class="mg-boot">Memuat…</div></div>
+
+<div class="bottom-nav">
+  <button class="bnav active" data-tab="absensi" id="tab-absensi"><span class="bicon"><svg class="ico" aria-hidden="true"><use href="#i-absensi"/></svg></span>Absensi<div class="bnav-dot"></div></button>
+  <button class="bnav" data-tab="siswa" id="tab-siswa"><span class="bicon"><svg class="ico" aria-hidden="true"><use href="#i-cap"/></svg></span>Siswa<div class="bnav-dot"></div></button>
+  <button class="bnav" data-tab="track" id="tab-track"><span class="bicon"><svg class="ico" aria-hidden="true"><use href="#i-track"/></svg></span>Track<div class="bnav-dot"></div></button>
+  <button class="bnav" data-tab="honor" id="tab-honor"><span class="bicon"><svg class="ico" aria-hidden="true"><use href="#i-wallet"/></svg></span>Honor<div class="bnav-dot"></div></button>
+  <button class="bnav" data-tab="lainnya" id="tab-lainnya"><span class="bicon"><svg class="ico" aria-hidden="true"><use href="#i-grid"/></svg></span>Lainnya<div class="bnav-dot"></div></button>
+</div>
+
+<!-- CATAT KEHADIRAN (sama dengan V1; Guru Mitra: Hadir/Alpa saja, tanpa foto) -->
+<div class="overlay" id="noteOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="noteTitle">Catat Kehadiran</div>
+    <div class="modal-sub" id="noteSub"></div>
+    <div id="noteMsg"></div>
+    <div class="mfield">
+      <label>Status</label>
+      <select id="noteStatus">
+        <option value="hadir">Hadir</option>
+        <option value="alpa">Alpa</option>
+      </select>
+    </div>
+    <div class="mfield" id="noteReasonWrap">
+      <label>Alasan / Keterangan</label>
+      <textarea id="noteReason" rows="3" placeholder="Tidak datang tanpa kabar, dll..."></textarea>
+    </div>
+    <div class="mfield" id="noteProgressWrap">
+      <label><svg class="ico" aria-hidden="true"><use href="#i-note"/></svg> Catatan Progress / Materi Hari Ini <span style="font-weight:500;color:var(--alpa)">(wajib)</span></label>
+      <textarea id="noteProgress" rows="4" placeholder="cth: Sudah sampai halaman 12, latihan tangga nada C mayor..."></textarea>
+    </div>
+    <div class="mfield" id="notePrSiswaWrap">
+      <label><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg> PR Siswa <span style="font-weight:500;color:var(--muted)">(opsional)</span></label>
+      <textarea id="notePrSiswa" rows="2" placeholder="cth: Latihan bar 5-8, hafalkan tangga nada C mayor untuk minggu depan"></textarea>
+      <div class="llk-hint">Tugas latihan buat siswa ini di rumah — tampil di riwayat siswa</div>
+    </div>
+    <div class="mfield" id="notePrGuruWrap">
+      <label><svg class="ico" aria-hidden="true"><use href="#i-tasks"/></svg> PR Guru <span style="font-weight:500;color:var(--muted)">(opsional)</span></label>
+      <textarea id="notePrGuru" rows="2" placeholder="cth: Siapkan lembar latihan bar 5-8 untuk sesi depan"></textarea>
+      <div class="llk-hint">Pengingat untuk diri sendiri sebelum sesi berikutnya</div>
+    </div>
+    <div class="mactions">
+      <button class="mbtn mbtn-del" id="noteDelBtn" style="display:none">Hapus</button>
+      <button class="mbtn mbtn-cancel" id="noteCancelBtn">Batal</button>
+      <button class="mbtn mbtn-save" id="noteSaveBtn"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg> Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- KONFIRMASI (gaya dialog V1) -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div class="llk-dialog-ic danger" id="cfIc"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div>
+    <div class="modal-title" id="cfTitle" style="justify-content:center;margin-bottom:8px"></div>
+    <div id="cfMsg" style="font-size:0.92rem;color:var(--text2);text-align:center;margin-bottom:16px;line-height:1.6"></div>
+    <div class="mfield" id="cfWordWrap" style="display:none;text-align:left"><label id="cfWordLabel"></label><input id="cfWord" autocomplete="off"/></div>
+    <div style="display:flex;gap:10px">
+      <button class="mbtn mbtn-cancel" id="cfNo">Batal</button>
+      <button class="mbtn" id="cfYes" style="background:var(--alpa);color:#fff"></button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script type="module" src="guru.js"></script>
+</body>
+</html>

@@ -4,7 +4,8 @@
   "scripts": {
     "test:rules": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node firestore-rules.test.mjs\"",
     "test:v2": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-e2e.test.cjs\"",
-    "test:v2t2": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-tahap2.test.cjs\""
+    "test:v2t2": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-tahap2.test.cjs\"",
+    "test:v2t3": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-tahap3.test.cjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.0",

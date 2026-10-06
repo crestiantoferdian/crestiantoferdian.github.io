@@ -109,6 +109,29 @@ await t('Jadwal kelas tidak boleh memuat No HP', assertFails(setDoc(doc(a2,'orgs
 await t('Mitra tidak bisa memindahkan kelas ke dirinya', assertFails(updateDoc(doc(m3,'orgs','org2','sched','c1'),{mitraUid:'mitra3'})));
 await t('Mitra tidak bisa menambah murid', assertFails(setDoc(doc(mitra2,'orgs','org2','students','s2'),stu)));
 await t('Admin lembaga lain tidak bisa membaca murid', assertFails(getDoc(doc(admin,'orgs','org2','students','s1'))));
+console.log('\n[Tahap 3: absensi]');
+const todayWIB=(()=>{ const d=new Date(Date.now()+7*3600e3); return d.toISOString().slice(0,10); })();
+const yest=(()=>{ const d=new Date(Date.now()+7*3600e3-864e5); return d.toISOString().slice(0,10); })();
+const att=(o={})=>({classId:'c1',studentId:'s1',studentName:'Brilian',subjectName:'Piano',mitraUid:'mitra2',date:todayWIB,start:'14:00',end:'15:00',status:'hadir',progress:'Tangga nada C',prSiswa:'',prGuru:'',reason:'',honor:30000,by:'mitra2',...o});
+const aref=(db,d=todayWIB,c='c1')=>doc(db,'orgs','org2','att',c+'_'+d);
+await t('Mitra mengisi Hadir + progres hari ini', assertSucceeds(setDoc(aref(mitra2),att())));
+await t('Hadir tanpa progres ditolak', assertFails(setDoc(aref(mitra2),att({progress:'  '}))));
+await t('Mitra tidak bisa mengisi Izin', assertFails(setDoc(aref(mitra2),att({status:'izin'}))));
+await t('Mitra tidak bisa menaikkan honor di absensi', assertFails(setDoc(aref(mitra2),att({honor:99999}))));
+await t('Mitra tidak bisa mengisi tanggal kemarin', assertFails(setDoc(aref(mitra2,yest),att({date:yest}))));
+await t('Mitra tidak bisa mengabsen kelas guru lain', assertFails(setDoc(aref(m3),att({mitraUid:'mitra3',by:'mitra3'}))));
+await t('Mitra lain tidak bisa membaca absensi itu', assertFails(getDoc(aref(m3))));
+await t('Mitra mengubah jadi Alpa (hari yang sama)', assertSucceeds(setDoc(aref(mitra2),att({status:'alpa',progress:''}))));
+await t('Mitra membaca absensinya sendiri', assertSucceeds(getDocs(query(collection(mitra2,'orgs','org2','att'),where('mitraUid','==','mitra2')))));
+await env.withSecurityRulesDisabled(async c=>{ await setDoc(doc(c.firestore(),'orgs','org2','att','c1_'+yest),att({date:yest})); });
+await t('Mitra tidak bisa mengubah absensi kemarin', assertFails(setDoc(aref(mitra2,yest),att({date:yest,progress:'ubah'}))));
+await t('Mitra tidak bisa menghapus absensi kemarin', assertFails(deleteDoc(aref(mitra2,yest))));
+await env.withSecurityRulesDisabled(async c=>{ await setDoc(doc(c.firestore(),'orgs','org2','sched','c9'),{...sch,studentId:'s9'}); });
+await t('Admin mengisi Izin', assertSucceeds(setDoc(aref(a2,todayWIB,'c9'),att({classId:'c9',status:'izin',progress:'',reason:'Sakit',honor:0,by:'admin2'}))));
+await t('Mitra tidak bisa menimpa Izin dari Admin', assertFails(setDoc(aref(mitra2,todayWIB,'c9'),att({classId:'c9'}))));
+await t('Admin bisa mengoreksi absensi kemarin', assertSucceeds(setDoc(aref(a2,yest),att({date:yest,progress:'dikoreksi',by:'admin2'}))));
+await t('Mitra menghapus tanda hari ini', assertSucceeds(deleteDoc(aref(mitra2))));
+
 await t('Admin bisa menghapus murid + jadwalnya', assertSucceeds((async()=>{ const b=writeBatch(a2); b.delete(doc(a2,'orgs','org2','students','s1')); b.delete(doc(a2,'orgs','org2','sched','c1')); await b.commit(); })()));
 
 console.log('\n[V1 tetap aman]');

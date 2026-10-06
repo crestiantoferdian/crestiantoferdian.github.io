@@ -36,7 +36,7 @@ const auth = TEST ? null : getAuth(app);
 if (TEST) connectFirestoreEmulator(db, TEST.host, TEST.port, { mockUserToken: { sub: TEST.user.uid, email: TEST.user.email, email_verified: true } });
 
 // ── State ──
-const S = { user: null, profile: null, org: null, member: null, tab: null, guru: null, data: null, muridView: 'daftar', filt: { q: '', guru: '', subj: '', status: 'aktif' }, schedGuru: '' };
+const S = { absDate: '', user: null, profile: null, org: null, member: null, tab: null, guru: null, data: null, muridView: 'daftar', filt: { q: '', guru: '', subj: '', status: 'aktif' }, schedGuru: '' };
 
 // ── Util ──
 const $ = (id) => document.getElementById(id);
@@ -369,19 +369,17 @@ const ADMIN_TABS = [
   { k: 'keuangan', i: 'wallet', l: 'Keuangan' },
   { k: 'lainnya', i: 'grid', l: 'Lainnya' },
 ];
-const MITRA_TABS = [
-  { k: 'jadwal', i: 'calendar', l: 'Jadwal Saya' },
-  { k: 'honor', i: 'wallet', l: 'Honor' },
-  { k: 'lainnya', i: 'grid', l: 'Lainnya' },
-];
 function isAdmin() { return S.member && S.member.role === 'admin'; }
+// Guru Mitra memakai halaman sendiri yang tampilannya sama dengan LLK V1
+const MITRA_URL = 'guru.html';
 function enterShell() {
   setChoice(isAdmin() ? 'lembaga' : 'mitra');
+  if (!isAdmin()) { location.replace(MITRA_URL); return; }
   S.tab = isAdmin() ? 'guru' : 'jadwal';
   renderShell();
 }
 function renderShell() {
-  const tabs = isAdmin() ? ADMIN_TABS : MITRA_TABS;
+  const tabs = ADMIN_TABS;
   const logo = S.org.logo ? `<img src="${esc(S.org.logo)}" alt=""/>` : esc(initials(S.org.name));
   root().innerHTML = `
   <div class="shell">
@@ -400,17 +398,14 @@ function renderShell() {
 }
 function renderTab() {
   const m = $('main');
-  m.classList.toggle('wide', isAdmin() && S.tab === 'murid');
+  m.classList.toggle('wide', isAdmin() && (S.tab === 'murid' || S.tab === 'absensi'));
   if (isAdmin()) {
     if (S.tab === 'guru') return renderGuru(m);
+    if (S.tab === 'absensi') return renderAdminAbsensi(m);
     if (S.tab === 'lainnya') return renderAdminLainnya(m);
     if (S.tab === 'murid') return renderMurid(m);
-    const info = { absensi: ['absensi', 'Absensi Harian', 'Pantau absensi semua Guru Mitra — dibangun di Tahap 4.'], keuangan: ['wallet', 'Keuangan', 'Tagihan per pelajaran & rekap honor guru — dibangun di Tahap 5.'] }[S.tab];
-    return placeholder(m, info);
+    return placeholder(m, ['wallet', 'Keuangan', 'Tagihan per pelajaran & rekap honor guru — segera hadir.']);
   }
-  if (S.tab === 'lainnya') return renderMitraLainnya(m);
-  if (S.tab === 'honor') return renderMitraHonor(m);
-  return renderMitraJadwal(m);
 }
 function placeholder(m, [ic, t, d]) {
   m.innerHTML = `<div class="page-title">${t}</div><div class="page-sub">Segera hadir</div>
@@ -1065,27 +1060,84 @@ async function runImportV1(list, mitraUid) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// MITRA — JADWAL SAYA (Tahap 2: lihat jadwal; absensi di Tahap 3)
+// ADMIN — ABSENSI (Tahap 3): pantau absensi & progres semua Guru Mitra per
+// tanggal, dan isi Izin (Izin hanya oleh Admin). Kirim progres ke ortu menyusul.
 // ══════════════════════════════════════════════════════════════════════
-async function renderMitraJadwal(m) {
-  m.innerHTML = '<div class="page-title">Jadwal Saya</div><div class="page-sub">Memuat…</div>';
-  let list;
+function localKey(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function dayOfKey(k) { return DAYS[(new Date(k + 'T00:00:00').getDay() + 6) % 7]; }
+async function renderAdminAbsensi(m) {
+  const today = localKey(new Date());
+  const key = S.absDate || today;
+  m.innerHTML = '<div class="page-title">Absensi</div><div class="page-sub">Memuat…</div>';
+  let att;
   try {
-    const snap = await getDocs(query(collection(db, 'orgs', S.org.id, 'sched'), where('mitraUid', '==', S.user.uid)));
-    list = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(x => x.active);
-  } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat jadwal: ${esc(friendlyError(e))}</div>`; return; }
-  const sess = [];
-  list.forEach(c => (c.schedule || []).forEach(x => sess.push({ day: x.day, start: x.start, end: x.end, name: c.studentName, subj: c.subjectName })));
-  sess.sort((a, b) => byDayTime(a, b));
-  const murid = new Set(list.map(x => x.studentId)).size;
-  m.innerHTML = `<div class="page-title">Jadwal Saya</div>
-    <div class="page-sub">${murid} murid · ${sess.length} sesi per minggu · absensi lewat aplikasi segera hadir</div>
-    ${sess.length ? DAYS.filter(dn => sess.some(x => x.day === dn)).map(dn => `
-      <div class="card"><div class="card-t">${I('calendar', 'sm')} ${dn}</div>
-        ${sess.filter(x => x.day === dn).map(x => `<div class="row sched-row"><div class="sched-time">${esc(x.start)}${x.end ? '<br><span class="t-meta">' + esc(x.end) + '</span>' : ''}</div>
-          <div class="grow"><div class="t-name">${esc(x.name)}</div><div class="t-meta">${esc(x.subj)}</div></div></div>`).join('')}
-      </div>`).join('')
-    : `<div class="card"><div class="empty"><div class="empty-ic">${I('calendar')}</div><div class="empty-t">Belum ada murid</div><div class="empty-d">Guru Admin belum menugaskan murid kepadamu.</div></div></div>`}`;
+    await loadOrgData();
+    const snap = await getDocs(query(collection(db, 'orgs', S.org.id, 'att'), where('date', '==', key)));
+    att = {}; snap.docs.forEach(d => { att[d.id] = Object.assign({ id: d.id }, d.data()); });
+  } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
+  const day = dayOfKey(key), rows = [], seen = new Set();
+  S.data.students.filter(st => st.active).forEach(st => (st.classes || []).forEach(c => (c.schedule || []).filter(x => x.day === day).forEach(x => {
+    const id = c.id + '_' + key; if (seen.has(id)) return; seen.add(id);
+    const sj = subjOf(c.subjectId);
+    rows.push({ id, st, c, name: st.name, subj: sj ? sj.name : '—', uid: c.mitraUid || null, start: x.start, end: x.end, rec: att[id] || null });
+  })));
+  Object.values(att).filter(a => !seen.has(a.id)).forEach(a => rows.push({ id: a.id, st: null, c: { id: a.classId }, name: a.studentName, subj: a.subjectName, uid: a.mitraUid, start: a.start, end: a.end, rec: a }));
+  rows.sort((a, b) => String(a.start).localeCompare(String(b.start)) || a.name.localeCompare(b.name));
+  const stOf = r => (r.rec && r.rec.status) || 'belum';
+  const n = st => rows.filter(r => stOf(r) === st).length;
+  const pill = st => ({ hadir: '<span class="pill pill-green">HADIR</span>', izin: '<span class="pill pill-amber">IZIN</span>', alpa: '<span class="pill pill-red">ALPA</span>', off: '<span class="pill pill-grey">OFF</span>' }[st] || '<span class="pill pill-grey">BELUM</span>');
+  const shift = (k, d) => { const x = new Date(k + 'T00:00:00'); x.setDate(x.getDate() + d); return localKey(x); };
+  m.innerHTML = `
+    <div class="page-head"><div><div class="page-title">Absensi</div>
+      <div class="page-sub">${esc(day)}, ${esc(new Date(key + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }))}${key === today ? ' · hari ini' : ''}</div></div></div>
+    <div class="toolbar">
+      <button class="btn btn-ghost tb-btn" id="abPrev">${I('chevron-left', 'sm')}</button>
+      <input type="date" id="abDate" value="${key}" class="date-in"/>
+      <button class="btn btn-ghost tb-btn" id="abNext">${I('chevron-right', 'sm')}</button>
+      ${key !== today ? '<button class="btn btn-ghost tb-btn" id="abToday">Hari ini</button>' : ''}
+      <div class="chips"><span class="chip">${n('hadir')} Hadir</span><span class="chip">${n('izin')} Izin</span><span class="chip">${n('alpa')} Alpa</span><span class="chip">${n('belum')} Belum</span></div>
+    </div>
+    ${rows.length ? `<div class="tbl-wrap"><table class="tbl tbl-static">
+      <thead><tr><th>Jam</th><th>Murid</th><th>Pelajaran & Guru</th><th>Status</th><th>Progres & PR</th><th></th></tr></thead>
+      <tbody>${rows.map(r => { const a = r.rec || {}, st = stOf(r); return `<tr>
+        <td><b>${esc(r.start)}</b>${r.end ? '<div class="t-meta">' + esc(r.end) + '</div>' : ''}</td>
+        <td><div class="t-name">${esc(r.name)}</div></td>
+        <td><div class="cl-line"><b>${esc(r.subj)}</b> · ${guruLabel(r.uid)}</div></td>
+        <td>${pill(st)}${a.reason ? '<div class="t-meta" style="white-space:normal;margin-top:4px">' + esc(a.reason) + '</div>' : ''}</td>
+        <td class="td-note">${a.progress ? '<div>' + esc(a.progress) + '</div>' : ''}${a.prSiswa ? '<div class="t-meta" style="white-space:normal">PR: ' + esc(a.prSiswa) + '</div>' : ''}${!a.progress && !a.prSiswa ? '<span class="t-meta">—</span>' : ''}</td>
+        <td class="td-act">${st === 'izin' ? `<button class="mini" data-unizin="${esc(r.id)}">Hapus Izin</button>` : (st === 'belum' && r.st ? `<button class="mini" data-izin="${esc(r.id)}">${I('hand', 'sm')} Izin</button>` : '')}</td>
+      </tr>`; }).join('')}</tbody></table></div>`
+    : `<div class="card"><div class="empty"><div class="empty-ic">${I('calendar')}</div><div class="empty-t">Tidak ada jadwal hari ${esc(day)}</div><div class="empty-d">Pilih tanggal lain.</div></div></div>`}`;
+  const go = k => { S.absDate = k === today ? '' : k; renderAdminAbsensi(m); };
+  $('abPrev').onclick = () => go(shift(key, -1));
+  $('abNext').onclick = () => go(shift(key, 1));
+  $('abDate').onchange = e => { if (e.target.value) go(e.target.value); };
+  const t = $('abToday'); if (t) t.onclick = () => go(today);
+  m.querySelectorAll('[data-izin]').forEach(b => b.onclick = () => openIzin(rows.find(r => r.id === b.dataset.izin), key, m));
+  m.querySelectorAll('[data-unizin]').forEach(b => b.onclick = async () => {
+    try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'att', b.dataset.unizin)]]); toast('Izin dihapus'); renderAdminAbsensi(m); }
+    catch (e) { toast('❌ ' + friendlyError(e)); }
+  });
+}
+function openIzin(r, key, m) {
+  if (!r || !r.st) return;
+  openModal(`
+    <div class="modal-t">${I('hand')} Izin · ${esc(r.name)}</div>
+    <div class="modal-sub">${esc(r.subj)} · ${esc(r.start)}${r.end ? '–' + esc(r.end) : ''} · ${esc(dayOfKey(key))} ${esc(key.split('-').reverse().join('/'))}. Izin tidak dihitung tagihan & honor.</div>
+    <div class="field"><label>Alasan (opsional)</label><input id="izReason" maxlength="200" placeholder="cth: Sakit, acara keluarga"/></div>
+    <div class="btn-row"><button class="btn btn-ghost" id="izNo">Batal</button><button class="btn btn-primary" id="izGo">${I('check', 'sm')} Simpan Izin</button></div>`);
+  $('izNo').onclick = closeModal;
+  $('izGo').onclick = async () => {
+    $('izGo').disabled = true;
+    const sj = subjOf(r.c.subjectId);
+    try {
+      await commitOps([['set', doc(db, 'orgs', S.org.id, 'att', r.id), {
+        classId: r.c.id, studentId: r.st.id, studentName: r.st.name, subjectName: sj ? sj.name : '', mitraUid: r.uid || null,
+        date: key, start: r.start || '', end: r.end || '', status: 'izin', progress: '', prSiswa: '', prGuru: '',
+        reason: $('izReason').value.trim(), honor: 0, by: S.user.uid, updatedAt: serverTimestamp() }]]);
+      closeModal(); toast('✅ ' + r.name + ' izin'); renderAdminAbsensi(m);
+    } catch (e) { $('izGo').disabled = false; toast('❌ ' + friendlyError(e), 4000); }
+  };
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -1125,60 +1177,6 @@ function renderAdminLainnya(m) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// MITRA — HONOR & LAINNYA
-// ══════════════════════════════════════════════════════════════════════
-function renderMitraHonor(m) {
-  m.innerHTML = `
-    <div class="page-title">Honor</div><div class="page-sub">Honor dihitung dari setiap sesi Hadir atau Alpa yang kamu isi</div>
-    <div class="card" style="background:linear-gradient(135deg,var(--red),var(--red2));color:#fff;border:none">
-      <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.06em;opacity:0.85">HONOR PER PERTEMUAN</div>
-      <div style="font-size:1.8rem;font-weight:800;margin-top:4px">${esc(rupiah(S.member.honor))}</div>
-    </div>
-    <div class="card"><div class="empty"><div class="empty-ic">${I('chart')}</div><div class="empty-t">Rekap honor bulanan</div><div class="empty-d">Muncul otomatis setelah kamu mulai mengisi absensi (Tahap 3 & 5).</div></div></div>`;
-}
-function renderMitraLainnya(m) {
-  m.innerHTML = `
-    <div class="page-title">Lainnya</div><div class="page-sub">Profil & pengaturan</div>
-    <div class="card">
-      <div class="row"><div class="avatar">${esc(initials(S.member.name))}</div><div class="grow"><div class="t-name">${esc(S.member.name)}</div><div class="t-meta">${esc(S.user.email)}</div></div></div>
-    </div>
-    <div class="card">
-      <div class="card-t">${I('table','sm')} Spreadsheet absensi guru</div>
-      <div class="t-meta" style="white-space:normal;margin-bottom:10px">Link Google Sheet tempat kamu mencatat absensi mengajar. Tombol amplop di jadwal akan membuka link ini.</div>
-      <div class="field"><input id="mlSheet" type="url" placeholder="https://docs.google.com/spreadsheets/..." value="${esc(S.member.sheetLink || '')}"/></div>
-      <button class="btn btn-primary" id="mlSave">${I('check')} Simpan Link</button>
-    </div>
-    <div class="card" style="padding:4px 14px">
-      <button class="menu-item" id="mlMode"><div class="menu-ic">${I('repeat')}</div><div><div class="menu-l">Ganti Mode</div><div class="menu-d">Pindah ke Guru Lepas untuk murid pribadimu</div></div></button>
-      <button class="menu-item" id="mlLeave"><div class="menu-ic" style="color:var(--danger)">${I('logout')}</div><div><div class="menu-l" style="color:var(--danger)">Keluar dari ${esc(S.org.name)}</div><div class="menu-d">Berhenti menjadi Guru Mitra di lembaga ini</div></div></button>
-      <button class="menu-item" id="mlOut"><div class="menu-ic">${I('lock')}</div><div><div class="menu-l">Logout</div><div class="menu-d">${esc(S.user.email)}</div></div></button>
-    </div>`;
-  $('mlSave').onclick = async () => {
-    const v = $('mlSheet').value.trim();
-    if (v && !/^https?:\/\//i.test(v)) { toast('Link harus diawali https://'); return; }
-    try { await updateDoc(doc(db, 'orgs', S.org.id, 'members', S.user.uid), { sheetLink: v }); S.member.sheetLink = v; toast('✅ Link tersimpan'); }
-    catch (e) { toast('❌ ' + friendlyError(e)); }
-  };
-  $('mlMode').onclick = renderChooser;
-  $('mlOut').onclick = logout;
-  $('mlLeave').onclick = () => confirmDanger({
-    title: 'Keluar dari ' + S.org.name + '?',
-    message: 'Kamu tidak bisa lagi melihat jadwal & murid lembaga ini. Untuk bergabung lagi, perlu kode undangan baru dari Guru Admin.',
-    confirmText: 'Keluar', typeWord: 'KELUAR'
-  }, async () => {
-    try {
-      const b = writeBatch(db);
-      b.delete(doc(db, 'orgs', S.org.id, 'members', S.user.uid));
-      if (S.member.slot) b.delete(doc(db, 'orgs', S.org.id, 'slots', String(S.member.slot)));
-      b.set(doc(db, 'users', S.user.uid), { orgId: null, orgRole: null, mode: 'lepas', updatedAt: serverTimestamp() });
-      await b.commit();
-      S.org = S.member = null; S.profile.orgId = null;
-      toast('Kamu sudah keluar dari lembaga'); renderChooser();
-    } catch (e) { toast('❌ Gagal: ' + friendlyError(e), 4000); }
-  });
-}
-
-// ══════════════════════════════════════════════════════════════════════
 // BOOT
 // ══════════════════════════════════════════════════════════════════════
 async function afterAuth(user) {
@@ -1192,9 +1190,11 @@ async function afterAuth(user) {
     if (codeParam) return renderJoinGate(codeParam);
     return renderChooser();
   }
+  const pilih = url.searchParams.get('pilih');
+  if (pilih) history.replaceState(null, '', url.pathname);
   try {
     await loadProfile();
-    if (await loadMembership()) return enterShell();
+    if (await loadMembership()) return pilih ? renderChooser() : enterShell();
   } catch (e) {
     console.error(e);
     root().innerHTML = `<div class="panel"><div class="msg msg-err">Gagal memuat data: ${esc(friendlyError(e))}</div><button class="btn btn-primary" onclick="location.reload()">Coba Lagi</button></div>`;
