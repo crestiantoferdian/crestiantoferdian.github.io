@@ -36,7 +36,7 @@ const auth = TEST ? null : getAuth(app);
 if (TEST) connectFirestoreEmulator(db, TEST.host, TEST.port, { mockUserToken: { sub: TEST.user.uid, email: TEST.user.email, email_verified: true } });
 
 // ── State ──
-const S = { user: null, profile: null, org: null, member: null, tab: null, guru: null };
+const S = { user: null, profile: null, org: null, member: null, tab: null, guru: null, data: null, muridView: 'daftar', filt: { q: '', guru: '', subj: '', status: 'aktif' }, schedGuru: '' };
 
 // ── Util ──
 const $ = (id) => document.getElementById(id);
@@ -400,15 +400,17 @@ function renderShell() {
 }
 function renderTab() {
   const m = $('main');
+  m.classList.toggle('wide', isAdmin() && S.tab === 'murid');
   if (isAdmin()) {
     if (S.tab === 'guru') return renderGuru(m);
     if (S.tab === 'lainnya') return renderAdminLainnya(m);
-    const info = { absensi: ['absensi', 'Absensi Harian', 'Pantau absensi semua Guru Mitra — dibangun di Tahap 4.'], murid: ['cap', 'Data Murid', 'Murid, pelajaran, tarif & jadwal — dibangun di Tahap 2.'], keuangan: ['wallet', 'Keuangan', 'Tagihan per pelajaran & rekap honor guru — dibangun di Tahap 5.'] }[S.tab];
+    if (S.tab === 'murid') return renderMurid(m);
+    const info = { absensi: ['absensi', 'Absensi Harian', 'Pantau absensi semua Guru Mitra — dibangun di Tahap 4.'], keuangan: ['wallet', 'Keuangan', 'Tagihan per pelajaran & rekap honor guru — dibangun di Tahap 5.'] }[S.tab];
     return placeholder(m, info);
   }
   if (S.tab === 'lainnya') return renderMitraLainnya(m);
   if (S.tab === 'honor') return renderMitraHonor(m);
-  return placeholder(m, ['calendar', 'Jadwal Saya', 'Jadwal & absensi murid yang ditugaskan kepadamu akan muncul di sini (Tahap 3).']);
+  return renderMitraJadwal(m);
 }
 function placeholder(m, [ic, t, d]) {
   m.innerHTML = `<div class="page-title">${t}</div><div class="page-sub">Segera hadir</div>
@@ -622,6 +624,468 @@ function kickMitra(x) {
       toast(x.name + ' dikeluarkan'); renderTab();
     } catch (e) { toast('❌ Gagal: ' + friendlyError(e), 4000); }
   });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// TAHAP 2 — ADMIN: MURID, KELAS, JADWAL MINGGUAN, MATA PELAJARAN
+// Data:
+//   orgs/{org}/subjects/{id}  {name, rate, active}            — hanya Admin
+//   orgs/{org}/students/{id}  {name, parentName, phone, note, active, source,
+//                              classes:[{id, subjectId, mitraUid, rate|null,
+//                                        schedule:[{day,start,end}]}]} — hanya Admin
+//   orgs/{org}/sched/{classId} salinan ringkas per kelas untuk Guru Mitra
+//                              (tanpa No HP & tarif), ditulis bersamaan.
+// ══════════════════════════════════════════════════════════════════════
+const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+const DAY_SHORT = { Senin: 'Sen', Selasa: 'Sel', Rabu: 'Rab', Kamis: 'Kam', Jumat: 'Jum', Sabtu: 'Sab', Minggu: 'Min' };
+const GURU_COLORS = ['#a8372a', '#2f5a8a', '#2a7349', '#a65510', '#6b3fa0', '#0f7c86', '#9c2f6b', '#5b6b1f'];
+function newId() { return doc(collection(db, 'orgs', S.org.id, 'students')).id; }
+function toMin(t) { const m = /^(\d{1,2}):(\d{2})$/.exec(t || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+function slotTxt(x) { return (DAY_SHORT[x.day] || x.day) + ' ' + (x.start || '?') + (x.end ? '–' + x.end : ''); }
+function byDayTime(a, b) { return DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || String(a.start).localeCompare(String(b.start)); }
+
+async function loadOrgData(force) {
+  if (S.data && !force) return S.data;
+  const o = S.org.id;
+  const [sub, stu, mem] = await Promise.all([
+    getDocs(collection(db, 'orgs', o, 'subjects')),
+    getDocs(collection(db, 'orgs', o, 'students')),
+    getDocs(collection(db, 'orgs', o, 'members')),
+  ]);
+  const mitras = mem.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(x => x.role === 'mitra').sort((a, b) => a.name.localeCompare(b.name));
+  S.data = {
+    subjects: sub.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.name.localeCompare(b.name)),
+    students: stu.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.name.localeCompare(b.name)),
+    mitras,
+  };
+  S.data.mitras.forEach((x, i) => { x.color = GURU_COLORS[i % GURU_COLORS.length]; });
+  return S.data;
+}
+const subjOf = (id) => (S.data.subjects.find(x => x.id === id) || null);
+const mitraOf = (uid) => (uid ? S.data.mitras.find(x => x.id === uid) || null : null);
+function guruLabel(uid) {
+  if (!uid) return '<span class="t-warn">Belum ada guru</span>';
+  const g = mitraOf(uid);
+  return g ? `<span class="g-dot" style="background:${g.color}"></span>${esc(g.name)}` : '<span class="t-warn">Guru sudah keluar</span>';
+}
+function rateOf(c) { if (c.rate != null) return c.rate; const sj = subjOf(c.subjectId); return sj ? sj.rate : 0; }
+
+// Data ringkas untuk Guru Mitra — TIDAK berisi No HP/tarif (dijaga juga oleh firestore.rules)
+function schedDoc(st, c) {
+  const sj = subjOf(c.subjectId);
+  return { studentId: st.id, studentName: st.name, subjectId: c.subjectId, subjectName: sj ? sj.name : '', mitraUid: c.mitraUid || null,
+    schedule: (c.schedule || []).map(x => ({ day: x.day, start: x.start || '', end: x.end || '' })), active: !!st.active, updatedAt: serverTimestamp() };
+}
+// Simpan beberapa operasi dalam beberapa batch (batas Firestore 500 per batch)
+async function commitOps(ops) {
+  for (let i = 0; i < ops.length; i += 400) {
+    const b = writeBatch(db);
+    ops.slice(i, i + 400).forEach(([kind, ref, data]) => kind === 'del' ? b.delete(ref) : b.set(ref, data));
+    await b.commit();
+  }
+}
+
+async function renderMurid(m) {
+  m.innerHTML = '<div class="page-title">Murid</div><div class="page-sub">Memuat…</div>';
+  try { await loadOrgData(); } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
+  const views = [['daftar', 'users', 'Daftar Murid'], ['jadwal', 'calendar', 'Jadwal Mingguan'], ['pelajaran', 'book-open', 'Mata Pelajaran']];
+  m.innerHTML = `
+    <div class="page-head">
+      <div><div class="page-title">Murid</div><div class="page-sub" id="mSub"></div></div>
+    </div>
+    <div class="seg">${views.map(([k, i, l]) => `<button class="seg-b ${S.muridView === k ? 'on' : ''}" data-view="${k}">${I(i, 'sm')} ${l}</button>`).join('')}</div>
+    <div id="mBody"></div>`;
+  m.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { S.muridView = b.dataset.view; renderMurid(m); });
+  const d = S.data, act = d.students.filter(x => x.active);
+  const nKelas = act.reduce((n, x) => n + (x.classes || []).length, 0);
+  const noGuru = act.reduce((n, x) => n + (x.classes || []).filter(c => !mitraOf(c.mitraUid)).length, 0);
+  $('mSub').innerHTML = `${act.length} murid aktif · ${nKelas} kelas${noGuru ? ` · <span class="t-warn">${noGuru} kelas belum ada guru</span>` : ''}`;
+  const body = $('mBody');
+  if (S.muridView === 'jadwal') return renderJadwalMingguan(body);
+  if (S.muridView === 'pelajaran') return renderPelajaran(body);
+  return renderDaftarMurid(body);
+}
+function rerenderMurid() { const m = $('main'); if (m && S.tab === 'murid') renderMurid(m); }
+
+// ── Daftar Murid ──
+function renderDaftarMurid(body) {
+  const d = S.data, f = S.filt;
+  const opt = (v, l, cur) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
+  body.innerHTML = `
+    ${d.subjects.length ? '' : `<div class="callout">${I('info')}<div><b>Mulai dari Mata Pelajaran.</b> Tambahkan pelajaran & tarif standarnya dulu (mis. Piano Rp 50.000), lalu tambahkan murid. <button class="link-btn" id="goPel">Buka Mata Pelajaran →</button></div></div>`}
+    <div class="toolbar">
+      <div class="search">${I('search', 'sm')}<input id="fQ" placeholder="Cari nama murid / ortu…" value="${esc(f.q)}"/></div>
+      <select id="fGuru">${opt('', 'Semua guru', f.guru)}${d.mitras.map(x => opt(x.id, x.name, f.guru)).join('')}${opt('none', 'Belum ada guru', f.guru)}</select>
+      <select id="fSubj">${opt('', 'Semua pelajaran', f.subj)}${d.subjects.map(x => opt(x.id, x.name, f.subj)).join('')}</select>
+      <select id="fStat">${opt('aktif', 'Aktif', f.status)}${opt('nonaktif', 'Nonaktif', f.status)}${opt('semua', 'Semua status', f.status)}</select>
+      <button class="btn btn-ghost tb-btn" id="impV1">${I('download', 'sm')} Impor dari LLK V1</button>
+      <button class="btn btn-primary tb-btn" id="addStu" ${d.subjects.length ? '' : 'disabled'}>${I('plus', 'sm')} Tambah Murid</button>
+    </div>
+    <div id="stuList"></div>`;
+  const g = $('goPel'); if (g) g.onclick = () => { S.muridView = 'pelajaran'; rerenderMurid(); };
+  $('fQ').oninput = (e) => { f.q = e.target.value; drawStudentList(); };
+  $('fGuru').onchange = (e) => { f.guru = e.target.value; drawStudentList(); };
+  $('fSubj').onchange = (e) => { f.subj = e.target.value; drawStudentList(); };
+  $('fStat').onchange = (e) => { f.status = e.target.value; drawStudentList(); };
+  $('addStu').onclick = () => openStudentForm(null);
+  $('impV1').onclick = openImportV1;
+  drawStudentList();
+}
+function filteredStudents() {
+  const f = S.filt, q = f.q.trim().toLowerCase();
+  return S.data.students.filter(st => {
+    if (f.status === 'aktif' && !st.active) return false;
+    if (f.status === 'nonaktif' && st.active) return false;
+    if (q && !(st.name.toLowerCase().includes(q) || String(st.parentName || '').toLowerCase().includes(q))) return false;
+    const cl = st.classes || [];
+    if (f.subj && !cl.some(c => c.subjectId === f.subj)) return false;
+    if (f.guru === 'none' && !cl.some(c => !mitraOf(c.mitraUid))) return false;
+    if (f.guru && f.guru !== 'none' && !cl.some(c => c.mitraUid === f.guru)) return false;
+    return true;
+  });
+}
+function drawStudentList() {
+  const box = $('stuList'); if (!box) return;
+  const list = filteredStudents();
+  if (!list.length) {
+    box.innerHTML = `<div class="card"><div class="empty"><div class="empty-ic">${I('users')}</div><div class="empty-t">${S.data.students.length ? 'Tidak ada murid yang cocok' : 'Belum ada murid'}</div><div class="empty-d">${S.data.students.length ? 'Ubah pencarian atau filter di atas.' : 'Tekan “Tambah Murid”, atau salin dari LLK V1 dengan “Impor dari LLK V1”.'}</div></div></div>`;
+    return;
+  }
+  const row = st => {
+    const cl = st.classes || [];
+    const kelas = cl.map(c => { const sj = subjOf(c.subjectId); return `<div class="cl-line"><b>${esc(sj ? sj.name : '—')}</b> · ${guruLabel(c.mitraUid)}</div>`; }).join('');
+    const jadwal = cl.map(c => `<div class="cl-line">${esc((c.schedule || []).slice().sort(byDayTime).map(slotTxt).join(', ') || '—')}</div>`).join('');
+    const tarif = cl.map(c => `<div class="cl-line">${esc(rupiah(rateOf(c)))}${c.rate != null ? ' <span class="pill pill-amber">KHUSUS</span>' : ''}</div>`).join('');
+    return `<tr data-stu="${esc(st.id)}" class="${st.active ? '' : 'is-off'}">
+      <td><div class="t-name">${esc(st.name)}</div><div class="t-meta">${esc(st.parentName || '')}</div></td>
+      <td>${kelas || '—'}</td><td>${jadwal || '—'}</td><td>${tarif || '—'}</td>
+      <td>${st.phone ? esc(st.phone) : '<span class="t-meta">—</span>'}</td>
+      <td>${st.active ? '<span class="pill pill-green">AKTIF</span>' : '<span class="pill pill-grey">NONAKTIF</span>'}</td>
+      <td class="td-act"><button class="mini" data-edit="${esc(st.id)}">${I('edit', 'sm')} Ubah</button></td></tr>`;
+  };
+  box.innerHTML = `<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Murid</th><th>Pelajaran & Guru</th><th>Jadwal</th><th>Tarif / pertemuan</th><th>No HP ortu</th><th>Status</th><th></th></tr></thead>
+    <tbody>${list.map(row).join('')}</tbody></table></div>
+    <div class="t-meta" style="margin-top:8px">${list.length} murid ditampilkan</div>`;
+  box.querySelectorAll('tr[data-stu]').forEach(tr => tr.onclick = () => openStudentForm(S.data.students.find(x => x.id === tr.dataset.stu)));
+}
+
+// ── Form murid (bisa banyak kelas) ──
+let F = null; // state form yang sedang dibuka
+function openStudentForm(st) {
+  const d = S.data;
+  F = st ? JSON.parse(JSON.stringify(st)) : { id: null, name: '', parentName: '', phone: '', note: '', active: true, classes: [] };
+  if (!F.classes.length) F.classes.push(blankClass());
+  const ov = openModal(`
+    <div class="modal-t">${I(st ? 'edit' : 'user-plus')} ${st ? 'Ubah Murid' : 'Tambah Murid'}</div>
+    <div class="modal-sub">No HP ortu & tarif hanya terlihat oleh Guru Admin. Guru Mitra hanya melihat nama murid, pelajaran & jadwalnya.</div>
+    <div id="sfMsg"></div>
+    <div class="grid2">
+      <div class="field"><label>Nama murid</label><input id="sfName" maxlength="80" value="${esc(F.name)}" placeholder="cth: Brilian"/></div>
+      <div class="field"><label>Nama ortu (opsional)</label><input id="sfParent" maxlength="80" value="${esc(F.parentName || '')}" placeholder="cth: Bu Rina"/></div>
+      <div class="field"><label>No HP / WA ortu</label><input id="sfPhone" type="tel" inputmode="tel" maxlength="20" value="${esc(F.phone || '')}" placeholder="cth: 0812xxxx"/></div>
+      <div class="field"><label>Status</label><select id="sfActive"><option value="1" ${F.active ? 'selected' : ''}>Aktif</option><option value="0" ${F.active ? '' : 'selected'}>Nonaktif (berhenti les)</option></select></div>
+    </div>
+    <div class="field"><label>Catatan (opsional)</label><input id="sfNote" maxlength="200" value="${esc(F.note || '')}"/></div>
+    <div class="card-t" style="margin-top:6px">${I('book-open', 'sm')} Kelas yang diikuti</div>
+    <div id="sfClasses"></div>
+    <button class="btn btn-ghost" id="sfAddClass" style="margin-bottom:14px">${I('plus', 'sm')} Tambah Kelas (pelajaran lain)</button>
+    <div class="btn-row">
+      ${st ? `<button class="btn btn-danger" id="sfDel" style="flex:0 0 auto;width:auto;padding:0 16px">${I('trash', 'sm')}</button>` : ''}
+      <button class="btn btn-ghost" id="sfNo">Batal</button><button class="btn btn-primary" id="sfGo">${I('check', 'sm')} Simpan</button>
+    </div>`);
+  ov.querySelector('.modal').classList.add('modal-wide');
+  drawClasses();
+  $('sfAddClass').onclick = () => { readForm(); F.classes.push(blankClass()); drawClasses(); };
+  $('sfNo').onclick = closeModal;
+  $('sfGo').onclick = saveStudent;
+  const del = $('sfDel'); if (del) del.onclick = () => deleteStudent(st);
+}
+function blankClass() { return { id: newId(), subjectId: (S.data.subjects.find(x => x.active !== false) || {}).id || '', mitraUid: null, rate: null, schedule: [{ day: 'Senin', start: '', end: '' }] }; }
+function drawClasses() {
+  const d = S.data, box = $('sfClasses');
+  box.innerHTML = F.classes.map((c, ci) => {
+    const sj = subjOf(c.subjectId);
+    const subjOpts = d.subjects.filter(x => x.active !== false || x.id === c.subjectId).map(x => `<option value="${esc(x.id)}" ${x.id === c.subjectId ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+    const guruOpts = `<option value="">Belum ditentukan</option>` + d.mitras.map(x => `<option value="${esc(x.id)}" ${x.id === c.mitraUid ? 'selected' : ''}>${esc(x.name)}</option>`).join('')
+      + (c.mitraUid && !mitraOf(c.mitraUid) ? `<option value="${esc(c.mitraUid)}" selected>(guru sudah keluar)</option>` : '');
+    const slots = c.schedule.map((x, si) => `
+      <div class="slot-row">
+        <select data-c="${ci}" data-s="${si}" data-k="day">${DAYS.map(dn => `<option ${dn === x.day ? 'selected' : ''}>${dn}</option>`).join('')}</select>
+        <input type="time" data-c="${ci}" data-s="${si}" data-k="start" value="${esc(x.start)}" aria-label="Jam mulai"/>
+        <span class="t-meta">s/d</span>
+        <input type="time" data-c="${ci}" data-s="${si}" data-k="end" value="${esc(x.end)}" aria-label="Jam selesai"/>
+        <button class="icon-btn" data-delslot="${ci}:${si}" title="Hapus hari ini" ${c.schedule.length < 2 ? 'disabled' : ''}>${I('x', 'sm')}</button>
+      </div>`).join('');
+    return `<div class="class-card">
+      <div class="row" style="margin-bottom:10px"><div class="grow card-t" style="margin:0">Kelas ${ci + 1}</div>
+        ${F.classes.length > 1 ? `<button class="mini mini-red" data-delclass="${ci}" style="flex:0 0 auto">${I('trash', 'sm')} Hapus kelas</button>` : ''}</div>
+      <div class="grid3">
+        <div class="field"><label>Pelajaran</label><select data-c="${ci}" data-k="subjectId">${subjOpts || '<option value="">(belum ada pelajaran)</option>'}</select></div>
+        <div class="field"><label>Guru</label><select data-c="${ci}" data-k="mitraUid">${guruOpts}</select></div>
+        <div class="field"><label>Tarif khusus (opsional)</label><input type="number" inputmode="numeric" min="0" step="1000" data-c="${ci}" data-k="rate" value="${c.rate != null ? esc(c.rate) : ''}" placeholder="Standar ${esc(rupiah(sj ? sj.rate : 0))}"/></div>
+      </div>
+      <label class="mini-label">Jadwal rutin</label>
+      ${slots}
+      <button class="link-btn" data-addslot="${ci}">${I('plus', 'sm')} Tambah hari</button>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-delclass]').forEach(b => b.onclick = () => { readForm(); F.classes.splice(+b.dataset.delclass, 1); drawClasses(); });
+  box.querySelectorAll('[data-addslot]').forEach(b => b.onclick = () => { readForm(); const c = F.classes[+b.dataset.addslot]; const last = c.schedule[c.schedule.length - 1] || {}; c.schedule.push({ day: 'Senin', start: last.start || '', end: last.end || '' }); drawClasses(); });
+  box.querySelectorAll('[data-delslot]').forEach(b => b.onclick = () => { readForm(); const [ci, si] = b.dataset.delslot.split(':').map(Number); F.classes[ci].schedule.splice(si, 1); drawClasses(); });
+  box.querySelectorAll('select[data-k="subjectId"]').forEach(sel => sel.onchange = () => { readForm(); drawClasses(); }); // perbarui placeholder tarif standar
+}
+function readForm() {
+  F.name = $('sfName').value.trim(); F.parentName = $('sfParent').value.trim(); F.phone = $('sfPhone').value.trim();
+  F.note = $('sfNote').value.trim(); F.active = $('sfActive').value === '1';
+  document.querySelectorAll('#sfClasses [data-c]').forEach(el => {
+    const c = F.classes[+el.dataset.c], k = el.dataset.k;
+    if (el.dataset.s != null) { c.schedule[+el.dataset.s][k] = el.value; return; }
+    if (k === 'rate') { const v = el.value.trim(); c.rate = v === '' ? null : Math.max(0, parseInt(v, 10) || 0); }
+    else if (k === 'mitraUid') c.mitraUid = el.value || null;
+    else c[k] = el.value;
+  });
+}
+async function saveStudent() {
+  readForm();
+  const err = (t) => { $('sfMsg').innerHTML = `<div class="msg msg-err">${esc(t)}</div>`; $('sfMsg').scrollIntoView({ block: 'nearest' }); };
+  if (!F.name) return err('Nama murid wajib diisi.');
+  const dup = S.data.students.find(x => x.id !== F.id && x.name.trim().toLowerCase() === F.name.toLowerCase());
+  if (dup) return err('Sudah ada murid bernama "' + dup.name + '". Tambahkan inisial supaya berbeda.');
+  if (!F.classes.length) return err('Tambahkan minimal 1 kelas.');
+  for (let i = 0; i < F.classes.length; i++) {
+    const c = F.classes[i];
+    if (!c.subjectId) return err('Kelas ' + (i + 1) + ': pilih pelajarannya.');
+    if (!c.schedule.length || c.schedule.some(x => !x.day || !x.start)) return err('Kelas ' + (i + 1) + ': isi hari & jam mulai setiap jadwal.');
+    if (c.schedule.some(x => x.end && toMin(x.end) <= toMin(x.start))) return err('Kelas ' + (i + 1) + ': jam selesai harus setelah jam mulai.');
+  }
+  const btn = $('sfGo'); btn.disabled = true;
+  const o = S.org.id, isNew = !F.id;
+  if (isNew) F.id = newId();
+  const old = S.data.students.find(x => x.id === F.id);
+  const data = { name: F.name, parentName: F.parentName, phone: F.phone, note: F.note, active: F.active,
+    classes: F.classes.map(c => ({ id: c.id, subjectId: c.subjectId, mitraUid: c.mitraUid || null, rate: c.rate, schedule: c.schedule.map(x => ({ day: x.day, start: x.start, end: x.end || '' })).sort(byDayTime) })),
+    source: (old && old.source) || 'manual', updatedAt: serverTimestamp() };
+  if (isNew) data.createdAt = serverTimestamp(); else if (old && old.createdAt) data.createdAt = old.createdAt;
+  const ops = [['set', doc(db, 'orgs', o, 'students', F.id), data]];
+  data.classes.forEach(c => ops.push(['set', doc(db, 'orgs', o, 'sched', c.id), schedDoc({ id: F.id, name: F.name, active: F.active }, c)]));
+  (old ? old.classes || [] : []).filter(c => !data.classes.some(n => n.id === c.id)).forEach(c => ops.push(['del', doc(db, 'orgs', o, 'sched', c.id)]));
+  try {
+    await commitOps(ops);
+    closeModal(); toast('✅ ' + F.name + (isNew ? ' ditambahkan' : ' disimpan'));
+    await loadOrgData(true); rerenderMurid();
+  } catch (e) { console.error(e); if (isNew) F.id = null; btn.disabled = false; err('Gagal menyimpan: ' + friendlyError(e)); }
+}
+function deleteStudent(st) {
+  confirmDanger({ title: 'Hapus ' + st.name + '?', message: `Data murid & semua jadwal kelasnya dihapus permanen. <b>Kalau murid hanya berhenti les, pilih Status “Nonaktif”</b> supaya datanya tetap tersimpan.`, confirmText: 'Hapus Permanen', typeWord: 'HAPUS' }, async () => {
+    try {
+      const o = S.org.id;
+      await commitOps([['del', doc(db, 'orgs', o, 'students', st.id)], ...(st.classes || []).map(c => ['del', doc(db, 'orgs', o, 'sched', c.id)])]);
+      toast(st.name + ' dihapus'); await loadOrgData(true); rerenderMurid();
+    } catch (e) { toast('❌ Gagal menghapus: ' + friendlyError(e), 4000); }
+  });
+}
+
+// ── Jadwal Mingguan (semua guru) ──
+function weekSessions() {
+  const out = [];
+  S.data.students.filter(st => st.active).forEach(st => (st.classes || []).forEach(c => (c.schedule || []).forEach(x => {
+    const s0 = toMin(x.start); if (s0 == null) return;
+    const e0 = toMin(x.end); const sj = subjOf(c.subjectId);
+    out.push({ day: x.day, start: x.start, end: x.end, s: s0, e: e0 != null && e0 > s0 ? e0 : s0 + 60, st, c, subj: sj ? sj.name : '—', uid: mitraOf(c.mitraUid) ? c.mitraUid : null });
+  })));
+  // Bentrok: guru yang sama, hari sama, jam bertumpuk
+  out.forEach(a => { a.clash = !!a.uid && out.some(b => b !== a && b.uid === a.uid && b.day === a.day && a.s < b.e && b.s < a.e); });
+  return out.sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.s - b.s);
+}
+function renderJadwalMingguan(body) {
+  const d = S.data, all = weekSessions();
+  const gf = S.schedGuru;
+  const list = all.filter(x => !gf || (gf === 'none' ? !x.uid : x.uid === gf));
+  const clashes = all.filter(x => x.clash).length;
+  const perGuru = d.mitras.map(g => ({ g, n: all.filter(x => x.uid === g.id).length }));
+  const noGuru = all.filter(x => !x.uid).length;
+  body.innerHTML = `
+    <div class="toolbar">
+      <select id="jgGuru"><option value="">Semua guru</option>${d.mitras.map(x => `<option value="${esc(x.id)}" ${gf === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}<option value="none" ${gf === 'none' ? 'selected' : ''}>Belum ada guru</option></select>
+      <div class="chips">${perGuru.map(({ g, n }) => `<span class="chip"><span class="g-dot" style="background:${g.color}"></span>${esc(g.name)} · ${n} sesi/minggu</span>`).join('')}${noGuru ? `<span class="chip chip-warn">Belum ada guru · ${noGuru}</span>` : ''}</div>
+    </div>
+    ${clashes ? `<div class="msg msg-err">${I('alert', 'sm')} Ada <b>${clashes} sesi bentrok</b>: guru yang sama punya 2 murid di jam yang bertumpuk. Ditandai merah di bawah.</div>` : ''}
+    ${all.length ? `<div class="week">${DAYS.map(dn => {
+      const items = list.filter(x => x.day === dn);
+      return `<div class="week-col"><div class="week-h">${dn}<span>${items.length}</span></div>
+        ${items.map(x => { const g = mitraOf(x.uid); return `<button class="sess ${x.clash ? 'clash' : ''}" data-stu="${esc(x.st.id)}" style="border-left-color:${g ? g.color : 'var(--muted2)'}">
+          <div class="sess-t">${esc(x.start)}${x.end ? '–' + esc(x.end) : ''}${x.clash ? ' · BENTROK' : ''}</div>
+          <div class="sess-n">${esc(x.st.name)}</div>
+          <div class="sess-m">${esc(x.subj)} · ${g ? esc(g.name) : '<span class="t-warn">belum ada guru</span>'}</div></button>`; }).join('') || '<div class="week-empty">—</div>'}
+      </div>`; }).join('')}</div>`
+    : `<div class="card"><div class="empty"><div class="empty-ic">${I('calendar')}</div><div class="empty-t">Belum ada jadwal</div><div class="empty-d">Jadwal muncul setelah murid ditambahkan di Daftar Murid.</div></div></div>`}`;
+  $('jgGuru').onchange = (e) => { S.schedGuru = e.target.value; renderJadwalMingguan(body); };
+  body.querySelectorAll('.sess[data-stu]').forEach(b => b.onclick = () => openStudentForm(S.data.students.find(x => x.id === b.dataset.stu)));
+}
+
+// ── Mata Pelajaran ──
+function renderPelajaran(body) {
+  const d = S.data;
+  const used = id => d.students.reduce((n, st) => n + (st.classes || []).filter(c => c.subjectId === id).length, 0);
+  body.innerHTML = `
+    <div class="toolbar"><div class="grow t-meta" style="white-space:normal">Tarif standar dipakai semua kelas pelajaran itu, kecuali murid yang diberi <b>tarif khusus</b>.</div>
+      <button class="btn btn-primary tb-btn" id="addSubj">${I('plus', 'sm')} Tambah Pelajaran</button></div>
+    ${d.subjects.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Pelajaran</th><th>Tarif standar / pertemuan</th><th>Dipakai</th><th>Status</th><th></th></tr></thead><tbody>
+      ${d.subjects.map(x => `<tr data-subj="${esc(x.id)}" class="${x.active === false ? 'is-off' : ''}"><td><div class="t-name">${esc(x.name)}</div></td><td>${esc(rupiah(x.rate))}</td><td>${used(x.id)} kelas</td>
+        <td>${x.active === false ? '<span class="pill pill-grey">NONAKTIF</span>' : '<span class="pill pill-green">AKTIF</span>'}</td><td class="td-act"><button class="mini">${I('edit', 'sm')} Ubah</button></td></tr>`).join('')}
+    </tbody></table></div>`
+    : `<div class="card"><div class="empty"><div class="empty-ic">${I('book-open')}</div><div class="empty-t">Belum ada mata pelajaran</div><div class="empty-d">Contoh: Piano Rp 50.000, Gitar Rp 45.000, Vokal Rp 45.000.</div></div></div>`}`;
+  $('addSubj').onclick = () => openSubjectForm(null);
+  body.querySelectorAll('tr[data-subj]').forEach(tr => tr.onclick = () => openSubjectForm(d.subjects.find(x => x.id === tr.dataset.subj), used(tr.dataset.subj)));
+}
+function openSubjectForm(sj, usedN) {
+  openModal(`
+    <div class="modal-t">${I('book-open')} ${sj ? 'Ubah Pelajaran' : 'Tambah Pelajaran'}</div>
+    <div id="pjMsg"></div>
+    <div class="field"><label>Nama pelajaran</label><input id="pjName" maxlength="40" value="${esc(sj ? sj.name : '')}" placeholder="cth: Piano"/></div>
+    <div class="field"><label>Tarif standar per pertemuan (Rp)</label><input id="pjRate" type="number" inputmode="numeric" min="0" step="1000" value="${esc(sj ? sj.rate : '')}" placeholder="cth: 50000"/>
+      <div class="hint">Mengubah tarif berlaku untuk semua murid pelajaran ini yang tidak punya tarif khusus.</div></div>
+    ${sj ? `<div class="field"><label>Status</label><select id="pjActive"><option value="1" ${sj.active !== false ? 'selected' : ''}>Aktif</option><option value="0" ${sj.active === false ? 'selected' : ''}>Nonaktif (tidak muncul di pilihan murid baru)</option></select></div>` : ''}
+    <div class="btn-row">
+      ${sj && !usedN ? `<button class="btn btn-danger" id="pjDel" style="flex:0 0 auto;width:auto;padding:0 16px">${I('trash', 'sm')}</button>` : ''}
+      <button class="btn btn-ghost" id="pjNo">Batal</button><button class="btn btn-primary" id="pjGo">${I('check', 'sm')} Simpan</button></div>`);
+  $('pjNo').onclick = closeModal;
+  const del = $('pjDel'); if (del) del.onclick = async () => {
+    try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'subjects', sj.id)]]); closeModal(); toast('Pelajaran dihapus'); await loadOrgData(true); rerenderMurid(); }
+    catch (e) { toast('❌ ' + friendlyError(e)); }
+  };
+  $('pjGo').onclick = async () => {
+    const name = $('pjName').value.trim(), rate = parseInt($('pjRate').value, 10);
+    const err = t => { $('pjMsg').innerHTML = `<div class="msg msg-err">${esc(t)}</div>`; };
+    if (!name) return err('Nama pelajaran wajib diisi.');
+    if (!Number.isFinite(rate) || rate < 0) return err('Tarif standar wajib diisi (angka).');
+    if (S.data.subjects.some(x => x.id !== (sj && sj.id) && x.name.toLowerCase() === name.toLowerCase())) return err('Pelajaran "' + name + '" sudah ada.');
+    const active = $('pjActive') ? $('pjActive').value === '1' : true;
+    const o = S.org.id, id = sj ? sj.id : doc(collection(db, 'orgs', o, 'subjects')).id;
+    const ops = [['set', doc(db, 'orgs', o, 'subjects', id), { name, rate, active, createdAt: (sj && sj.createdAt) || serverTimestamp(), updatedAt: serverTimestamp() }]];
+    // Nama berubah → perbarui salinan jadwal Guru Mitra
+    if (sj && sj.name !== name) {
+      const tmp = Object.assign({}, sj, { name });
+      S.data.students.forEach(st => (st.classes || []).filter(c => c.subjectId === id).forEach(c => {
+        const sd = schedDoc(st, c); sd.subjectName = tmp.name; ops.push(['set', doc(db, 'orgs', o, 'sched', c.id), sd]);
+      }));
+    }
+    $('pjGo').disabled = true;
+    try { await commitOps(ops); closeModal(); toast('✅ Pelajaran ' + name + ' disimpan'); await loadOrgData(true); rerenderMurid(); }
+    catch (e) { $('pjGo').disabled = false; err('Gagal menyimpan: ' + friendlyError(e)); }
+  };
+}
+
+// ── Impor murid dari LLK V1 (Guru Lepas) di browser yang sama ──
+function readV1Students() {
+  try { const a = JSON.parse(localStorage.getItem('rms4_s') || '[]'); return Array.isArray(a) ? a.filter(x => x && x.name) : []; } catch (e) { return []; }
+}
+function v1Schedule(x) {
+  return [[x.day, x.time, x.time2], [x.day2, x.time2a, x.time2b], [x.day3, x.time3a, x.time3b], [x.day4, x.time4a, x.time4b]]
+    .filter(([dd]) => dd && DAYS.includes(dd)).map(([day, start, end]) => ({ day, start: start || '', end: end || '' }));
+}
+function openImportV1() {
+  const v1 = readV1Students();
+  if (!v1.length) {
+    openModal(`<div class="modal-t">${I('download')} Impor dari LLK V1</div>
+      <div class="modal-sub">Data murid LLK V1 tidak ditemukan di browser ini.</div>
+      <div class="msg msg-info">Buka <b>LLK V1 (Guru Lepas)</b> di browser & perangkat ini dulu sampai daftar murid tampil, lalu kembali ke halaman ini.</div>
+      <button class="btn btn-ghost" id="ivNo">Tutup</button>`);
+    $('ivNo').onclick = closeModal; return;
+  }
+  const have = new Set(S.data.students.map(x => x.name.trim().toLowerCase()));
+  const rows = v1.map((x, i) => { const sched = v1Schedule(x).filter(y => y.start); return { i, x, sched, dup: have.has(String(x.name).trim().toLowerCase()), noSched: !sched.length }; })
+    .sort((a, b) => (!!a.x.inactive - !!b.x.inactive) || a.x.name.localeCompare(b.x.name));
+  const ov = openModal(`
+    <div class="modal-t">${I('download')} Impor dari LLK V1</div>
+    <div class="modal-sub">Menyalin murid, jadwal & tarif dari LLK V1 di browser ini ke lembaga. <b>Data LLK V1 tidak diubah.</b> Riwayat absensi tidak ikut disalin.</div>
+    <div class="toolbar" style="margin-bottom:8px">
+      <label class="chk"><input type="checkbox" id="ivAll"/> Pilih semua murid aktif</label>
+      <div class="field" style="margin:0;min-width:220px"><select id="ivGuru"><option value="">Guru: belum ditentukan</option>${S.data.mitras.map(g => `<option value="${esc(g.id)}">Guru: ${esc(g.name)}</option>`).join('')}</select></div>
+    </div>
+    <div class="imp-list">${rows.map(r => `<label class="imp-row ${r.dup || r.noSched ? 'is-off' : ''}">
+      <input type="checkbox" data-i="${r.i}" ${r.dup || r.noSched ? 'disabled' : ''}/>
+      <div class="grow"><div class="t-name">${esc(r.x.name)} ${r.x.inactive ? '<span class="pill pill-grey">NONAKTIF</span>' : ''} ${r.dup ? '<span class="pill pill-amber">SUDAH ADA</span>' : r.noSched ? '<span class="pill pill-grey">TANPA JADWAL</span>' : ''}</div>
+      <div class="t-meta">${esc(r.x.instrument || 'Tanpa pelajaran')} · ${esc(r.sched.map(slotTxt).join(', ') || 'tanpa jadwal rutin')} · ${esc(rupiah(r.x.rate || 40000))}</div></div></label>`).join('')}</div>
+    <div id="ivPlan" class="t-meta" style="white-space:normal;margin:10px 0"></div>
+    <div class="btn-row"><button class="btn btn-ghost" id="ivNo">Batal</button><button class="btn btn-primary" id="ivGo" disabled>Impor</button></div>`);
+  ov.querySelector('.modal').classList.add('modal-wide');
+  const boxes = () => Array.from(document.querySelectorAll('.imp-list input[data-i]'));
+  const picked = () => boxes().filter(b => b.checked).map(b => v1[+b.dataset.i]);
+  const plan = () => {
+    const p = picked(), subj = importSubjectPlan(p);
+    const newS = subj.filter(x => x.isNew);
+    $('ivPlan').innerHTML = p.length ? `<b>${p.length} murid</b> akan ditambahkan.` + (newS.length ? ` Pelajaran baru: ${newS.map(x => `<b>${esc(x.name)}</b> (tarif standar ${esc(rupiah(x.rate))})`).join(', ')}.` : '') + '' : 'Centang murid yang mau disalin. Murid tanpa jadwal rutin tidak bisa diimpor; tambahkan manual.';
+    $('ivGo').disabled = !p.length; $('ivGo').textContent = p.length ? 'Impor ' + p.length + ' Murid' : 'Impor';
+  };
+  boxes().forEach(b => b.onchange = plan);
+  $('ivAll').onchange = (e) => { boxes().forEach(b => { const x = v1[+b.dataset.i]; if (!b.disabled && !x.inactive) b.checked = e.target.checked; }); plan(); };
+  $('ivNo').onclick = closeModal;
+  $('ivGo').onclick = async () => { $('ivGo').disabled = true; $('ivGo').textContent = 'Mengimpor…'; await runImportV1(picked(), $('ivGuru').value || null); };
+  plan();
+}
+// Instrumen V1 → pelajaran lembaga (cocokkan nama; kalau belum ada, buat baru dgn tarif terbanyak)
+function importSubjectPlan(list) {
+  const map = new Map();
+  list.forEach(x => {
+    const nm = String(x.instrument || '').trim() || 'Umum', key = nm.toLowerCase();
+    if (!map.has(key)) map.set(key, { name: nm, rates: [] });
+    map.get(key).rates.push(x.rate || 40000);
+  });
+  return Array.from(map.entries()).map(([key, v]) => {
+    const ex = S.data.subjects.find(s => s.name.trim().toLowerCase() === key);
+    if (ex) return { key, id: ex.id, name: ex.name, rate: ex.rate, isNew: false };
+    const cnt = {}; v.rates.forEach(r => cnt[r] = (cnt[r] || 0) + 1);
+    const rate = +Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || b - a)[0];
+    return { key, id: doc(collection(db, 'orgs', S.org.id, 'subjects')).id, name: v.name, rate, isNew: true };
+  });
+}
+async function runImportV1(list, mitraUid) {
+  const o = S.org.id, plan = importSubjectPlan(list), ops = [];
+  plan.filter(x => x.isNew).forEach(x => ops.push(['set', doc(db, 'orgs', o, 'subjects', x.id), { name: x.name, rate: x.rate, active: true, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }]));
+  // supaya schedDoc() bisa menemukan nama pelajaran baru
+  plan.filter(x => x.isNew).forEach(x => S.data.subjects.push({ id: x.id, name: x.name, rate: x.rate, active: true }));
+  let n = 0, skipped = 0;
+  list.forEach(x => {
+    const sched = v1Schedule(x).filter(y => y.start);
+    if (!sched.length) { skipped++; return; }
+    const sp = plan.find(p => p.key === (String(x.instrument || '').trim() || 'Umum').toLowerCase());
+    const id = newId(), active = !x.inactive;
+    const c = { id: newId(), subjectId: sp.id, mitraUid: mitraUid || null, rate: (x.rate || 40000) === sp.rate ? null : (x.rate || 40000), schedule: sched.sort(byDayTime) };
+    ops.push(['set', doc(db, 'orgs', o, 'students', id), { name: String(x.name).trim().slice(0, 80), parentName: '', phone: String(x.phone || '').slice(0, 20), note: String(x.notes || '').slice(0, 200), active, classes: [c], source: 'v1', createdAt: serverTimestamp(), updatedAt: serverTimestamp() }]);
+    ops.push(['set', doc(db, 'orgs', o, 'sched', c.id), schedDoc({ id, name: String(x.name).trim().slice(0, 80), active }, c)]);
+    n++;
+  });
+  try {
+    await commitOps(ops);
+    closeModal(); toast('✅ ' + n + ' murid diimpor' + (skipped ? ' · ' + skipped + ' dilewati (tanpa jadwal rutin)' : ''), 4500);
+  } catch (e) { console.error(e); toast('❌ Gagal mengimpor: ' + friendlyError(e), 5000); }
+  await loadOrgData(true); rerenderMurid();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// MITRA — JADWAL SAYA (Tahap 2: lihat jadwal; absensi di Tahap 3)
+// ══════════════════════════════════════════════════════════════════════
+async function renderMitraJadwal(m) {
+  m.innerHTML = '<div class="page-title">Jadwal Saya</div><div class="page-sub">Memuat…</div>';
+  let list;
+  try {
+    const snap = await getDocs(query(collection(db, 'orgs', S.org.id, 'sched'), where('mitraUid', '==', S.user.uid)));
+    list = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(x => x.active);
+  } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat jadwal: ${esc(friendlyError(e))}</div>`; return; }
+  const sess = [];
+  list.forEach(c => (c.schedule || []).forEach(x => sess.push({ day: x.day, start: x.start, end: x.end, name: c.studentName, subj: c.subjectName })));
+  sess.sort((a, b) => byDayTime(a, b));
+  const murid = new Set(list.map(x => x.studentId)).size;
+  m.innerHTML = `<div class="page-title">Jadwal Saya</div>
+    <div class="page-sub">${murid} murid · ${sess.length} sesi per minggu · absensi lewat aplikasi segera hadir</div>
+    ${sess.length ? DAYS.filter(dn => sess.some(x => x.day === dn)).map(dn => `
+      <div class="card"><div class="card-t">${I('calendar', 'sm')} ${dn}</div>
+        ${sess.filter(x => x.day === dn).map(x => `<div class="row sched-row"><div class="sched-time">${esc(x.start)}${x.end ? '<br><span class="t-meta">' + esc(x.end) + '</span>' : ''}</div>
+          <div class="grow"><div class="t-name">${esc(x.name)}</div><div class="t-meta">${esc(x.subj)}</div></div></div>`).join('')}
+      </div>`).join('')
+    : `<div class="card"><div class="empty"><div class="empty-ic">${I('calendar')}</div><div class="empty-t">Belum ada murid</div><div class="empty-d">Guru Admin belum menugaskan murid kepadamu.</div></div></div>`}`;
 }
 
 // ══════════════════════════════════════════════════════════════════════

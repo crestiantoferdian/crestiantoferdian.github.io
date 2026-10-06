@@ -181,6 +181,41 @@ service cloud.firestore {
           (resource.data.kind == 'member' && !existsAfter(memberPath(orgId, resource.data.uid)))
         );
       }
+
+      // ── Tahap 2: Mata Pelajaran (tarif standar) — hanya Admin ──
+      match /subjects/{sid} {
+        allow read, delete: if isAdmin(orgId);
+        allow create, update: if isAdmin(orgId)
+          && request.resource.data.keys().hasOnly(['name', 'rate', 'active', 'createdAt', 'updatedAt'])
+          && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
+          && request.resource.data.rate is int && request.resource.data.rate >= 0 && request.resource.data.rate <= 100000000
+          && request.resource.data.active is bool;
+      }
+
+      // ── Tahap 2: Murid (nama ortu, No HP, tarif, kelas) — HANYA Admin ──
+      // Guru Mitra tidak pernah membaca dokumen ini; jadwalnya dibaca dari /sched.
+      match /students/{sid} {
+        allow read, delete: if isAdmin(orgId);
+        allow create, update: if isAdmin(orgId)
+          && request.resource.data.keys().hasOnly(['name', 'parentName', 'phone', 'note', 'active', 'classes', 'source', 'createdAt', 'updatedAt'])
+          && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+          && request.resource.data.active is bool
+          && request.resource.data.classes is list && request.resource.data.classes.size() <= 10;
+      }
+
+      // ── Tahap 2: Jadwal per kelas (salinan ringkas untuk Guru Mitra) ──
+      // Tanpa No HP & tanpa tarif. Mitra hanya bisa membaca kelas yang ditugaskan
+      // kepadanya (query wajib where mitraUid == uid), dan selama masih anggota.
+      match /sched/{cid} {
+        allow read: if isAdmin(orgId) || (isMember(orgId) && resource.data.mitraUid == uid());
+        allow create, update: if isAdmin(orgId)
+          && request.resource.data.keys().hasOnly(['studentId', 'studentName', 'subjectId', 'subjectName', 'mitraUid', 'schedule', 'active', 'updatedAt'])
+          && request.resource.data.studentName is string && request.resource.data.studentName.size() <= 80
+          && (request.resource.data.mitraUid == null || request.resource.data.mitraUid is string)
+          && request.resource.data.schedule is list && request.resource.data.schedule.size() <= 7
+          && request.resource.data.active is bool;
+        allow delete: if isAdmin(orgId);
+      }
     }
   }
 }
