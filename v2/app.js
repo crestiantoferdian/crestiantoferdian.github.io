@@ -400,13 +400,14 @@ function renderShell() {
 }
 function renderTab() {
   const m = $('main');
-  m.classList.toggle('wide', isAdmin() && (S.tab === 'murid' || S.tab === 'absensi'));
+  m.classList.toggle('wide', isAdmin() && ['murid', 'absensi', 'keuangan'].includes(S.tab));
   if (isAdmin()) {
     if (S.tab === 'guru') return renderGuru(m);
     if (S.tab === 'absensi') return renderAdminAbsensi(m);
     if (S.tab === 'lainnya') return renderAdminLainnya(m);
     if (S.tab === 'murid') return renderMurid(m);
-    return placeholder(m, ['wallet', 'Keuangan', 'Tagihan per pelajaran & rekap honor guru — segera hadir.']);
+    if (S.tab === 'keuangan') return renderKeuangan(m);
+    return placeholder(m, ['wallet', 'Keuangan', 'Segera hadir.']);
   }
 }
 function placeholder(m, [ic, t, d]) {
@@ -1250,6 +1251,172 @@ function openIzin(r, key, m) {
       closeModal(); toast('✅ ' + r.name + ' izin'); renderAdminAbsensi(m);
     } catch (e) { $('izGo').disabled = false; toast('❌ ' + friendlyError(e), 4000); }
   };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ADMIN — KEUANGAN: tagihan bayar di depan (paket N pertemuan), catat
+// pembayaran, gaji Guru Mitra (honor tercatat di tiap absensi), pemasukan.
+//   orgs/{org}/payments/{id}  {studentId, studentName, classId, subjectName,
+//                              sessions, amount, rate, date, note, by, createdAt}
+//   orgs/{org}/settings/billing {cycle}   (default 4 pertemuan per paket)
+// Sisa paket per kelas = pertemuan dibayar − pertemuan terpakai (Hadir + Alpa).
+// Izin & Off tidak memakai paket dan tidak dihitung gaji guru.
+// ══════════════════════════════════════════════════════════════════════
+function waNumber(p) { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('0')) d = '62' + d.slice(1); return d; }
+function fmtShortKey(k) { return new Date(k + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); }
+function keuRange(p) {
+  const t = new Date(), today = localKey(t);
+  if (p === 'lalu') { const a = new Date(t.getFullYear(), t.getMonth() - 1, 1), b = new Date(t.getFullYear(), t.getMonth(), 0); return { from: localKey(a), to: localKey(b), label: a.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) }; }
+  if (p === '30') { const a = new Date(t); a.setDate(a.getDate() - 29); return { from: localKey(a), to: today, label: '30 hari terakhir (' + fmtShortKey(localKey(a)) + ' – ' + fmtShortKey(today) + ')' }; }
+  const a = new Date(t.getFullYear(), t.getMonth(), 1), b = new Date(t.getFullYear(), t.getMonth() + 1, 0);
+  return { from: localKey(a), to: localKey(b), label: a.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) };
+}
+async function loadKeu() {
+  await loadOrgData(true);
+  const o = S.org.id;
+  const [att, pay, set] = await Promise.all([
+    getDocs(collection(db, 'orgs', o, 'att')),
+    getDocs(collection(db, 'orgs', o, 'payments')),
+    getDoc(doc(db, 'orgs', o, 'settings', 'billing')).catch(() => null),
+  ]);
+  S.keu = {
+    att: att.docs.map(d => Object.assign({ id: d.id }, d.data())),
+    pay: pay.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.date.localeCompare(a.date)),
+    cycle: (set && set.exists() && set.data().cycle) || 4,
+  };
+}
+const isPaidSession = a => a.status === 'hadir' || a.status === 'alpa';
+function classBilling(c) {
+  const used = S.keu.att.filter(a => a.classId === c.id && isPaidSession(a)).length;
+  const paid = S.keu.pay.filter(p => p.classId === c.id).reduce((n, p) => n + (p.sessions || 0), 0);
+  const credit = paid - used, rate = rateOf(c), cycle = S.keu.cycle;
+  // Bayar di depan: kalau sisa habis, tagih paket berikutnya (+ pertemuan yang sudah lewat tapi belum dibayar)
+  const due = credit <= 0 ? (cycle + Math.max(0, -credit)) * rate : 0;
+  return { used, paid, credit, rate, due, owed: Math.max(0, -credit) };
+}
+async function renderKeuangan(m) {
+  m.innerHTML = '<div class="page-title">Keuangan</div><div class="page-sub">Memuat…</div>';
+  try { await loadKeu(); } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
+  const per = S.keuPer || 'bulan', R = keuRange(per), inR = k => k >= R.from && k <= R.to;
+  const K = S.keu, cycle = K.cycle;
+  const payR = K.pay.filter(p => inR(p.date));
+  const attR = K.att.filter(a => inR(a.date));
+  const kas = payR.reduce((n, p) => n + (p.amount || 0), 0);
+  const gaji = attR.filter(isPaidSession).reduce((n, a) => n + (a.honor || 0), 0);
+  // Nilai pertemuan terlaksana (Hadir + Alpa × tarif kelas) — "pendapatan yang sudah dipakai murid"
+  const classes = []; S.data.students.forEach(st => (st.classes || []).forEach(c => classes.push({ st, c })));
+  const rateByClass = new Map(classes.map(x => [x.c.id, rateOf(x.c)]));
+  const sesiR = attR.filter(isPaidSession);
+  const nilai = sesiR.reduce((n, a) => n + (rateByClass.get(a.classId) || 0), 0);
+  // Gaji per guru
+  const gIds = Array.from(new Set(attR.map(a => a.mitraUid).filter(Boolean).concat(S.data.mitras.map(g => g.id))));
+  const gRows = gIds.map(uid => {
+    const mine = attR.filter(a => a.mitraUid === uid), g = mitraOf(uid);
+    return { uid, name: g ? g.name : 'Guru sudah keluar', honor: g ? (g.honor || 0) : null,
+      h: mine.filter(a => a.status === 'hadir').length, a: mine.filter(a => a.status === 'alpa').length, i: mine.filter(a => a.status === 'izin').length,
+      sum: mine.filter(isPaidSession).reduce((n, x) => n + (x.honor || 0), 0) };
+  }).filter(r => r.h + r.a + r.i > 0 || mitraOf(r.uid)).sort((a, b) => b.sum - a.sum || a.name.localeCompare(b.name));
+  // Tagihan per kelas (murid aktif)
+  const tRows = classes.filter(x => x.st.active).map(x => Object.assign({ st: x.st, c: x.c, sj: subjOf(x.c.subjectId) }, classBilling(x.c)))
+    .sort((a, b) => a.credit - b.credit || a.st.name.localeCompare(b.st.name));
+  const nDue = tRows.filter(r => r.credit <= 0).length;
+  // Uang titipan = sisa paket yang sudah dibayar tapi belum dipakai (semua murid aktif, saat ini)
+  const titip = tRows.reduce((n, r) => n + Math.max(0, r.credit) * r.rate, 0);
+  const statusPill = r => r.credit <= 0 ? `<span class="pill pill-red">PERLU BAYAR</span><div class="t-meta" style="margin-top:4px">${esc(rupiah(r.due))}${r.owed ? ' · ' + r.owed + 'x belum dibayar' : ''}</div>`
+    : r.credit === 1 ? '<span class="pill pill-amber">SISA 1x</span>' : `<span class="pill pill-green">SISA ${r.credit}x</span>`;
+  m.innerHTML = `
+    <div class="page-head"><div><div class="page-title">Keuangan</div><div class="page-sub">${esc(R.label)} · bayar di depan per paket <b>${cycle}x pertemuan</b> · <button class="link-btn" id="kfSet">Ubah paket</button></div></div></div>
+    <div class="seg">${[['bulan', 'Bulan ini'], ['lalu', 'Bulan lalu'], ['30', '30 hari terakhir']].map(([k, l]) => `<button class="seg-b ${per === k ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div>
+    <div class="keu-cards">
+      <div class="keu-card"><div class="kc-l">Pemasukan (uang masuk)</div><div class="kc-n" id="kKas">${esc(rupiah(kas))}</div><div class="kc-d">${payR.length} pembayaran · <span id="kTitip">${esc(rupiah(titip))}</span> masih titipan (sisa paket belum terpakai, saat ini)</div></div>
+      <div class="keu-card"><div class="kc-l">Gaji guru</div><div class="kc-n" id="kGaji">${esc(rupiah(gaji))}</div><div class="kc-d">${sesiR.length} pertemuan Hadir + Alpa</div></div>
+      <div class="keu-card"><div class="kc-l">Selisih (pemasukan − gaji)</div><div class="kc-n" id="kSelisih" style="color:${kas - gaji < 0 ? 'var(--danger)' : 'var(--green)'}">${esc(rupiah(kas - gaji))}</div><div class="kc-d">sebelum biaya lain</div></div>
+      <div class="keu-card"><div class="kc-l">Nilai pertemuan terlaksana</div><div class="kc-n" id="kNilai">${esc(rupiah(nilai))}</div><div class="kc-d">${sesiR.length} × tarif kelas · laba pertemuan <b id="kLaba">${esc(rupiah(nilai - gaji))}</b> (nilai − gaji)</div></div>
+    </div>
+
+    <div class="card-t" style="margin-top:18px">${I('receipt', 'sm')} Tagihan murid ${nDue ? `<span class="pill pill-red">${nDue} perlu bayar</span>` : ''}</div>
+    ${tRows.length ? `<div class="tbl-wrap"><table class="tbl tbl-static" id="tblTagihan"><thead><tr><th>Murid</th><th>Pelajaran & Guru</th><th>Tarif</th><th>Dibayar</th><th>Terpakai</th><th>Status</th><th></th></tr></thead><tbody>
+      ${tRows.map(r => `<tr data-cls="${esc(r.c.id)}"><td><div class="t-name">${esc(r.st.name)}</div><div class="t-meta">${esc(r.st.parentName || '')}</div></td>
+        <td><div class="cl-line"><b>${esc(r.sj ? r.sj.name : '—')}</b> · ${guruLabel(r.c.mitraUid)}</div></td>
+        <td>${esc(rupiah(r.rate))}</td><td>${r.paid}x</td><td>${r.used}x</td><td>${statusPill(r)}</td>
+        <td class="td-act"><div class="act-row"><button class="mini" data-pay="${esc(r.c.id)}">${I('wallet', 'sm')} Catat Bayar</button>${r.credit <= 1 && r.st.phone ? `<button class="mini mini-green" data-tagih="${esc(r.c.id)}">${I('chat', 'sm')} Tagih</button>` : ''}</div></td></tr>`).join('')}
+    </tbody></table></div>` : `<div class="card"><div class="empty"><div class="empty-t">Belum ada murid</div></div></div>`}
+
+    <div class="card-t" style="margin-top:18px">${I('users', 'sm')} Gaji guru · ${esc(R.label)}</div>
+    <div class="tbl-wrap"><table class="tbl tbl-static" id="tblGaji"><thead><tr><th>Guru</th><th>Hadir</th><th>Alpa</th><th>Izin</th><th>Honor / pertemuan</th><th>Total gaji</th></tr></thead><tbody>
+      ${gRows.map(r => `<tr data-guru="${esc(r.uid)}"><td><div class="t-name">${esc(r.name)}</div></td><td>${r.h}</td><td>${r.a}</td><td>${r.i} <span class="t-meta">(tidak dibayar)</span></td><td>${r.honor == null ? '—' : esc(rupiah(r.honor))}</td><td><b>${esc(rupiah(r.sum))}</b></td></tr>`).join('') || '<tr><td colspan="6" class="t-meta">Belum ada guru</td></tr>'}
+      <tr class="tr-total"><td><b>Total</b></td><td>${gRows.reduce((n, r) => n + r.h, 0)}</td><td>${gRows.reduce((n, r) => n + r.a, 0)}</td><td>${gRows.reduce((n, r) => n + r.i, 0)}</td><td></td><td><b>${esc(rupiah(gaji))}</b></td></tr>
+    </tbody></table></div>
+    <div class="t-meta" style="margin-top:6px;white-space:normal">Gaji = jumlah honor yang tercatat di setiap absensi Hadir & Alpa (honor saat itu). Izin & Off tidak dibayar.</div>
+
+    <div class="card-t" style="margin-top:18px">${I('wallet', 'sm')} Pembayaran masuk · ${esc(R.label)}</div>
+    ${payR.length ? `<div class="tbl-wrap"><table class="tbl tbl-static" id="tblBayar"><thead><tr><th>Tanggal</th><th>Murid</th><th>Pelajaran</th><th>Pertemuan</th><th>Jumlah</th><th></th></tr></thead><tbody>
+      ${payR.map(p => `<tr><td>${esc(fmtShortKey(p.date))}</td><td><div class="t-name">${esc(p.studentName)}</div>${p.note ? '<div class="t-meta">' + esc(p.note) + '</div>' : ''}</td><td>${esc(p.subjectName)}</td><td>${p.sessions}x</td><td><b>${esc(rupiah(p.amount))}</b></td>
+        <td class="td-act"><button class="mini mini-red" data-delpay="${esc(p.id)}">${I('trash', 'sm')}</button></td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="card"><div class="t-meta">Belum ada pembayaran di periode ini.</div></div>'}`;
+  m.querySelectorAll('[data-per]').forEach(b => b.onclick = () => { S.keuPer = b.dataset.per; renderKeuangan(m); });
+  $('kfSet').onclick = () => openCycleForm(m);
+  const find = id => tRows.find(r => r.c.id === id);
+  m.querySelectorAll('[data-pay]').forEach(b => b.onclick = () => openPayForm(find(b.dataset.pay), m));
+  m.querySelectorAll('[data-tagih]').forEach(b => b.onclick = () => tagihWA(find(b.dataset.tagih)));
+  m.querySelectorAll('[data-delpay]').forEach(b => b.onclick = () => {
+    const p = K.pay.find(x => x.id === b.dataset.delpay);
+    confirmDanger({ title: 'Hapus pembayaran?', message: `Pembayaran <b>${esc(p.studentName)}</b> ${esc(rupiah(p.amount))} (${esc(fmtShortKey(p.date))}) dihapus. Sisa paket murid ikut berkurang ${p.sessions}x.`, confirmText: 'Hapus' }, async () => {
+      try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'payments', p.id)]]); toast('Pembayaran dihapus'); renderKeuangan(m); } catch (e) { toast('❌ ' + friendlyError(e)); }
+    });
+  });
+}
+function openPayForm(r, m) {
+  if (!r) return;
+  const cycle = S.keu.cycle, today = localKey(new Date());
+  openModal(`
+    <div class="modal-t">${I('wallet')} Catat Pembayaran</div>
+    <div class="modal-sub"><b>${esc(r.st.name)}</b> · ${esc(r.sj ? r.sj.name : '')} · tarif ${esc(rupiah(r.rate))}/pertemuan · sisa sekarang ${r.credit}x</div>
+    <div class="grid2">
+      <div class="field"><label>Jumlah paket</label><select id="pfPak">${[1, 2, 3, 4, 6, 12].map(n => `<option value="${n}">${n} paket = ${n * cycle}x pertemuan</option>`).join('')}</select></div>
+      <div class="field"><label>Tanggal bayar</label><input id="pfDate" type="date" value="${today}" max="${today}"/></div>
+    </div>
+    <div class="field"><label>Jumlah uang (Rp)</label><input id="pfAmt" type="number" inputmode="numeric" min="0" step="1000" value="${cycle * r.rate}"/>
+      <div class="hint">Otomatis = pertemuan × tarif. Boleh diubah (mis. diskon).</div></div>
+    <div class="field"><label>Catatan (opsional)</label><input id="pfNote" maxlength="120" placeholder="cth: transfer BCA"/></div>
+    <div class="btn-row"><button class="btn btn-ghost" id="pfNo">Batal</button><button class="btn btn-primary" id="pfGo">${I('check', 'sm')} Simpan</button></div>`);
+  $('pfPak').onchange = () => { $('pfAmt').value = (+$('pfPak').value) * cycle * r.rate; };
+  $('pfNo').onclick = closeModal;
+  $('pfGo').onclick = async () => {
+    const sessions = (+$('pfPak').value) * cycle, amount = parseInt($('pfAmt').value, 10), date = $('pfDate').value;
+    if (!Number.isFinite(amount) || amount < 0) { toast('Jumlah uang harus angka'); return; }
+    if (!date) { toast('Isi tanggal bayar'); return; }
+    $('pfGo').disabled = true;
+    try {
+      await commitOps([['set', doc(collection(db, 'orgs', S.org.id, 'payments')), {
+        studentId: r.st.id, studentName: r.st.name, classId: r.c.id, subjectName: r.sj ? r.sj.name : '', sessions, amount, rate: r.rate, date,
+        note: $('pfNote').value.trim(), by: S.user.uid, createdAt: serverTimestamp() }]]);
+      closeModal(); toast('✅ Pembayaran ' + r.st.name + ' ' + rupiah(amount) + ' tercatat'); renderKeuangan(m);
+    } catch (e) { $('pfGo').disabled = false; toast('❌ ' + friendlyError(e), 4000); }
+  };
+}
+function openCycleForm(m) {
+  openModal(`
+    <div class="modal-t">${I('sliders')} Paket pembayaran</div>
+    <div class="modal-sub">Murid membayar di depan untuk sejumlah pertemuan. Tagihan = jumlah pertemuan × tarif kelas.</div>
+    <div class="field"><label>Pertemuan per paket</label><input id="cyVal" type="number" min="1" max="30" value="${S.keu.cycle}"/></div>
+    <div class="btn-row"><button class="btn btn-ghost" id="cyNo">Batal</button><button class="btn btn-primary" id="cyGo">${I('check', 'sm')} Simpan</button></div>`);
+  $('cyNo').onclick = closeModal;
+  $('cyGo').onclick = async () => {
+    const v = parseInt($('cyVal').value, 10); if (!(v >= 1 && v <= 30)) { toast('Isi 1–30'); return; }
+    try { await commitOps([['set', doc(db, 'orgs', S.org.id, 'settings', 'billing'), { cycle: v }]]); closeModal(); toast('✅ Paket ' + v + 'x pertemuan'); renderKeuangan(m); }
+    catch (e) { toast('❌ ' + friendlyError(e)); }
+  };
+}
+function tagihWA(r) {
+  if (!r || !r.st.phone) return;
+  const cycle = S.keu.cycle, sj = r.sj ? r.sj.name : 'les';
+  const text = `Halo ${r.st.parentName ? 'Bapak/Ibu ' + r.st.parentName : 'Bapak/Ibu orang tua/wali ' + r.st.name} 🙏\n\n`
+    + `Pembayaran les *${sj}* untuk *${r.st.name}* (${cycle}x pertemuan berikutnya): *${rupiah(cycle * r.rate)}*`
+    + (r.owed ? `\nDitambah ${r.owed}x pertemuan yang sudah berjalan: ${rupiah(r.owed * r.rate)}\n*Total: ${rupiah(r.due)}*` : '')
+    + (r.credit === 1 ? `\n(Sisa 1x pertemuan yang sudah dibayar.)` : '')
+    + `\n\nTerima kasih.\n— ${S.org.name}`;
+  window.open('https://wa.me/' + waNumber(r.st.phone) + '?text=' + encodeURIComponent(text), '_blank');
 }
 
 // ══════════════════════════════════════════════════════════════════════

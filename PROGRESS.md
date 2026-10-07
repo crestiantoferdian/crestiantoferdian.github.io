@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 7 Okt 2026 (V1: keterangan Izin di invoice)_
+_Terakhir diperbarui: 7 Okt 2026 (V2 Keuangan + simulasi 1 bulan mengajar)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -301,6 +301,8 @@ Murni tampilan: **tidak ada logika, alur data, key localStorage, nama fungsi/var
   4. **Membagi 30 murid harus buka form satu per satu** → Daftar Murid: **centang beberapa murid → "Tugaskan ke guru…" → Terapkan** (semua kelas murid itu pindah guru; `sched` ikut diperbarui).
   5. **2 aplikasi terpisah**: `v2/manifest-admin.webmanifest` (id `/v2/admin`, "LLK Admin", start `/v2/`) dan `v2/manifest-guru.webmanifest` (id `/v2/guru`, "LLK Guru", start `/v2/guru.html`, scope `/v2/guru`) — Chrome mengenalinya sebagai 2 aplikasi berbeda.
   - Catatan untuk pemilik: LLK V1 di HP pemilik tetap berisi 30 murid & tetap memberi pengingat untuk semuanya — murid yang sudah dipegang guru lain sebaiknya dinonaktifkan di V1 (atau V1 tidak dipakai lagi). Paket berbayar V2 belum ada (masih 5 kursi uji coba).
+- **Keuangan Admin (7 Okt 2026)** — sebelumnya placeholder. Bayar **di depan per paket** (default **4x pertemuan**, `orgs/{org}/settings/billing.cycle`, tombol "Ubah paket"). `orgs/{org}/payments/{id}` {studentId, studentName, classId, subjectName, sessions, amount, rate, date, note, by, createdAt} — **hanya Admin** (rules + tes). Per kelas: **sisa paket = pertemuan dibayar − terpakai (Hadir+Alpa)**; Izin/Off tidak memakai paket. Status: SISA nx (hijau) / SISA 1x (kuning, tombol Tagih) / **PERLU BAYAR** (merah, nominal = paket + pertemuan yang terlanjur lewat). Tombol **Catat Bayar** (jumlah paket, tanggal, nominal bisa diubah, catatan), **Tagih** (WA ke No HP ortu), hapus pembayaran. Periode: Bulan ini / Bulan lalu / 30 hari terakhir. Ringkasan: **Pemasukan** (uang masuk; + "uang titipan" = sisa paket belum terpakai), **Gaji guru** (jumlah honor tercatat di absensi Hadir+Alpa), **Selisih**, **Nilai pertemuan terlaksana** (+ laba pertemuan = nilai − gaji). Tabel gaji per guru (Hadir/Alpa/Izin, honor, total) & riwayat pembayaran.
+- **Simulasi 1 bulan mengajar (7 Okt 2026)** — `tests/v2-sim-bulan.test.cjs` (`npm run test:bulan`, 27 cek): Rani (Admin, juga mengajar) + Pak Dimas + Bu Sari, honor **Rp 40.000**; 6 murid tarif Rp 100.000 → paket **Rp 400.000/4x bayar di depan**; 30 hari (35 pertemuan: hadir + progres, 2 izin oleh Admin, 1 alpa); Admin mencatat 11 pembayaran tepat saat aplikasi menandai PERLU BAYAR. Hasil cocok dengan hitungan manual: pemasukan Rp 4.400.000 = nilai terlaksana Rp 3.300.000 + titipan Rp 1.100.000; gaji Rp 1.320.000 (Rani 480rb, Dimas 520rb, Sari 320rb — sama dengan menu Honor di aplikasi masing-masing guru); sisa paket tiap murid benar (izin tidak memotong paket). Catatan: absensi hari-hari lalu diisi langsung ke database emulator dengan bentuk data persis aplikasi guru (aturan "hanya hari yang sama" tidak bisa dimundurkan waktunya); hari ini diisi lewat aplikasi Guru.
 - **Berikutnya (Tahap 4):** Admin mengirim progres ke ortu (WA) dari tab Absensi, koreksi Hadir/Alpa oleh Admin, Reschedule/Off/Tambah kelas oleh Admin; lalu Tahap 5 Keuangan (tagihan ortu & rekap honor).
 
 ## ⏳ Yang belum / berikutnya

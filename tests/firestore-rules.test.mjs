@@ -142,6 +142,15 @@ await t('Mitra tidak bisa mengubah dirinya jadi admin lewat field baru', assertF
 await t('Kursi "self" tidak bisa dikosongkan selama Admin masih mengajar', assertFails(deleteDoc(doc(a2,'orgs','org2','slots','3'))));
 await t('Admin berhenti mengajar + kosongkan kursinya', assertSucceeds((async()=>{ const b=writeBatch(a2); b.update(doc(a2,'orgs','org2','members','admin2'),{teaches:false}); b.delete(doc(a2,'orgs','org2','slots','3')); await b.commit(); })()));
 
+console.log('\n[Keuangan]');
+const pay={studentId:'s1',studentName:'Brilian',classId:'c1',subjectName:'Piano',sessions:4,amount:400000,rate:100000,date:'2026-10-01',note:'',by:'admin2'};
+await t('Admin mencatat pembayaran paket', assertSucceeds(setDoc(doc(a2,'orgs','org2','payments','p1'),pay)));
+await t('Pembayaran harus angka', assertFails(setDoc(doc(a2,'orgs','org2','payments','p2'),{...pay,amount:'400rb'})));
+await t('Mitra tidak bisa melihat pembayaran', assertFails(getDoc(doc(mitra2,'orgs','org2','payments','p1'))));
+await t('Mitra tidak bisa mencatat pembayaran', assertFails(setDoc(doc(mitra2,'orgs','org2','payments','p3'),pay)));
+await t('Admin menyimpan pengaturan paket', assertSucceeds(setDoc(doc(a2,'orgs','org2','settings','billing'),{cycle:4})));
+await t('Mitra tidak bisa membaca pengaturan', assertFails(getDoc(doc(mitra2,'orgs','org2','settings','billing'))));
+
 console.log('\n[V1 tetap aman]');
 await t('Guru Lepas bisa baca/tulis backup miliknya', assertSucceeds(setDoc(doc(other,'backups','other1','parts','students'),{data:[]})));
 await t('Orang lain tidak bisa baca backup milik orang lain', assertFails(getDoc(doc(mitra,'backups','other1','parts','students'))));
