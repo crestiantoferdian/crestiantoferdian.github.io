@@ -11,7 +11,7 @@ import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/fi
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, writeBatch, collection, query, where, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import { ICONS, LLK_SUBJECT_ICON } from './v1-shared.js';
-import { renderSlipCanvas, canvasToBlob, slipNo, fmtKey } from './slip.js';
+import { renderSlipCanvas, canvasToBlob, slipNo, fmtKey, slipPdfBlob } from './slip.js';
 
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyAvD4ABTYIjCtPCYzUaRM8AHsjiOamHQLU',
@@ -492,8 +492,14 @@ async function openSlip(p) {
   ov.innerHTML = `<div class="modal"><div class="modal-handle"></div><div class="modal-title">${I('receipt')} Slip Honor</div>
     <div class="modal-sub">${esc(fmtKey(p.paidDate))} · ${esc(rupiah(p.total))}</div>
     <div style="max-height:56vh;overflow:auto;border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:12px"><img src="${url}" alt="Slip honor" style="width:100%;display:block"/></div>
-    <div class="mactions"><button class="mbtn mbtn-cancel" id="slX">Tutup</button><a class="mbtn mbtn-save" id="slDl" href="${url}" download="${esc(slipNo(p))}.jpg" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px">${I('download')} Unduh</a></div></div>`;
+    <div class="mactions"><button class="mbtn mbtn-cancel" id="slX">Tutup</button><a class="mbtn mbtn-save" id="slDl" href="${url}" download="${esc(slipNo(p))}.jpg" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px">${I('download')} JPG</a><button class="mbtn mbtn-save" id="slPdf" style="display:flex;align-items:center;justify-content:center;gap:6px">${I('download')} PDF</button></div></div>`;
   document.body.appendChild(ov);
+  $('slPdf').onclick = async () => {
+    try {
+      const pdf = await slipPdfBlob(cv, slipNo(p)), u = URL.createObjectURL(pdf), a = document.createElement('a');
+      a.href = u; a.download = slipNo(p) + '.pdf'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
+    } catch (e) { toast('❌ ' + e.message); }
+  };
   ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
   $('slX').onclick = () => ov.remove();
 }
