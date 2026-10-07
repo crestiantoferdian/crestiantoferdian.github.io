@@ -4107,6 +4107,7 @@ async function renderInvoiceCanvas(inv, copyDate){
     payLines.forEach((l,i)=>c.fillText(l,M+20,y+80+i*36));
     y+=110+payLines.length*36;
   }
+  cv._contentBottom=y; // batas isi — gambar JPG dipotong di sini (tanpa ruang kosong A4)
   // Footer
   c.fillStyle='#9ca3af'; c.font=font(500,22); c.textAlign='center';
   c.fillText('Terima kasih atas kepercayaan Bapak/Ibu. · Dibuat dengan LesLesanKu',W/2,H-60);
@@ -4143,6 +4144,17 @@ async function canvasToPdfBlob(cv){
   return pdf.output('blob');
 }
 function canvasToPngBlob(cv){ return new Promise(res=>cv.toBlob(res,'image/png')); }
+// Versi gambar (untuk WA): isi invoice + footer saja, tanpa ruang kosong ukuran A4
+function invoiceImageCanvas(cv){
+  const foot=110, b=cv._contentBottom||cv.height;
+  if(b+foot>=cv.height) return cv;
+  const o=document.createElement('canvas'); o.width=cv.width; o.height=b+foot;
+  const c=o.getContext('2d'); c.fillStyle='#ffffff'; c.fillRect(0,0,o.width,o.height);
+  c.drawImage(cv,0,0,cv.width,b,0,0,cv.width,b);
+  c.drawImage(cv,0,cv.height-foot,cv.width,foot,0,b,cv.width,foot);
+  return o;
+}
+function canvasToJpgBlob(cv){ return new Promise(res=>invoiceImageCanvas(cv).toBlob(res,'image/jpeg',0.92)); }
 function invoiceFileBase(inv){ return inv.no+'_'+inv.studentName.replace(/[^a-zA-Z0-9]+/g,'_'); }
 
 // ── Penyimpanan riwayat invoice di data murid ──
@@ -4207,14 +4219,15 @@ async function showInvoiceModal(){
       ${inv.items.length?'':'<div class="llk-callout danger" style="margin-bottom:10px;font-size:0.84rem">'+llkI('alert')+'<div>Belum ada pertemuan yang perlu ditagih untuk murid ini.</div></div>'}
       <div style="display:grid;grid-template-columns:1fr;gap:8px">
         ${btn('invoiceSendWA()', llkI('chat')+(phone?' Kirim Rincian ke WA '+escapeHtml(s.phone):' Kirim Rincian ke WA (nomor belum diisi)'), 'background:var(--wa);color:#fff;border:none')}
-        ${btn('invoiceShareFile()',llkI('share')+' Bagikan File PDF (lampirkan ke WA)','background:var(--blue-solid);color:#fff;border:none')}
+        ${btn('invoiceShareImage()',llkI('image')+' Kirim Gambar ke WA (JPG)','background:var(--blue-solid);color:#fff;border:none')}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-        ${btn('invoiceDownloadPdf()',llkI('download')+' Download PDF','background:var(--card);color:var(--text);border:1px solid var(--border)')}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">
+        ${btn('invoiceDownloadJpg()',llkI('download')+' JPG','background:var(--card);color:var(--text);border:1px solid var(--border)')}
+        ${btn('invoiceDownloadPdf()',llkI('download')+' PDF','background:var(--card);color:var(--text);border:1px solid var(--border)')}
         ${btn('invoicePrint()',llkI('printer')+' Print','background:var(--card);color:var(--text);border:1px solid var(--border)')}
       </div>
       ${llkCanUndoPayment(s,(s.invoices||[]).find(x=>x.no===inv.no))?'<button onclick="undoInvoicePayment()" class="llk-btn soft block" style="margin-top:10px;color:var(--alpa)">'+llkI('undo')+' Batalkan Pembayaran Ini</button>':''}
-      <div style="font-size:0.8rem;color:var(--muted);margin-top:12px;line-height:1.55">WhatsApp tidak mengizinkan aplikasi lain melampirkan file langsung ke nomor tertentu. <b>Kirim Rincian</b> membuka chat ortu dengan rincian tagihan lengkap; <b>Bagikan File PDF</b> membuka menu bagikan HP — pilih WhatsApp lalu pilih kontak ortu.</div>
+      <div style="font-size:0.8rem;color:var(--muted);margin-top:12px;line-height:1.55">WhatsApp tidak mengizinkan aplikasi lain melampirkan file langsung ke nomor tertentu. <b>Kirim Rincian</b> membuka chat ortu dengan rincian tagihan berupa teks; <b>Kirim Gambar ke WA</b> mengirim invoice sebagai <b>foto</b> — di HP pilih WhatsApp lalu kontak ortu; di PC gambar otomatis tersalin, tinggal tempel (Ctrl+V) di chat WhatsApp.</div>
     </div>`;
   document.body.appendChild(el);
   history.pushState({tab:currentTab, view:'modal'},'');
@@ -4224,7 +4237,7 @@ async function llkRefreshInvoicePreview(inv){
   try{
     _currentInvoiceCanvas=await renderInvoiceCanvas(inv, _currentInvoiceCopy);
     const wrap=document.getElementById('invoicePreviewWrap');
-    if(wrap){ wrap.innerHTML=''; const im=document.createElement('img'); im.src=_currentInvoiceCanvas.toDataURL('image/png'); im.style.cssText='width:100%;display:block'; im.alt='Preview invoice'; wrap.appendChild(im); }
+    if(wrap){ wrap.innerHTML=''; const im=document.createElement('img'); im.src=invoiceImageCanvas(_currentInvoiceCanvas).toDataURL('image/png'); im.style.cssText='width:100%;display:block'; im.alt='Preview invoice'; wrap.appendChild(im); }
   }catch(e){
     console.error('renderInvoiceCanvas error:',e);
     const wrap=document.getElementById('invoicePreviewWrap');
@@ -4261,32 +4274,45 @@ function invoiceSendWA(){
   const wa=phone.startsWith('62')?phone:'62'+phone.replace(/^0/,'');
   window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(buildInvoiceWaText(inv, _currentInvoiceCopy)),'_blank');
 }
-async function invoiceShareFile(){
+// Kirim invoice/kuitansi sebagai GAMBAR JPG (tampil langsung sebagai foto di chat WA,
+// bukan file yang harus dibuka). HP: menu bagikan → WhatsApp. PC: gambar disalin ke
+// clipboard → tempel di WhatsApp Web/Desktop; kalau tidak bisa, gambar diunduh.
+async function invoiceShareImage(){
   const inv=_currentInvoice; if(!inv) return;
   try{
-    toast('⏳ Menyiapkan file…');
     const cv=await ensureInvoiceCanvas();
-    let file;
-    try{
-      const pdf=await canvasToPdfBlob(cv);
-      file=new File([pdf], invoiceFileBase(inv)+'.pdf', {type:'application/pdf'});
-    }catch(e){
-      // Pembuat PDF gagal dimuat (mis. offline pertama kali) → bagikan sebagai gambar
-      console.warn('PDF gagal, pakai gambar:',e);
-      file=new File([await canvasToPngBlob(cv)], invoiceFileBase(inv)+'.png', {type:'image/png'});
-    }
+    const blob=await canvasToJpgBlob(cv);
+    const file=new File([blob], invoiceFileBase(inv)+'.jpg', {type:'image/jpeg'});
     saveInvoiceRecord(inv);
-    if(navigator.canShare&&navigator.canShare({files:[file]})){
-      await navigator.share({files:[file], title:(inv.paidAt?'Kuitansi ':'Invoice ')+inv.no, text:(inv.paidAt?'Kuitansi ':'Invoice ')+inv.no+' — '+inv.studentName});
-    } else {
-      downloadBlob(file, file.name);
-      toast('ℹ️ HP/browser ini tidak mendukung bagikan file — file diunduh, lampirkan manual ke WA',5000);
+    const caption=(inv.paidAt?'Kuitansi ':'Invoice ')+inv.no+' — '+inv.studentName+' · Total '+formatRupiah(inv.total);
+    if(llkIsMobileDevice() && navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], text:caption});
+      return;
     }
+    if(navigator.clipboard && window.ClipboardItem){
+      try{
+        const png=await canvasToPngBlob(invoiceImageCanvas(cv));
+        await navigator.clipboard.write([new ClipboardItem({'image/png':png})]);
+        toast('✅ Gambar invoice tersalin — buka chat ortu di WhatsApp, lalu tekan Ctrl+V',7000);
+        return;
+      }catch(e){ console.warn('salin gambar gagal, diunduh:',e); }
+    }
+    downloadBlob(file, file.name);
+    toast('ℹ️ Gambar diunduh — lampirkan ke chat WA ortu',5000);
   }catch(e){
     if(e&&e.name==='AbortError') return; // user batal
-    console.error('invoiceShareFile error:',e);
-    toast('❌ Gagal membagikan file: '+(e.message||e));
+    console.error('invoiceShareImage error:',e);
+    toast('❌ Gagal menyiapkan gambar: '+(e.message||e));
   }
+}
+async function invoiceDownloadJpg(){
+  const inv=_currentInvoice; if(!inv) return;
+  try{
+    const cv=await ensureInvoiceCanvas();
+    downloadBlob(await canvasToJpgBlob(cv), invoiceFileBase(inv)+'.jpg');
+    saveInvoiceRecord(inv);
+    toast('✅ Gambar JPG diunduh');
+  }catch(e){ console.error(e); toast('❌ Gagal mengunduh gambar'); }
 }
 function downloadBlob(blob, filename){
   const url=URL.createObjectURL(blob);
