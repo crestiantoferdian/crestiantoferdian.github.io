@@ -105,7 +105,7 @@ function updateClock() {
 updateClock(); setInterval(updateClock, 10000);
 function paintHeader() {
   $('schoolName').textContent = G.org.name;
-  $('schoolSub').textContent = G.member.name + ' · Guru Mitra';
+  $('schoolSub').textContent = G.member.name + (G.isAdmin ? ' · Guru Admin (mengajar)' : ' · Guru Mitra');
   const el = $('schoolLogo');
   if (G.org.logo) el.innerHTML = `<img src="${esc(G.org.logo)}" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" alt="logo">`;
   else el.textContent = String(G.org.name || 'LLK').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
@@ -224,9 +224,12 @@ function cardHtml(s, key, isToday, isPast) {
   const infoRow = isIzin ? `<div style="font-size:0.8rem;color:var(--izin);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:5px">${I('hand', 'sm')} Izin${r.reason ? ' · <span style="font-weight:400;color:var(--text2)">' + esc(r.reason) + '</span>' : ''}</div>`
     : isAlpa ? `<div style="font-size:0.8rem;color:var(--alpa);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:5px">${I('x-circle', 'sm')} Alpa${r.reason ? ' · <span style="font-weight:400;color:var(--text2)">' + esc(r.reason) + '</span>' : ''}</div>`
     : isOff ? `<div style="font-size:0.8rem;color:var(--off);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:5px">${I('pause', 'sm')} Off · Guru izin${r.reason ? ' · <span style="font-weight:400;color:var(--text2)">' + esc(r.reason) + '</span>' : ''}</div>` : '';
-  // Tombol: Hadir & Alpa hanya di hari les itu. Izin/Off diisi Guru Admin.
+  // Tombol Guru Mitra: Hadir & Alpa hanya di hari les itu; Izin/Off diisi Guru Admin.
+  // Guru Admin yang ikut mengajar: Hadir/Izin/Alpa, boleh juga mengoreksi tanggal lewat.
   let btns;
-  if (isIzin || isOff) btns = `<div class="llk-lock">${I('lock', 'sm')} ${isIzin ? 'Izin' : 'Off'} diisi oleh Guru Admin</div>`;
+  const b = (st, ic, lbl) => `<button class="att-btn a-${st} ${status === st ? 'on' : ''}" data-att="${st}" data-sess="${esc(s.id)}" aria-label="${lbl}" title="${lbl}">${ic}</button>`;
+  if (G.isAdmin && !(key > todayStr())) btns = b('hadir', I('check', 'bold'), 'Hadir') + b('izin', I('hand'), 'Izin') + b('alpa', I('x', 'bold'), 'Alpa');
+  else if (isIzin || isOff) btns = `<div class="llk-lock">${I('lock', 'sm')} ${isIzin ? 'Izin' : 'Off'} diisi oleh Guru Admin</div>`;
   else if (isToday) btns = `<button class="att-btn a-hadir ${isHadir ? 'on' : ''}" data-att="hadir" data-sess="${esc(s.id)}" aria-label="Hadir" title="Hadir">${I('check', 'bold')}</button>
       <button class="att-btn a-alpa ${isAlpa ? 'on' : ''}" data-att="alpa" data-sess="${esc(s.id)}" aria-label="Alpa" title="Alpa">${I('x', 'bold')}</button>`;
   else btns = `<div class="llk-lock">${I('lock', 'sm')} ${isPast ? 'Sudah lewat hari — untuk mengubah, minta tolong Guru Admin' : 'Bisa diisi pada hari les'}</div>`;
@@ -253,7 +256,9 @@ function openNote(sessId, status, key) {
   const s = sessionsOn(key).find(x => x.id === sessId); if (!s) return;
   N = { s, key };
   const r = s.rec || {};
-  $('noteTitle').textContent = status === 'hadir' ? 'Catat Kehadiran' : 'Tandai Alpa';
+  $('noteTitle').textContent = status === 'hadir' ? 'Catat Kehadiran' : status === 'izin' ? 'Tandai Izin' : 'Tandai Alpa';
+  // Pilihan Izin hanya untuk Guru Admin
+  $('noteStatus').innerHTML = '<option value="hadir">Hadir</option>' + (G.isAdmin ? '<option value="izin">Izin</option>' : '') + '<option value="alpa">Alpa</option>';
   $('noteSub').textContent = s.name + ' · ' + s.subject + ' · ' + s.start + (s.end ? '–' + s.end : '') + ' · ' + fmtLong(key);
   $('noteMsg').innerHTML = '';
   $('noteStatus').value = status;
@@ -285,7 +290,7 @@ $('noteSaveBtn').onclick = async () => {
   try {
     // Honor diambil ulang dari server (bisa saja baru diubah Guru Admin)
     const mem = await getDoc(doc(db, 'orgs', G.org.id, 'members', G.user.uid));
-    const honor = mem.exists() ? (mem.data().honor || 0) : 0;
+    const honor = G.isAdmin || st === 'izin' ? 0 : (mem.exists() ? (mem.data().honor || 0) : 0);
     const s = N.s, data = {
       classId: s.classId, studentId: s.studentId || '', studentName: s.name, subjectName: s.subject || '', mitraUid: G.user.uid,
       date: N.key, start: s.start || '', end: s.end || '', status: st,
@@ -294,9 +299,9 @@ $('noteSaveBtn').onclick = async () => {
     };
     await setDoc(doc(db, 'orgs', G.org.id, 'att', s.id), data);
     G.att[s.id] = Object.assign({ id: s.id }, data);
-    G.member.honor = honor;
+    if (!G.isAdmin) G.member.honor = honor;
     const name = s.name; closeNote(); render();
-    toast(st === 'hadir' ? '✅ ' + name + ' — hadir' : '✅ ' + name + ' — alpa');
+    toast('✅ ' + name + ' — ' + st);
   } catch (e) { console.error(e); $('noteMsg').innerHTML = '<div class="llk-callout danger" style="margin-bottom:12px">' + I('alert') + '<div>' + esc(friendlyError(e)) + '</div></div>'; }
   finally { btn.disabled = false; }
 };
@@ -484,15 +489,15 @@ function renderLainnya() {
     <div style="padding:10px 20px 40px;display:flex;flex-direction:column;gap:14px">
       <div class="menu-card"><div class="menu-item" style="cursor:default">
         <div class="menu-icon red">${I('user')}</div>
-        <div class="menu-text"><div class="menu-label">${esc(G.member.name)}</div><div class="menu-desc">${esc(G.user.email || '')} · Guru Mitra ${esc(G.org.name)}</div></div></div></div>
-      <div>
+        <div class="menu-text"><div class="menu-label">${esc(G.member.name)}</div><div class="menu-desc">${esc(G.user.email || '')} · ${G.isAdmin ? 'Guru Admin' : 'Guru Mitra'} ${esc(G.org.name)}</div></div></div></div>
+      ${G.isAdmin ? `<div class="menu-card"><div class="menu-item" id="mlAdmin"><div class="menu-icon red">${I('users')}</div><div class="menu-text"><div class="menu-label">Buka Panel Admin</div><div class="menu-desc">Murid, guru, jadwal mingguan & absensi semua guru</div></div><span class="menu-arrow">${I('chevron-right')}</span></div></div>` : `<div>
         <div class="llk-section-label">${I('table')}Spreadsheet absensi guru</div>
         <div class="menu-card" style="padding:14px 16px">
           <div class="llk-hint" style="margin:0 0 10px">Link Google Sheet tempat kamu mencatat absensi mengajar (untuk Guru Admin).</div>
           <div class="mfield" style="margin:0 0 10px"><input id="mlSheet" type="url" placeholder="https://docs.google.com/spreadsheets/..." value="${esc(G.member.sheetLink || '')}"/></div>
           <button class="llk-btn primary block" id="mlSave">${I('check')} Simpan Link</button>
         </div>
-      </div>
+      </div>`}
       <div>
         <div class="llk-section-label">${I('palette')}Tema tampilan</div>
         <div class="llk-theme-grid">${THEMES.map(t => `<button class="llk-theme-opt${t.id === cur ? ' on' : ''}" data-theme="${t.id}" style="--tb:${t.tb};--tc:${t.tc};--tt:${t.tt};--tg:${t.tg}">
@@ -501,11 +506,12 @@ function renderLainnya() {
       </div>
       <div class="menu-card">
         <div class="menu-item" id="mlMode"><div class="menu-icon">${I('repeat')}</div><div class="menu-text"><div class="menu-label">Ganti Mode</div><div class="menu-desc">Pindah ke Guru Lepas untuk murid pribadimu</div></div><span class="menu-arrow">${I('chevron-right')}</span></div>
-        <div class="menu-item" id="mlLeave"><div class="menu-icon" style="color:var(--alpa)">${I('logout')}</div><div class="menu-text"><div class="menu-label" style="color:var(--alpa)">Keluar dari ${esc(G.org.name)}</div><div class="menu-desc">Berhenti menjadi Guru Mitra di lembaga ini</div></div></div>
+        ${G.isAdmin ? '' : `<div class="menu-item" id="mlLeave"><div class="menu-icon" style="color:var(--alpa)">${I('logout')}</div><div class="menu-text"><div class="menu-label" style="color:var(--alpa)">Keluar dari ${esc(G.org.name)}</div><div class="menu-desc">Berhenti menjadi Guru Mitra di lembaga ini</div></div></div>`}
         <div class="menu-item" id="mlOut"><div class="menu-icon">${I('lock')}</div><div class="menu-text"><div class="menu-label">Logout</div><div class="menu-desc">${esc(G.user.email || '')}</div></div></div>
       </div>
     </div>`;
-  $('mlSave').onclick = async () => {
+  if (G.isAdmin) $('mlAdmin').onclick = () => { location.href = './'; };
+  if (!G.isAdmin) $('mlSave').onclick = async () => {
     const v = $('mlSheet').value.trim();
     if (v && !/^https?:\/\//i.test(v)) { toast('⚠️ Link harus diawali https://'); return; }
     try { await updateDoc(doc(db, 'orgs', G.org.id, 'members', G.user.uid), { sheetLink: v }); G.member.sheetLink = v; toast('✅ Link tersimpan'); }
@@ -514,7 +520,7 @@ function renderLainnya() {
   $('mainContent').querySelectorAll('.llk-theme-opt').forEach(b => b.onclick = () => { applyTheme(b.dataset.theme); renderLainnya(); toast('✅ Tema dipakai'); });
   $('mlMode').onclick = () => { location.href = './?pilih=1'; };
   $('mlOut').onclick = async () => { if (TEST) { location.reload(); return; } await signOut(auth); location.replace('./'); };
-  $('mlLeave').onclick = () => confirmWord('Keluar dari ' + G.org.name + '?', 'Kamu tidak bisa lagi melihat jadwal & murid lembaga ini. Untuk bergabung lagi, perlu kode undangan baru dari Guru Admin.', 'KELUAR', 'Keluar', async () => {
+  if (!G.isAdmin) $('mlLeave').onclick = () => confirmWord('Keluar dari ' + G.org.name + '?', 'Kamu tidak bisa lagi melihat jadwal & murid lembaga ini. Untuk bergabung lagi, perlu kode undangan baru dari Guru Admin.', 'KELUAR', 'Keluar', async () => {
     try {
       const b = writeBatch(db);
       b.delete(doc(db, 'orgs', G.org.id, 'members', G.user.uid));
@@ -546,8 +552,11 @@ async function boot(user) {
     const orgId = prof.exists() ? prof.data().orgId : null;
     if (!orgId) { location.replace('./'); return; }
     const m = await getDoc(doc(db, 'orgs', orgId, 'members', user.uid)).catch(() => null);
-    if (!m || !m.exists() || m.data().role !== 'mitra') { location.replace('./'); return; }
+    if (!m || !m.exists() || !['mitra', 'admin'].includes(m.data().role)) { location.replace('./'); return; }
     G.member = Object.assign({ id: m.id }, m.data());
+    // Guru Admin yang ikut mengajar memakai tampilan ini untuk murid miliknya
+    G.isAdmin = G.member.role === 'admin';
+    if (G.isAdmin) { const hb = $('tab-honor'); hb.innerHTML = '<span class="bicon">' + I('users') + '</span>Panel Admin<div class="bnav-dot"></div>'; hb.onclick = () => { location.href = './'; }; }
     const o = await getDoc(doc(db, 'orgs', orgId));
     G.org = Object.assign({ id: o.id }, o.data());
     paintHeader();
