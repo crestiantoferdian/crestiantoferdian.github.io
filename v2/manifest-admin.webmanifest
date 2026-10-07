@@ -1,0 +1,31 @@
+{
+  "id": "/v2/admin",
+  "name": "LLK Lembaga — Admin",
+  "short_name": "LLK Admin",
+  "description": "Kelola murid, guru, jadwal & absensi lembaga les",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f1e9",
+  "theme_color": "#a8372a",
+  "orientation": "any",
+  "lang": "id",
+  "categories": [
+    "education",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "../icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "../icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

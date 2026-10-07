@@ -36,7 +36,7 @@ const auth = TEST ? null : getAuth(app);
 if (TEST) connectFirestoreEmulator(db, TEST.host, TEST.port, { mockUserToken: { sub: TEST.user.uid, email: TEST.user.email, email_verified: true } });
 
 // ── State ──
-const S = { absDate: '', user: null, profile: null, org: null, member: null, tab: null, guru: null, data: null, muridView: 'daftar', filt: { q: '', guru: '', subj: '', status: 'aktif' }, schedGuru: '' };
+const S = { sel: new Set(), absDate: '', user: null, profile: null, org: null, member: null, tab: null, guru: null, data: null, muridView: 'daftar', filt: { q: '', guru: '', subj: '', status: 'aktif' }, schedGuru: '' };
 
 // ── Util ──
 const $ = (id) => document.getElementById(id);
@@ -364,6 +364,7 @@ async function joinOrg(code, inv) {
 // ══════════════════════════════════════════════════════════════════════
 const ADMIN_TABS = [
   { k: 'absensi', i: 'absensi', l: 'Absensi' },
+  { k: 'mengajar', i: 'book-open', l: 'Mengajar' },
   { k: 'murid', i: 'cap', l: 'Murid' },
   { k: 'guru', i: 'users', l: 'Guru' },
   { k: 'keuangan', i: 'wallet', l: 'Keuangan' },
@@ -393,7 +394,11 @@ function renderShell() {
       <main id="main"></main>
     </div>
   </div>`;
-  document.querySelectorAll('.bnav').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; renderShell(); });
+  document.querySelectorAll('.bnav').forEach(b => b.onclick = () => {
+    // Admin juga mengajar: tampilan guru (sama dengan LLK V1) untuk murid miliknya sendiri
+    if (b.dataset.tab === 'mengajar') { location.href = MITRA_URL; return; }
+    S.tab = b.dataset.tab; S.data = null; renderShell(); // data selalu segar saat pindah menu (mis. guru baru bergabung)
+  });
   renderTab();
 }
 function renderTab() {
@@ -647,7 +652,10 @@ async function loadOrgData(force) {
     getDocs(collection(db, 'orgs', o, 'students')),
     getDocs(collection(db, 'orgs', o, 'members')),
   ]);
-  const mitras = mem.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(x => x.role === 'mitra').sort((a, b) => a.name.localeCompare(b.name));
+  // Daftar guru = Guru Admin (boleh ikut mengajar) + Guru Mitra
+  const all = mem.docs.map(d => Object.assign({ id: d.id }, d.data()));
+  const mitras = all.filter(x => x.role === 'admin').map(x => Object.assign(x, { name: (x.name || 'Saya') + ' (Admin)', isAdminGuru: true }))
+    .concat(all.filter(x => x.role === 'mitra').sort((a, b) => a.name.localeCompare(b.name)));
   S.data = {
     subjects: sub.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.name.localeCompare(b.name)),
     students: stu.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.name.localeCompare(b.name)),
@@ -751,18 +759,54 @@ function drawStudentList() {
     const kelas = cl.map(c => { const sj = subjOf(c.subjectId); return `<div class="cl-line"><b>${esc(sj ? sj.name : '—')}</b> · ${guruLabel(c.mitraUid)}</div>`; }).join('');
     const jadwal = cl.map(c => `<div class="cl-line">${esc((c.schedule || []).slice().sort(byDayTime).map(slotTxt).join(', ') || '—')}</div>`).join('');
     const tarif = cl.map(c => `<div class="cl-line">${esc(rupiah(rateOf(c)))}${c.rate != null ? ' <span class="pill pill-amber">KHUSUS</span>' : ''}</div>`).join('');
-    return `<tr data-stu="${esc(st.id)}" class="${st.active ? '' : 'is-off'}">
+    return `<tr data-stu="${esc(st.id)}" class="${st.active ? '' : 'is-off'}${S.sel.has(st.id) ? ' is-sel' : ''}">
+      <td class="td-chk"><input type="checkbox" data-sel="${esc(st.id)}" ${S.sel.has(st.id) ? 'checked' : ''} aria-label="Pilih ${esc(st.name)}"/></td>
       <td><div class="t-name">${esc(st.name)}</div><div class="t-meta">${esc(st.parentName || '')}</div></td>
       <td>${kelas || '—'}</td><td>${jadwal || '—'}</td><td>${tarif || '—'}</td>
       <td>${st.phone ? esc(st.phone) : '<span class="t-meta">—</span>'}</td>
       <td>${st.active ? '<span class="pill pill-green">AKTIF</span>' : '<span class="pill pill-grey">NONAKTIF</span>'}</td>
       <td class="td-act"><button class="mini" data-edit="${esc(st.id)}">${I('edit', 'sm')} Ubah</button></td></tr>`;
   };
-  box.innerHTML = `<div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Murid</th><th>Pelajaran & Guru</th><th>Jadwal</th><th>Tarif / pertemuan</th><th>No HP ortu</th><th>Status</th><th></th></tr></thead>
+  // Pilih beberapa murid → tugaskan ke 1 guru sekaligus (membagi murid ke guru-guru)
+  const nSel = list.filter(x => S.sel.has(x.id)).length;
+  const bulk = nSel ? `<div class="bulk-bar"><b>${nSel} murid dipilih</b>
+      <select id="bkGuru"><option value="">Tugaskan ke guru…</option>${S.data.mitras.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('')}<option value="__none">Belum ditentukan</option></select>
+      <button class="btn btn-primary tb-btn" id="bkGo">${I('check', 'sm')} Terapkan</button>
+      <button class="btn btn-ghost tb-btn" id="bkNo">Batal pilih</button></div>`
+    : `<div class="t-meta" style="margin:0 0 8px">Centang beberapa murid untuk menugaskannya ke satu guru sekaligus.</div>`;
+  box.innerHTML = bulk + `<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th class="td-chk"><input type="checkbox" id="selAll" ${nSel && nSel === list.length ? 'checked' : ''} aria-label="Pilih semua"/></th><th>Murid</th><th>Pelajaran & Guru</th><th>Jadwal</th><th>Tarif / pertemuan</th><th>No HP ortu</th><th>Status</th><th></th></tr></thead>
     <tbody>${list.map(row).join('')}</tbody></table></div>
     <div class="t-meta" style="margin-top:8px">${list.length} murid ditampilkan</div>`;
-  box.querySelectorAll('tr[data-stu]').forEach(tr => tr.onclick = () => openStudentForm(S.data.students.find(x => x.id === tr.dataset.stu)));
+  box.querySelectorAll('tr[data-stu]').forEach(tr => tr.onclick = (e) => {
+    if (e.target.closest('.td-chk')) return;
+    openStudentForm(S.data.students.find(x => x.id === tr.dataset.stu));
+  });
+  box.querySelectorAll('[data-sel]').forEach(c => c.onchange = () => { c.checked ? S.sel.add(c.dataset.sel) : S.sel.delete(c.dataset.sel); drawStudentList(); });
+  box.querySelectorAll('.td-chk').forEach(td => td.onclick = (e) => { if (e.target.tagName !== 'INPUT') { const c = td.querySelector('input'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); } });
+  $('selAll').onchange = (e) => { list.forEach(x => e.target.checked ? S.sel.add(x.id) : S.sel.delete(x.id)); drawStudentList(); };
+  if (nSel) {
+    $('bkNo').onclick = () => { S.sel.clear(); drawStudentList(); };
+    $('bkGo').onclick = () => bulkAssign(list.filter(x => S.sel.has(x.id)), $('bkGuru').value);
+  }
+}
+async function bulkAssign(list, guru) {
+  if (!guru) { toast('Pilih gurunya dulu'); return; }
+  const uid = guru === '__none' ? null : guru, o = S.org.id, ops = [];
+  list.forEach(st => {
+    const classes = (st.classes || []).map(c => Object.assign({}, c, { mitraUid: uid }));
+    ops.push(['set', doc(db, 'orgs', o, 'students', st.id), Object.assign({}, st, { classes, updatedAt: serverTimestamp() })]);
+    classes.forEach(c => ops.push(['set', doc(db, 'orgs', o, 'sched', c.id), schedDoc(st, c)]));
+  });
+  // Field id hanya untuk tampilan, jangan ikut tersimpan
+  ops.forEach(op => { if (op[2] && 'id' in op[2] && op[1].path.includes('/students/')) delete op[2].id; });
+  $('bkGo').disabled = true;
+  try {
+    await commitOps(ops);
+    const g = mitraOf(uid);
+    toast('✅ ' + list.length + ' murid ditugaskan ke ' + (g ? g.name : 'belum ditentukan'));
+    S.sel.clear(); await loadOrgData(true); rerenderMurid();
+  } catch (e) { console.error(e); $('bkGo').disabled = false; toast('❌ Gagal: ' + friendlyError(e), 4000); }
 }
 
 // ── Form murid (bisa banyak kelas) ──

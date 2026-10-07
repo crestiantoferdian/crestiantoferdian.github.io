@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 6 Okt 2026 (LLK V2 Tahap 3: tampilan & absensi Guru Mitra)_
+_Terakhir diperbarui: 7 Okt 2026 (simulasi V1 → V2: Admin ikut mengajar, bagi murid sekaligus)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -290,6 +290,13 @@ Murni tampilan: **tidak ada logika, alur data, key localStorage, nama fungsi/var
   - Siswa (murid ditugaskan + riwayat lama), profil murid (riwayat progres/PR/PR guru per periode), Track Record (per periode, per murid), Honor (Hadir+Alpa × honor tercatat, per bulan), Lainnya (link spreadsheet, tema, ganti mode `./?pilih=1`, keluar lembaga, logout).
   - Admin: tab **Absensi** (PC) per tanggal: semua sesi semua guru, status, progres & PR, isi/hapus **Izin** (honor 0).
   - Tes: rules 73 lulus, `v2-e2e` 21, `v2-tahap2` 25, `v2-tahap3` 22 (`npm run test:v2t3`).
+- **Simulasi pemilik (7 Okt 2026)** — "pengguna V1 dengan 30 murid kewalahan, merekrut 2 guru, Admin merangkap mengajar, bagi 10/10/10". Aturan dasar baru dari pemilik: **Guru Admin juga bisa mengajar** (menggantikan keputusan "Admin hanya mengelola"), dan ada **2 aplikasi**: Admin & Guru. Diuji `tests/v2-simulasi.test.cjs` (`npm run test:sim`, 25 cek). Temuan & perbaikan:
+  1. **V1 tidak punya jalan ke V2** → V1 Lainnya kini punya menu **"Punya guru lain? LLK Lembaga"** (`location.href='v2/'`, hanya tautan, data V1 tidak disentuh).
+  2. **Guru yang baru bergabung tidak muncul di pilihan Guru** sampai halaman dimuat ulang (cache `S.data`) → data dimuat ulang setiap pindah menu.
+  3. **Admin tidak bisa ditugaskan murid** → daftar guru = "Nama (Admin)" + Guru Mitra (di form murid, filter, Jadwal Mingguan, impor). Admin punya menu **Mengajar** → `guru.html` dalam mode Admin: tombol **Hadir/Izin/Alpa**, boleh mengoreksi tanggal lewat, tanpa menu Honor (diganti **Panel Admin**), honor 0.
+  4. **Membagi 30 murid harus buka form satu per satu** → Daftar Murid: **centang beberapa murid → "Tugaskan ke guru…" → Terapkan** (semua kelas murid itu pindah guru; `sched` ikut diperbarui).
+  5. **2 aplikasi terpisah**: `v2/manifest-admin.webmanifest` (id `/v2/admin`, "LLK Admin", start `/v2/`) dan `v2/manifest-guru.webmanifest` (id `/v2/guru`, "LLK Guru", start `/v2/guru.html`, scope `/v2/guru`) — Chrome mengenalinya sebagai 2 aplikasi berbeda.
+  - Catatan untuk pemilik: LLK V1 di HP pemilik tetap berisi 30 murid & tetap memberi pengingat untuk semuanya — murid yang sudah dipegang guru lain sebaiknya dinonaktifkan di V1 (atau V1 tidak dipakai lagi). Paket berbayar V2 belum ada (masih 5 kursi uji coba).
 - **Berikutnya (Tahap 4):** Admin mengirim progres ke ortu (WA) dari tab Absensi, koreksi Hadir/Alpa oleh Admin, Reschedule/Off/Tambah kelas oleh Admin; lalu Tahap 5 Keuangan (tagihan ortu & rekap honor).
 
 ## ⏳ Yang belum / berikutnya
