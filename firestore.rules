@@ -43,6 +43,19 @@ service cloud.firestore {
       return signedIn() && exists(memberPath(orgId, uid()))
         && get(memberPath(orgId, uid())).data.role == 'admin';
     }
+    // Rekening gaji {bank, number, holder} & No WA guru (diisi guru sendiri)
+    function validBankPhone(d) {
+      return (!('bank' in d) || (d.bank is map && d.bank.keys().hasOnly(['bank', 'number', 'holder'])
+                && d.bank.get('bank', '') is string && d.bank.get('bank', '').size() <= 40
+                && d.bank.get('number', '') is string && d.bank.get('number', '').size() <= 40
+                && d.bank.get('holder', '') is string && d.bank.get('holder', '').size() <= 80))
+        && (!('phone' in d) || (d.phone is string && d.phone.size() <= 20));
+    }
+    // Tanggal gajian tiap bulan (1–31; bulan yang lebih pendek → hari terakhir)
+    function validPayDay(d) {
+      return (!('payDay' in d) || d.payDay == null || (d.payDay is int && d.payDay >= 1 && d.payDay <= 31))
+        && (!('payDaySince' in d) || d.payDaySince == null || (d.payDaySince is string && d.payDaySince.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')));
+    }
     // Satu akun hanya boleh tergabung di SATU lembaga
     function notInOtherOrg(orgId) {
       return !exists(userPath(uid()))
@@ -142,19 +155,22 @@ service cloud.firestore {
         );
 
         allow update: if
-          // Admin: ubah nama tampilan & honor Mitra
+          // Admin: ubah nama tampilan, honor & tanggal gajian Mitra
           (isAdmin(orgId) && resource.data.role == 'mitra'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'honor'])
-            && request.resource.data.honor is int && request.resource.data.honor >= 0)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'honor', 'payDay', 'payDaySince'])
+            && request.resource.data.honor is int && request.resource.data.honor >= 0
+            && validPayDay(request.resource.data))
           ||
-          // Mitra: hanya link spreadsheet absensi gurunya sendiri
+          // Mitra: link spreadsheet absensi, rekening gaji & No WA miliknya sendiri
           (signedIn() && uid() == u && resource.data.role == 'mitra'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sheetLink']))
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sheetLink', 'bank', 'phone'])
+            && validBankPhone(request.resource.data))
           ||
           // Guru Admin mendaftarkan / menghentikan dirinya sebagai guru (mengajar lewat
           // aplikasi Guru Mitra), mengatur honornya sendiri & link spreadsheet absensinya
           (signedIn() && uid() == u && resource.data.role == 'admin'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['teaches', 'honor', 'slot', 'sheetLink'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['teaches', 'honor', 'slot', 'sheetLink', 'bank', 'phone', 'payDay', 'payDaySince'])
+            && validBankPhone(request.resource.data) && validPayDay(request.resource.data)
             && request.resource.data.get('teaches', false) is bool
             && (!('honor' in request.resource.data) || (request.resource.data.honor is int && request.resource.data.honor >= 0)));
 
@@ -245,6 +261,18 @@ service cloud.firestore {
           && request.resource.data.sessions is int && request.resource.data.sessions >= 1 && request.resource.data.sessions <= 200
           && request.resource.data.amount is int && request.resource.data.amount >= 0 && request.resource.data.amount <= 1000000000
           && request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      }
+      // ── Penggajian: 1 dokumen = 1 kali gaji dibayarkan ke 1 guru (dengan bukti transfer) ──
+      // Hanya Admin yang menulis; guru hanya bisa membaca slip gajinya sendiri.
+      match /payouts/{pid} {
+        allow read: if isAdmin(orgId) || (isMember(orgId) && resource.data.mitraUid == uid());
+        allow delete: if isAdmin(orgId);
+        allow create: if isAdmin(orgId)
+          && request.resource.data.keys().hasOnly(['mitraUid', 'mitraName', 'periodFrom', 'periodTo', 'attIds', 'hadir', 'alpa', 'sessions', 'total', 'paidDate', 'bank', 'proof', 'note', 'by', 'createdAt'])
+          && request.resource.data.total is int && request.resource.data.total >= 0
+          && request.resource.data.attIds is list && request.resource.data.attIds.size() <= 500
+          && request.resource.data.paidDate is string && request.resource.data.paidDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && (!('proof' in request.resource.data) || (request.resource.data.proof is string && request.resource.data.proof.size() <= 900000));
       }
       // ── Pengaturan lembaga (mis. paket: berapa pertemuan per pembayaran) — hanya Admin ──
       match /settings/{key} {

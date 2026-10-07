@@ -111,25 +111,26 @@ await t('Mitra tidak bisa menambah murid', assertFails(setDoc(doc(mitra2,'orgs',
 await t('Admin lembaga lain tidak bisa membaca murid', assertFails(getDoc(doc(admin,'orgs','org2','students','s1'))));
 console.log('\n[Tahap 3: absensi]');
 const todayWIB=(()=>{ const d=new Date(Date.now()+7*3600e3); return d.toISOString().slice(0,10); })();
-const yest=(()=>{ const d=new Date(Date.now()+7*3600e3-864e5); return d.toISOString().slice(0,10); })();
+// 2 hari lalu (bukan kemarin): aturan memberi kelonggaran s/d ±01.00 WIB untuk tanggal kemarin (zona WITA/WIT)
+const yest=(()=>{ const d=new Date(Date.now()+7*3600e3-2*864e5); return d.toISOString().slice(0,10); })();
 const att=(o={})=>({classId:'c1',studentId:'s1',studentName:'Brilian',subjectName:'Piano',mitraUid:'mitra2',date:todayWIB,start:'14:00',end:'15:00',status:'hadir',progress:'Tangga nada C',prSiswa:'',prGuru:'',reason:'',honor:30000,by:'mitra2',...o});
 const aref=(db,d=todayWIB,c='c1')=>doc(db,'orgs','org2','att',c+'_'+d);
 await t('Mitra mengisi Hadir + progres hari ini', assertSucceeds(setDoc(aref(mitra2),att())));
 await t('Hadir tanpa progres ditolak', assertFails(setDoc(aref(mitra2),att({progress:'  '}))));
 await t('Mitra tidak bisa mengisi Izin', assertFails(setDoc(aref(mitra2),att({status:'izin'}))));
 await t('Mitra tidak bisa menaikkan honor di absensi', assertFails(setDoc(aref(mitra2),att({honor:99999}))));
-await t('Mitra tidak bisa mengisi tanggal kemarin', assertFails(setDoc(aref(mitra2,yest),att({date:yest}))));
+await t('Mitra tidak bisa mengisi tanggal 2 hari lalu', assertFails(setDoc(aref(mitra2,yest),att({date:yest}))));
 await t('Mitra tidak bisa mengabsen kelas guru lain', assertFails(setDoc(aref(m3),att({mitraUid:'mitra3',by:'mitra3'}))));
 await t('Mitra lain tidak bisa membaca absensi itu', assertFails(getDoc(aref(m3))));
 await t('Mitra mengubah jadi Alpa (hari yang sama)', assertSucceeds(setDoc(aref(mitra2),att({status:'alpa',progress:''}))));
 await t('Mitra membaca absensinya sendiri', assertSucceeds(getDocs(query(collection(mitra2,'orgs','org2','att'),where('mitraUid','==','mitra2')))));
 await env.withSecurityRulesDisabled(async c=>{ await setDoc(doc(c.firestore(),'orgs','org2','att','c1_'+yest),att({date:yest})); });
-await t('Mitra tidak bisa mengubah absensi kemarin', assertFails(setDoc(aref(mitra2,yest),att({date:yest,progress:'ubah'}))));
-await t('Mitra tidak bisa menghapus absensi kemarin', assertFails(deleteDoc(aref(mitra2,yest))));
+await t('Mitra tidak bisa mengubah absensi 2 hari lalu', assertFails(setDoc(aref(mitra2,yest),att({date:yest,progress:'ubah'}))));
+await t('Mitra tidak bisa menghapus absensi 2 hari lalu', assertFails(deleteDoc(aref(mitra2,yest))));
 await env.withSecurityRulesDisabled(async c=>{ await setDoc(doc(c.firestore(),'orgs','org2','sched','c9'),{...sch,studentId:'s9'}); });
 await t('Admin mengisi Izin', assertSucceeds(setDoc(aref(a2,todayWIB,'c9'),att({classId:'c9',status:'izin',progress:'',reason:'Sakit',honor:0,by:'admin2'}))));
 await t('Mitra tidak bisa menimpa Izin dari Admin', assertFails(setDoc(aref(mitra2,todayWIB,'c9'),att({classId:'c9'}))));
-await t('Admin bisa mengoreksi absensi kemarin', assertSucceeds(setDoc(aref(a2,yest),att({date:yest,progress:'dikoreksi',by:'admin2'}))));
+await t('Admin bisa mengoreksi absensi 2 hari lalu', assertSucceeds(setDoc(aref(a2,yest),att({date:yest,progress:'dikoreksi',by:'admin2'}))));
 await t('Mitra menghapus tanda hari ini', assertSucceeds(deleteDoc(aref(mitra2))));
 
 await t('Admin bisa menghapus murid + jadwalnya', assertSucceeds((async()=>{ const b=writeBatch(a2); b.delete(doc(a2,'orgs','org2','students','s1')); b.delete(doc(a2,'orgs','org2','sched','c1')); await b.commit(); })()));
@@ -150,6 +151,21 @@ await t('Mitra tidak bisa melihat pembayaran', assertFails(getDoc(doc(mitra2,'or
 await t('Mitra tidak bisa mencatat pembayaran', assertFails(setDoc(doc(mitra2,'orgs','org2','payments','p3'),pay)));
 await t('Admin menyimpan pengaturan paket', assertSucceeds(setDoc(doc(a2,'orgs','org2','settings','billing'),{cycle:4})));
 await t('Mitra tidak bisa membaca pengaturan', assertFails(getDoc(doc(mitra2,'orgs','org2','settings','billing'))));
+
+console.log('\n[Penggajian]');
+await t('Guru mengisi rekening & No WA sendiri', assertSucceeds(updateDoc(doc(mitra2,'orgs','org2','members','mitra2'),{bank:{bank:'BCA',number:'1234567890',holder:'Budi'},phone:'08123'})));
+await t('Rekening dengan field aneh ditolak', assertFails(updateDoc(doc(mitra2,'orgs','org2','members','mitra2'),{bank:{bank:'BCA',number:'1',holder:'B',pin:'1234'}})));
+await t('Guru tidak bisa mengisi tanggal gajiannya sendiri', assertFails(updateDoc(doc(mitra2,'orgs','org2','members','mitra2'),{payDay:1})));
+await t('Admin mengatur tanggal gajian guru', assertSucceeds(updateDoc(doc(a2,'orgs','org2','members','mitra2'),{payDay:25})));
+await t('Admin menyimpan tanggal mulai gajian', assertSucceeds(updateDoc(doc(a2,'orgs','org2','members','mitra2'),{payDay:10,payDaySince:'2026-10-07'})));
+await t('Guru tidak bisa mengubah tanggal mulai gajiannya', assertFails(updateDoc(doc(mitra2,'orgs','org2','members','mitra2'),{payDaySince:'2020-01-01'})));
+await t('Tanggal mulai gajian bukan tanggal ditolak', assertFails(updateDoc(doc(a2,'orgs','org2','members','mitra2'),{payDaySince:'kemarin'})));
+await t('Tanggal gajian 32 ditolak', assertFails(updateDoc(doc(a2,'orgs','org2','members','mitra2'),{payDay:32})));
+const po={mitraUid:'mitra2',mitraName:'Budi',periodFrom:'2026-09-25',periodTo:'2026-10-24',attIds:['c1_2026-10-01'],hadir:1,alpa:0,sessions:1,total:30000,paidDate:'2026-10-25',bank:{bank:'BCA',number:'1234567890',holder:'Budi'},proof:'data:image/jpeg;base64,AAAA',note:'',by:'admin2'};
+await t('Admin mencatat gaji dibayar + bukti transfer', assertSucceeds(setDoc(doc(a2,'orgs','org2','payouts','g1'),po)));
+await t('Guru membaca slip gajinya sendiri', assertSucceeds(getDocs(query(collection(mitra2,'orgs','org2','payouts'),where('mitraUid','==','mitra2')))));
+await t('Guru lain tidak bisa membaca slip gaji itu', assertFails(getDoc(doc(m3,'orgs','org2','payouts','g1'))));
+await t('Guru tidak bisa membuat slip gaji sendiri', assertFails(setDoc(doc(mitra2,'orgs','org2','payouts','g2'),po)));
 
 console.log('\n[V1 tetap aman]');
 await t('Guru Lepas bisa baca/tulis backup miliknya', assertSucceeds(setDoc(doc(other,'backups','other1','parts','students'),{data:[]})));

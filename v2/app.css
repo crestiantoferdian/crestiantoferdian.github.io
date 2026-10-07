@@ -293,3 +293,16 @@ main.wide{max-width:1280px}
 .tr-total td{background:var(--card2);border-top:1px solid var(--border)}
 .card-t .pill{margin-left:6px}
 @media (max-width:899px){ .tbl-static .td-act{display:block!important;width:auto;margin-top:8px} .tbl-static .act-row{justify-content:flex-start} }
+/* Penggajian guru */
+.pay-btn{margin-top:12px}
+.pay-btn.is-late{background:var(--danger)}
+.mini.pay-btn{margin-top:0;white-space:normal;text-align:left}
+.gaji-banner{display:flex;gap:12px;align-items:flex-start;background:var(--green-bg);color:var(--text);border:1px solid rgba(42,115,73,0.3);border-radius:14px;padding:12px 14px;margin:0 0 14px;font-size:0.88rem;line-height:1.55}
+.gaji-banner>.ico{color:var(--green);margin-top:2px}
+.po-sum{display:flex;justify-content:space-between;align-items:center;background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.po-total{font-family:var(--font-display);font-size:1.6rem;font-weight:600}
+.po-bank{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.po-proof{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.po-proof img{max-width:100%;max-height:240px;border-radius:10px;border:1px solid var(--border)}
+.slip-prev{max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:12px;margin-bottom:12px}
+.slip-prev img{width:100%;display:block}

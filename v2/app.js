@@ -9,6 +9,7 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signI
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, updateDoc, writeBatch, collection, query, where, serverTimestamp, Timestamp }
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+import { renderSlipCanvas, canvasToBlob, slipWaText, compressPhoto, slipNo, fmtKey } from './slip.js';
 
 // Ikon garis dari sprite di index.html (satu set dengan V1)
 const I = (n, c) => `<svg class="ico${c ? ' ' + c : ''}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
@@ -437,7 +438,7 @@ async function loadGuru() {
 async function renderGuru(m) {
   m.innerHTML = '<div class="page-title">Guru Mitra</div><div class="page-sub">Memuat…</div>';
   let g;
-  try { g = await loadGuru(); } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
+  try { g = await loadGuru(); await loadPayroll(); } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
   const seats = S.org.seats || 0, used = g.slots.length, full = used >= seats;
   const meTeaches = !!(S.member && S.member.teaches);
   const mitraHtml = g.mitras.length ? g.mitras.map(x => `
@@ -448,8 +449,11 @@ async function renderGuru(m) {
         <span class="pill pill-green">AKTIF</span>
       </div>
       <div class="t-meta" style="margin-top:10px;white-space:normal">${I('wallet','sm')} Honor <b style="color:var(--text)">${esc(rupiah(x.honor))}</b> / pertemuan · ${I('table','sm')} Spreadsheet absensi: ${x.sheetLink ? '<b style="color:var(--green)">sudah diisi</b>' : 'belum diisi'}</div>
+      ${(() => { const pi = payInfo(x); return `<div class="t-meta" style="margin-top:4px;white-space:normal">${I('calendar','sm')} Gajian: ${pi.set ? '<b style="color:var(--text)">tanggal ' + x.payDay + '</b> tiap bulan' + (pi.due ? '' : ' · berikutnya ' + esc(fmtKey(pi.next)) + ' · berjalan ' + esc(rupiah(pi.runTotal + pi.total))) : '<span class="t-warn">belum diatur</span> (Ubah Honor & Gajian)'}</div>
+        <div class="t-meta" style="margin-top:4px;white-space:normal">${I('card','sm')} Rekening: ${bankLine(x) ? '<b style="color:var(--text)">' + esc(bankLine(x)) + '</b>' : '<span class="t-warn">belum diisi guru</span>'} · ${I('chat','sm')} WA: ${x.phone ? esc(x.phone) : '<span class="t-warn">belum diisi</span>'}</div>
+        ${payBtnHtml(x, pi)}`; })()}
       <div class="mini-btns">
-        <button class="mini" data-honor="${esc(x.id)}">${I('edit','sm')} Ubah Honor</button>
+        <button class="mini" data-honor="${esc(x.id)}">${I('edit','sm')} Ubah Honor & Gajian</button>
         ${x.sheetLink ? `<button class="mini" data-sheet="${esc(x.id)}">${I('table','sm')} Buka Spreadsheet</button>` : ''}
         ${x.isSelf ? `<button class="mini" data-openguru="1">${I('external','sm')} Buka Aplikasi Guru</button><button class="mini mini-red" data-stopself="1">Berhenti Mengajar</button>`
                    : `<button class="mini mini-red" data-kick="${esc(x.id)}">Keluarkan</button>`}
@@ -483,6 +487,7 @@ async function renderGuru(m) {
   m.innerHTML = `
     <div class="page-title">Guru Mitra</div>
     <div class="page-sub">Undang guru dengan kode unik — satu kode untuk satu guru</div>
+    ${dueBanner(g.mitras)}
     <div class="card">
       <div class="row"><div class="grow"><div class="card-t" style="margin:0">Kursi Guru Mitra</div></div><b>${used} / ${seats}</b></div>
       <div class="seat-bar"><div class="seat-fill" style="width:${seats ? Math.min(100, used / seats * 100) : 0}%;${full ? 'background:var(--amber)' : ''}"></div></div>
@@ -502,6 +507,7 @@ async function renderGuru(m) {
   m.querySelectorAll('[data-kick]').forEach(b => b.onclick = () => kickMitra(g.mitras.find(x => x.id === b.dataset.kick)));
   m.querySelectorAll('[data-sheet]').forEach(b => b.onclick = () => { const x = g.mitras.find(y => y.id === b.dataset.sheet); if (x && /^https?:\/\//i.test(x.sheetLink)) window.open(x.sheetLink, '_blank'); });
   const st = $('selfTeach'); if (st) st.onclick = openSelfTeach;
+  m.querySelectorAll('[data-gaji]').forEach(b => b.onclick = () => openPayout(g.mitras.find(x => x.id === b.dataset.gaji), () => renderTab()));
   m.querySelectorAll('[data-openguru]').forEach(b => b.onclick = () => { location.href = MITRA_URL; });
   m.querySelectorAll('[data-stopself]').forEach(b => b.onclick = stopSelfTeach);
 }
@@ -665,15 +671,21 @@ async function renewInvite(inv) {
 function editHonor(x) {
   if (!x) return;
   openModal(`
-    <div class="modal-t">${I('edit')} Honor ${esc(x.name)}</div>
-    <div class="modal-sub">Berlaku untuk pertemuan berikutnya.</div>
+    <div class="modal-t">${I('edit')} Honor & Gajian ${esc(x.name)}</div>
+    <div class="modal-sub">Honor baru berlaku untuk pertemuan berikutnya.</div>
     <div class="field"><label>Honor per pertemuan (Rp)</label><input id="ehVal" type="number" min="0" step="1000" value="${esc(x.honor)}"/></div>
+    <div class="field"><label>Tanggal gajian tiap bulan</label><select id="ehPay"><option value="">Belum diatur</option>${Array.from({ length: 31 }, (_, i) => i + 1).map(d => `<option value="${d}" ${x.payDay === d ? 'selected' : ''}>Tanggal ${d}${d >= 29 ? ' (bulan pendek → hari terakhir)' : ''}</option>`).join('')}</select>
+      <div class="hint">Pada tanggal ini muncul tombol <b>Bayar Gaji</b> untuk pertemuan sampai sehari sebelumnya.</div></div>
     <div class="btn-row"><button class="btn btn-ghost" id="ehNo">Batal</button><button class="btn btn-primary" id="ehGo">Simpan</button></div>`);
   $('ehNo').onclick = closeModal;
   $('ehGo').onclick = async () => {
     const v = parseInt($('ehVal').value, 10);
     if (!Number.isFinite(v) || v < 0) { toast('Honor harus angka'); return; }
-    try { await updateDoc(doc(db, 'orgs', S.org.id, 'members', x.id), { honor: v }); closeModal(); toast('✅ Honor diperbarui'); renderTab(); }
+    const pd = $('ehPay').value ? parseInt($('ehPay').value, 10) : null;
+    // payDaySince: tanggal gajian mulai berlaku → hari gajian sebelum tanggal ini tidak dianggap terlambat
+    const upd = { honor: v, payDay: pd };
+    if (pd !== (x.payDay || null)) upd.payDaySince = pd ? localKey(new Date()) : null;
+    try { await updateDoc(doc(db, 'orgs', S.org.id, 'members', x.id), upd); closeModal(); toast('✅ Honor & tanggal gajian disimpan'); renderTab(); }
     catch (e) { toast('❌ ' + friendlyError(e)); }
   };
 }
@@ -1296,7 +1308,7 @@ function classBilling(c) {
 }
 async function renderKeuangan(m) {
   m.innerHTML = '<div class="page-title">Keuangan</div><div class="page-sub">Memuat…</div>';
-  try { await loadKeu(); } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
+  try { await loadKeu(); await loadPayroll(); } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
   const per = S.keuPer || 'bulan', R = keuRange(per), inR = k => k >= R.from && k <= R.to;
   const K = S.keu, cycle = K.cycle;
   const payR = K.pay.filter(p => inR(p.date));
@@ -1343,11 +1355,16 @@ async function renderKeuangan(m) {
     </tbody></table></div>` : `<div class="card"><div class="empty"><div class="empty-t">Belum ada murid</div></div></div>`}
 
     <div class="card-t" style="margin-top:18px">${I('users', 'sm')} Gaji guru · ${esc(R.label)}</div>
-    <div class="tbl-wrap"><table class="tbl tbl-static" id="tblGaji"><thead><tr><th>Guru</th><th>Hadir</th><th>Alpa</th><th>Izin</th><th>Honor / pertemuan</th><th>Total gaji</th></tr></thead><tbody>
-      ${gRows.map(r => `<tr data-guru="${esc(r.uid)}"><td><div class="t-name">${esc(r.name)}</div></td><td>${r.h}</td><td>${r.a}</td><td>${r.i} <span class="t-meta">(tidak dibayar)</span></td><td>${r.honor == null ? '—' : esc(rupiah(r.honor))}</td><td><b>${esc(rupiah(r.sum))}</b></td></tr>`).join('') || '<tr><td colspan="6" class="t-meta">Belum ada guru</td></tr>'}
-      <tr class="tr-total"><td><b>Total</b></td><td>${gRows.reduce((n, r) => n + r.h, 0)}</td><td>${gRows.reduce((n, r) => n + r.a, 0)}</td><td>${gRows.reduce((n, r) => n + r.i, 0)}</td><td></td><td><b>${esc(rupiah(gaji))}</b></td></tr>
+    ${dueBanner(S.data.mitras)}
+    <div class="tbl-wrap"><table class="tbl tbl-static" id="tblGaji"><thead><tr><th>Guru</th><th>Hadir</th><th>Alpa</th><th>Izin</th><th>Honor / pertemuan</th><th>Total gaji</th><th>Gajian</th></tr></thead><tbody>
+      ${gRows.map(r => { const g = mitraOf(r.uid), pi = g ? payInfo(g) : null; return `<tr data-guru="${esc(r.uid)}"><td><div class="t-name">${esc(r.name)}</div></td><td>${r.h}</td><td>${r.a}</td><td>${r.i} <span class="t-meta">(tidak dibayar)</span></td><td>${r.honor == null ? '—' : esc(rupiah(r.honor))}</td><td><b>${esc(rupiah(r.sum))}</b></td>
+        <td>${!g ? '—' : pi.due ? payBtnHtml(g, pi, true) : pi.set ? '<span class="t-meta">tgl ' + g.payDay + ' · berikutnya ' + esc(fmtKey(pi.next)) + '</span>' : '<span class="t-warn">belum diatur</span>'}</td></tr>`; }).join('') || '<tr><td colspan="7" class="t-meta">Belum ada guru</td></tr>'}
+      <tr class="tr-total"><td><b>Total</b></td><td>${gRows.reduce((n, r) => n + r.h, 0)}</td><td>${gRows.reduce((n, r) => n + r.a, 0)}</td><td>${gRows.reduce((n, r) => n + r.i, 0)}</td><td></td><td><b>${esc(rupiah(gaji))}</b></td><td></td></tr>
     </tbody></table></div>
     <div class="t-meta" style="margin-top:6px;white-space:normal">Gaji = jumlah honor yang tercatat di setiap absensi Hadir & Alpa (honor saat itu). Izin & Off tidak dibayar.</div>
+    ${(() => { const pr = S.pay.payouts.filter(p => inR(p.paidDate)); return `<div class="card-t" style="margin-top:18px">${I('card', 'sm')} Gaji sudah dibayar · ${esc(R.label)}</div>` + (pr.length ? `<div class="tbl-wrap"><table class="tbl tbl-static" id="tblPayout"><thead><tr><th>Tanggal transfer</th><th>Guru</th><th>Periode</th><th>Pertemuan</th><th>Jumlah</th><th></th></tr></thead><tbody>
+      ${pr.map(p => `<tr><td>${esc(fmtKey(p.paidDate))}</td><td><div class="t-name">${esc(p.mitraName)}</div>${p.note ? '<div class="t-meta">' + esc(p.note) + '</div>' : ''}</td><td>${esc(fmtKey(p.periodFrom))} – ${esc(fmtKey(p.periodTo))}</td><td>${p.sessions}x</td><td><b>${esc(rupiah(p.total))}</b></td>
+        <td class="td-act"><div class="act-row"><button class="mini" data-slip="${esc(p.id)}">${I('receipt', 'sm')} Slip</button><button class="mini mini-red" data-delpo="${esc(p.id)}">${I('trash', 'sm')}</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="card"><div class="t-meta">Belum ada gaji yang dibayarkan di periode ini.</div></div>'); })()}
 
     <div class="card-t" style="margin-top:18px">${I('wallet', 'sm')} Pembayaran masuk · ${esc(R.label)}</div>
     ${payR.length ? `<div class="tbl-wrap"><table class="tbl tbl-static" id="tblBayar"><thead><tr><th>Tanggal</th><th>Murid</th><th>Pelajaran</th><th>Pertemuan</th><th>Jumlah</th><th></th></tr></thead><tbody>
@@ -1355,6 +1372,14 @@ async function renderKeuangan(m) {
         <td class="td-act"><button class="mini mini-red" data-delpay="${esc(p.id)}">${I('trash', 'sm')}</button></td></tr>`).join('')}
     </tbody></table></div>` : '<div class="card"><div class="t-meta">Belum ada pembayaran di periode ini.</div></div>'}`;
   m.querySelectorAll('[data-per]').forEach(b => b.onclick = () => { S.keuPer = b.dataset.per; renderKeuangan(m); });
+  m.querySelectorAll('[data-gaji]').forEach(b => b.onclick = () => openPayout(mitraOf(b.dataset.gaji), () => renderKeuangan(m)));
+  m.querySelectorAll('[data-slip]').forEach(b => b.onclick = () => viewSlip(S.pay.payouts.find(p => p.id === b.dataset.slip)));
+  m.querySelectorAll('[data-delpo]').forEach(b => b.onclick = () => {
+    const p = S.pay.payouts.find(x => x.id === b.dataset.delpo);
+    confirmDanger({ title: 'Hapus catatan gaji?', message: `Gaji <b>${esc(p.mitraName)}</b> ${esc(rupiah(p.total))} (${esc(fmtKey(p.paidDate))}) dihapus dari catatan. Pertemuannya akan dihitung belum dibayar lagi. Uang yang sudah ditransfer tidak ikut kembali.`, confirmText: 'Hapus' }, async () => {
+      try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'payouts', p.id)]]); toast('Catatan gaji dihapus'); renderKeuangan(m); } catch (e) { toast('❌ ' + friendlyError(e)); }
+    });
+  });
   $('kfSet').onclick = () => openCycleForm(m);
   const find = id => tRows.find(r => r.c.id === id);
   m.querySelectorAll('[data-pay]').forEach(b => b.onclick = () => openPayForm(find(b.dataset.pay), m));
@@ -1417,6 +1442,139 @@ function tagihWA(r) {
     + (r.credit === 1 ? `\n(Sisa 1x pertemuan yang sudah dibayar.)` : '')
     + `\n\nTerima kasih.\n— ${S.org.name}`;
   window.open('https://wa.me/' + waNumber(r.st.phone) + '?text=' + encodeURIComponent(text), '_blank');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PENGGAJIAN GURU — tanggal gajian per guru (members.payDay), rekening & No WA
+// diisi guru sendiri (members.bank / members.phone). Di tanggal gajian muncul
+// tombol "Bayar Gaji" → upload bukti transfer → slip honor JPG → WA guru.
+//   orgs/{org}/payouts/{id} {mitraUid, mitraName, periodFrom, periodTo, attIds,
+//     hadir, alpa, sessions, total, paidDate, bank, proof, note, by, createdAt}
+// Yang dibayar: absensi Hadir/Alpa guru itu yang BELUM masuk slip mana pun,
+// sampai sehari sebelum tanggal gajian (pertemuan di hari gajian → periode berikutnya).
+// ══════════════════════════════════════════════════════════════════════
+function addDays(k, n) { const d = new Date(k + 'T00:00:00'); d.setDate(d.getDate() + n); return localKey(d); }
+function paydayIn(y, m, pd) { const last = new Date(y, m + 1, 0).getDate(); return localKey(new Date(y, m, Math.min(pd, last))); }
+async function loadPayroll() {
+  const o = S.org.id;
+  const [att, po] = await Promise.all([getDocs(collection(db, 'orgs', o, 'att')), getDocs(collection(db, 'orgs', o, 'payouts'))]);
+  S.pay = { att: att.docs.map(d => Object.assign({ id: d.id }, d.data())), payouts: po.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.paidDate.localeCompare(a.paidDate)) };
+  return S.pay;
+}
+function payInfo(g) {
+  const P = S.pay, today = localKey(new Date());
+  const paidIds = new Set(P.payouts.filter(p => p.mitraUid === g.id).flatMap(p => p.attIds || []));
+  const mine = P.att.filter(a => a.mitraUid === g.id && isPaidSession(a) && !paidIds.has(a.id));
+  const sum = l => l.reduce((n, a) => n + (a.honor || 0), 0);
+  if (!g.payDay) return { set: false, running: mine, runTotal: sum(mine) };
+  const t = new Date();
+  let last = paydayIn(t.getFullYear(), t.getMonth(), g.payDay), next;
+  if (last > today) { next = last; last = paydayIn(t.getFullYear(), t.getMonth() - 1, g.payDay); }
+  else next = paydayIn(t.getFullYear(), t.getMonth() + 1, g.payDay);
+  const cutoff = addDays(last, -1);
+  const unpaid = mine.filter(a => a.date <= cutoff).sort((a, b) => a.date.localeCompare(b.date));
+  const running = mine.filter(a => a.date > cutoff);
+  const paidThis = P.payouts.some(p => p.mitraUid === g.id && p.paidDate >= last);
+  const late = Math.round((new Date(today + 'T00:00:00') - new Date(last + 'T00:00:00')) / 864e5);
+  return { set: true, last, next, cutoff, unpaid, total: sum(unpaid), running, runTotal: sum(running), due: !paidThis && unpaid.length > 0 && last >= (g.payDaySince || ''), late };
+}
+function bankLine(g) { const b = g.bank || {}; return b.number ? [b.bank, b.number].filter(Boolean).join(' ') + (b.holder ? ' a.n. ' + b.holder : '') : ''; }
+function payBtnHtml(g, info, small) {
+  if (!info.due) return '';
+  const when = info.late === 0 ? 'hari ini gajian' : info.late + ' hari terlambat';
+  return `<button class="${small ? 'mini mini-green' : 'btn btn-green'} pay-btn${info.late > 0 ? ' is-late' : ''}" data-gaji="${esc(g.id)}">${I('wallet', 'sm')} Bayar Gaji ${esc(rupiah(info.total))} · ${when}</button>`;
+}
+function dueBanner(gurus) {
+  const due = gurus.map(g => ({ g, i: payInfo(g) })).filter(x => x.i.due);
+  if (!due.length) return '';
+  return `<div class="gaji-banner">${I('wallet')}<div><b>Waktunya gajian</b><div>${due.map(x => esc(x.g.name) + ' · ' + esc(rupiah(x.i.total)) + (x.i.late ? ' <span class="t-warn">(' + x.i.late + ' hari terlambat)</span>' : ' (hari ini)')).join('<br>')}</div></div></div>`;
+}
+let PO = null; // pembayaran gaji yang sedang dibuka
+function openPayout(g, after) {
+  const info = payInfo(g); if (!info.due) return;
+  PO = { g, info, proof: null, after };
+  const bl = bankLine(g), h = info.unpaid.filter(a => a.status === 'hadir').length, al = info.unpaid.length - h;
+  openModal(`
+    <div class="modal-t">${I('wallet')} Bayar Gaji · ${esc(g.name)}</div>
+    <div class="modal-sub">Periode <b>${esc(fmtKey(info.unpaid[0].date))} – ${esc(fmtKey(info.cutoff))}</b> · gajian tiap tanggal ${g.payDay}</div>
+    <div class="po-sum"><div><div class="t-meta">${h} hadir${al ? ' · ' + al + ' alpa (tetap dihonor)' : ''}</div><div class="po-total">${esc(rupiah(info.total))}</div></div>
+      <div class="t-meta" style="text-align:right">${info.unpaid.length} pertemuan<br>honor tercatat di tiap absensi</div></div>
+    <div class="field"><label>Transfer ke rekening</label>
+      ${bl ? `<div class="po-bank"><b>${esc(bl)}</b><button class="mini" id="poCopy" style="flex:0 0 auto">${I('copy', 'sm')} Salin No. Rek</button></div>`
+           : `<div class="msg msg-err" style="margin:0">${esc(g.name)} belum mengisi rekening. Minta guru membuka aplikasi Guru → Lainnya → Rekening gaji.</div>`}
+    </div>
+    <div class="field"><label>Foto bukti transfer</label>
+      <div class="po-proof" id="poProofBox"><button class="btn btn-ghost" id="poPick" style="margin:0">${I('camera', 'sm')} Upload bukti transfer</button></div>
+      <input type="file" id="poProof" accept="image/*" style="display:none"/></div>
+    <div class="grid2">
+      <div class="field"><label>Tanggal transfer</label><input id="poDate" type="date" value="${localKey(new Date())}" max="${localKey(new Date())}"/></div>
+      <div class="field"><label>Catatan (opsional)</label><input id="poNote" maxlength="80" placeholder="cth: transfer BCA"/></div>
+    </div>
+    <div id="poMsg"></div>
+    <div class="btn-row"><button class="btn btn-ghost" id="poNo">Batal</button><button class="btn btn-primary" id="poGo">${I('check', 'sm')} Simpan & Buat Slip</button></div>`);
+  const cp = $('poCopy'); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText((g.bank || {}).number || ''); toast('✅ No. rekening tersalin'); } catch (e) { prompt('Salin nomor rekening:', (g.bank || {}).number || ''); } };
+  $('poPick').onclick = () => $('poProof').click();
+  $('poProof').onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try { PO.proof = await compressPhoto(f); $('poProofBox').innerHTML = `<img src="${PO.proof}" alt="Bukti transfer"/><button class="mini" id="poRe">${I('refresh', 'sm')} Ganti foto</button>`; $('poRe').onclick = () => $('poProof').click(); }
+    catch (err) { toast('❌ ' + err.message); }
+  };
+  $('poNo').onclick = closeModal;
+  $('poGo').onclick = savePayout;
+}
+async function savePayout() {
+  const { g, info } = PO;
+  if (!PO.proof) { $('poMsg').innerHTML = '<div class="msg msg-err">Upload foto bukti transfer dulu.</div>'; return; }
+  const paidDate = $('poDate').value || localKey(new Date());
+  $('poGo').disabled = true; $('poGo').textContent = 'Menyimpan…';
+  const ref = doc(collection(db, 'orgs', S.org.id, 'payouts'));
+  const p = { mitraUid: g.id, mitraName: g.name.replace(/ \(Anda\)$/, ''), periodFrom: info.unpaid[0].date, periodTo: info.cutoff,
+    attIds: info.unpaid.map(a => a.id), hadir: info.unpaid.filter(a => a.status === 'hadir').length, alpa: info.unpaid.filter(a => a.status === 'alpa').length,
+    sessions: info.unpaid.length, total: info.total, paidDate, bank: g.bank || {}, proof: PO.proof, note: $('poNote').value.trim(), by: S.user.uid, createdAt: serverTimestamp() };
+  try {
+    await commitOps([['set', ref, p]]);
+    p.id = ref.id;
+    await showSlipReady(p, info.unpaid, g);
+  } catch (e) { console.error(e); $('poGo').disabled = false; $('poGo').textContent = 'Simpan & Buat Slip'; $('poMsg').innerHTML = `<div class="msg msg-err">Gagal menyimpan: ${esc(friendlyError(e))}</div>`; }
+}
+// Slip siap → tombol kirim (dipisah supaya menu bagikan HP tidak diblokir browser)
+async function showSlipReady(p, rows, g) {
+  const cv = await renderSlipCanvas(p, rows, S.org, S.member.name);
+  const blob = await canvasToBlob(cv, 'image/jpeg', 0.9);
+  const after = PO && PO.after;
+  openModal(`
+    <div class="modal-t">${I('check-circle')} Gaji ${esc(p.mitraName)} tercatat</div>
+    <div class="modal-sub">${esc(rupiah(p.total))} · ${p.sessions} pertemuan · ditransfer ${esc(fmtKey(p.paidDate))}. Kirim slip honor ke WA ${esc(p.mitraName)}:</div>
+    <div class="slip-prev"><img src="${URL.createObjectURL(blob)}" alt="Slip honor"/></div>
+    <button class="btn btn-green" id="slSend">${I('chat')} Kirim Slip ke WA ${esc(p.mitraName)}${g.phone ? ' (' + esc(g.phone) + ')' : ''}</button>
+    <button class="btn btn-ghost" id="slDl">${I('download')} Unduh Slip (JPG)</button>
+    <button class="btn btn-ghost" id="slClose">Selesai</button>`);
+  $('slSend').onclick = () => sendSlip(p, cv, blob, g);
+  $('slDl').onclick = () => dlBlob(blob, slipNo(p) + '.jpg');
+  $('slClose').onclick = () => { closeModal(); if (after) after(); };
+  if (after) after(true);
+}
+function dlBlob(blob, name) { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }
+async function sendSlip(p, cv, blob, g) {
+  const text = slipWaText(p, S.org.name, S.member.name);
+  const file = new File([blob], slipNo(p) + '.jpg', { type: 'image/jpeg' });
+  const mobile = (navigator.userAgentData && navigator.userAgentData.mobile) || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  try {
+    if (mobile && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  // PC (atau HP tanpa fitur bagikan): salin gambar slip, lalu buka chat WA guru dengan pesannya
+  let copied = false;
+  try { const png = await canvasToBlob(cv, 'image/png'); await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]); copied = true; } catch (e) {}
+  const ph = waNumber(g.phone || '');
+  window.open('https://wa.me/' + (ph || '') + '?text=' + encodeURIComponent(text), '_blank');
+  if (!copied) dlBlob(blob, slipNo(p) + '.jpg');
+  toast(copied ? '✅ Slip tersalin — di chat WA ' + p.mitraName + ' tekan Ctrl+V lalu kirim' : 'ℹ️ Slip diunduh — lampirkan ke chat WA ' + p.mitraName, 7000);
+}
+async function viewSlip(p) {
+  const rows = S.pay.att.filter(a => (p.attIds || []).includes(a.id));
+  const g = mitraOf(p.mitraUid) || { id: p.mitraUid, name: p.mitraName, phone: '' };
+  PO = null;
+  await showSlipReady(p, rows, g);
 }
 
 // ══════════════════════════════════════════════════════════════════════
