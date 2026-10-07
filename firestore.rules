@@ -149,7 +149,14 @@ service cloud.firestore {
           ||
           // Mitra: hanya link spreadsheet absensi gurunya sendiri
           (signedIn() && uid() == u && resource.data.role == 'mitra'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sheetLink']));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sheetLink']))
+          ||
+          // Guru Admin mendaftarkan / menghentikan dirinya sebagai guru (mengajar lewat
+          // aplikasi Guru Mitra), mengatur honornya sendiri & link spreadsheet absensinya
+          (signedIn() && uid() == u && resource.data.role == 'admin'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['teaches', 'honor', 'slot', 'sheetLink'])
+            && request.resource.data.get('teaches', false) is bool
+            && (!('honor' in request.resource.data) || (request.resource.data.honor is int && request.resource.data.honor >= 0)));
 
         // Admin mengeluarkan Mitra, atau Mitra keluar sendiri (Admin tidak bisa menghapus dirinya)
         allow delete: if resource.data.role == 'mitra' && (isAdmin(orgId) || (signedIn() && uid() == u));
@@ -160,10 +167,19 @@ service cloud.firestore {
         allow read: if isAdmin(orgId);
         allow create: if isAdmin(orgId)
           && int(n) >= 1 && int(n) <= get(orgPath(orgId)).data.seats
-          && request.resource.data.keys().hasOnly(['kind', 'code'])
-          && request.resource.data.kind == 'invite'
-          && getAfter(invitePath(request.resource.data.code)).data.orgId == orgId
-          && getAfter(invitePath(request.resource.data.code)).data.slot == int(n);
+          && (
+            (request.resource.data.keys().hasOnly(['kind', 'code'])
+              && request.resource.data.kind == 'invite'
+              && getAfter(invitePath(request.resource.data.code)).data.orgId == orgId
+              && getAfter(invitePath(request.resource.data.code)).data.slot == int(n))
+            ||
+            // Guru Admin yang juga mengajar (lewat aplikasi Guru Mitra) memakai 1 kursi
+            (request.resource.data.keys().hasOnly(['kind', 'uid'])
+              && request.resource.data.kind == 'self'
+              && request.resource.data.uid == uid()
+              && getAfter(memberPath(orgId, uid())).data.get('teaches', false) == true
+              && getAfter(memberPath(orgId, uid())).data.slot == int(n))
+          );
         // Mitra yang memakai undangan mengubah kursi dari "undangan" jadi "anggota"
         allow update: if signedIn()
           && resource.data.kind == 'invite'
@@ -179,6 +195,9 @@ service cloud.firestore {
                 || get(invitePath(resource.data.code)).data.expiresAt < request.time))
           ||
           (resource.data.kind == 'member' && !existsAfter(memberPath(orgId, resource.data.uid)))
+          ||
+          (resource.data.kind == 'self' && isAdmin(orgId)
+            && getAfter(memberPath(orgId, resource.data.uid)).data.get('teaches', false) != true)
         );
       }
 

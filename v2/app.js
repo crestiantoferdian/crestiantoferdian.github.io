@@ -364,7 +364,6 @@ async function joinOrg(code, inv) {
 // ══════════════════════════════════════════════════════════════════════
 const ADMIN_TABS = [
   { k: 'absensi', i: 'absensi', l: 'Absensi' },
-  { k: 'mengajar', i: 'book-open', l: 'Mengajar' },
   { k: 'murid', i: 'cap', l: 'Murid' },
   { k: 'guru', i: 'users', l: 'Guru' },
   { k: 'keuangan', i: 'wallet', l: 'Keuangan' },
@@ -395,8 +394,6 @@ function renderShell() {
     </div>
   </div>`;
   document.querySelectorAll('.bnav').forEach(b => b.onclick = () => {
-    // Admin juga mengajar: tampilan guru (sama dengan LLK V1) untuk murid miliknya sendiri
-    if (b.dataset.tab === 'mengajar') { location.href = MITRA_URL; return; }
     S.tab = b.dataset.tab; S.data = null; renderShell(); // data selalu segar saat pindah menu (mis. guru baru bergabung)
   });
   renderTab();
@@ -428,7 +425,9 @@ async function loadGuru() {
     getDocs(collection(db, 'orgs', orgId, 'slots')),
   ]);
   S.guru = {
-    mitras: mem.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(x => x.role === 'mitra').sort((a, b) => a.name.localeCompare(b.name)),
+    mitras: mem.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(x => x.role === 'mitra' || (x.role === 'admin' && x.teaches))
+      .map(x => x.role === 'admin' ? Object.assign(x, { isSelf: true }) : x)
+      .sort((a, b) => (b.isSelf ? 1 : 0) - (a.isSelf ? 1 : 0) || a.name.localeCompare(b.name)),
     invites: inv.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(x => x.status === 'open').sort((a, b) => (a.slot || 0) - (b.slot || 0)),
     slots: slots.docs.map(d => Object.assign({ id: d.id }, d.data())),
   };
@@ -439,20 +438,30 @@ async function renderGuru(m) {
   let g;
   try { g = await loadGuru(); } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
   const seats = S.org.seats || 0, used = g.slots.length, full = used >= seats;
+  const meTeaches = !!(S.member && S.member.teaches);
   const mitraHtml = g.mitras.length ? g.mitras.map(x => `
     <div class="card">
       <div class="row">
         <div class="avatar">${esc(initials(x.name))}</div>
-        <div class="grow"><div class="t-name">${esc(x.name)}</div><div class="t-meta">${esc(x.email)}</div></div>
+        <div class="grow"><div class="t-name">${esc(x.name)}${x.isSelf ? ' <span class="pill pill-amber">ANDA</span>' : ''}</div><div class="t-meta">${esc(x.email)}${x.isSelf ? ' · mengajar lewat aplikasi Guru Mitra' : ''}</div></div>
         <span class="pill pill-green">AKTIF</span>
       </div>
       <div class="t-meta" style="margin-top:10px;white-space:normal">${I('wallet','sm')} Honor <b style="color:var(--text)">${esc(rupiah(x.honor))}</b> / pertemuan · ${I('table','sm')} Spreadsheet absensi: ${x.sheetLink ? '<b style="color:var(--green)">sudah diisi</b>' : 'belum diisi'}</div>
       <div class="mini-btns">
         <button class="mini" data-honor="${esc(x.id)}">${I('edit','sm')} Ubah Honor</button>
         ${x.sheetLink ? `<button class="mini" data-sheet="${esc(x.id)}">${I('table','sm')} Buka Spreadsheet</button>` : ''}
-        <button class="mini mini-red" data-kick="${esc(x.id)}">Keluarkan</button>
+        ${x.isSelf ? `<button class="mini" data-openguru="1">${I('external','sm')} Buka Aplikasi Guru</button><button class="mini mini-red" data-stopself="1">Berhenti Mengajar</button>`
+                   : `<button class="mini mini-red" data-kick="${esc(x.id)}">Keluarkan</button>`}
       </div>
     </div>`).join('') : '';
+  // Guru Admin hanya mengurus administrasi. Kalau ia juga mengajar, ia mendaftar
+  // sebagai guru (1 kursi) dan mengabsen lewat aplikasi Guru Mitra — akun Google sama.
+  const selfCard = meTeaches ? '' : `
+    <div class="card" style="border-style:dashed">
+      <div class="row"><div class="avatar" style="background:var(--blue-bg);color:var(--blue)">${I('user')}</div>
+        <div class="grow"><div class="t-name">Kamu juga mengajar?</div><div class="t-meta" style="white-space:normal">Aplikasi Admin khusus administrasi. Untuk mengajar, daftarkan dirimu sebagai Guru Mitra (memakai 1 kursi), lalu pasang aplikasi <b>Guru Mitra</b> di HP — login dengan akun Google yang sama.</div></div></div>
+      <button class="btn btn-ghost" id="selfTeach" ${full ? 'disabled' : ''} style="margin-top:12px">${I('user-plus','sm')} Saya juga mengajar</button>
+    </div>`;
   const invHtml = g.invites.length ? g.invites.map(x => {
     const exp = isExpired(x);
     return `
@@ -479,6 +488,7 @@ async function renderGuru(m) {
       <div class="t-meta" style="margin-top:8px;white-space:normal">${full ? 'Kursi penuh. Tambah kursi lewat paket langganan (segera hadir), atau cabut undangan yang tidak dipakai.' : 'Undangan yang belum dipakai juga menempati kursi sampai dicabut.'}</div>
     </div>
     <button class="btn btn-primary" id="addMitra" ${full ? 'disabled' : ''} style="margin-bottom:18px">＋ Tambah Guru Mitra</button>
+    ${selfCard}
     ${g.invites.length ? `<div class="card-t">Undangan belum dipakai (${g.invites.length})</div>${invHtml}` : ''}
     <div class="card-t" style="margin-top:6px">Guru Mitra aktif (${g.mitras.length})</div>
     ${mitraHtml || '<div class="card"><div class="empty"><div class="empty-ic">'+I('users')+'</div><div class="empty-t">Belum ada Guru Mitra</div><div class="empty-d">Tekan “Tambah Guru Mitra”, lalu kirim kodenya lewat WA.</div></div></div>'}`;
@@ -490,6 +500,63 @@ async function renderGuru(m) {
   m.querySelectorAll('[data-honor]').forEach(b => b.onclick = () => editHonor(g.mitras.find(x => x.id === b.dataset.honor)));
   m.querySelectorAll('[data-kick]').forEach(b => b.onclick = () => kickMitra(g.mitras.find(x => x.id === b.dataset.kick)));
   m.querySelectorAll('[data-sheet]').forEach(b => b.onclick = () => { const x = g.mitras.find(y => y.id === b.dataset.sheet); if (x && /^https?:\/\//i.test(x.sheetLink)) window.open(x.sheetLink, '_blank'); });
+  const st = $('selfTeach'); if (st) st.onclick = openSelfTeach;
+  m.querySelectorAll('[data-openguru]').forEach(b => b.onclick = () => { location.href = MITRA_URL; });
+  m.querySelectorAll('[data-stopself]').forEach(b => b.onclick = stopSelfTeach);
+}
+function openSelfTeach() {
+  openModal(`
+    <div class="modal-t">${I('user-plus')} Saya juga mengajar</div>
+    <div class="modal-sub">Kamu akan tampil di daftar guru dan bisa diberi murid. Absensi & progres murid-muridmu diisi lewat <b>aplikasi Guru Mitra</b> (akun Google yang sama), persis seperti guru lain. Memakai 1 kursi Guru Mitra.</div>
+    <div class="field"><label>Honor per pertemuan untuk dirimu (Rp, opsional)</label><input id="stHonor" type="number" inputmode="numeric" min="0" step="1000" value="0"/>
+      <div class="hint">Isi kalau ingin gajimu sendiri ikut tercatat di rekap honor. Boleh 0.</div></div>
+    <div class="btn-row"><button class="btn btn-ghost" id="stNo">Batal</button><button class="btn btn-primary" id="stGo">${I('check','sm')} Daftarkan</button></div>`);
+  $('stNo').onclick = closeModal;
+  $('stGo').onclick = async () => {
+    const honor = Math.max(0, parseInt($('stHonor').value, 10) || 0);
+    $('stGo').disabled = true;
+    try {
+      const slotsSnap = await getDocs(collection(db, 'orgs', S.org.id, 'slots'));
+      const taken = new Set(slotsSnap.docs.map(d => d.id));
+      let slot = null; for (let i = 1; i <= (S.org.seats || 0); i++) if (!taken.has(String(i))) { slot = i; break; }
+      if (!slot) throw new Error('Kursi Guru Mitra sudah penuh.');
+      const b = writeBatch(db);
+      b.update(doc(db, 'orgs', S.org.id, 'members', S.user.uid), { teaches: true, honor, slot });
+      b.set(doc(db, 'orgs', S.org.id, 'slots', String(slot)), { kind: 'self', uid: S.user.uid });
+      await b.commit();
+      Object.assign(S.member, { teaches: true, honor, slot }); S.data = null;
+      closeModal(); showGuruAppInfo(); renderTab();
+    } catch (e) { $('stGo').disabled = false; toast('❌ ' + (e.message && !e.code ? e.message : friendlyError(e)), 4000); }
+  };
+}
+function showGuruAppInfo() {
+  const link = location.origin + location.pathname.replace(/[^/]*$/, '') + MITRA_URL;
+  openModal(`
+    <div class="modal-t">${I('check-circle')} Kamu terdaftar sebagai guru</div>
+    <div class="modal-sub">Sekarang beri murid untukmu di menu <b>Murid</b>. Untuk mengabsen, pasang <b>aplikasi Guru Mitra</b> di HP-mu:</div>
+    <div class="msg msg-info" style="line-height:1.7">1. Buka link ini di Chrome HP:<br><b style="word-break:break-all">${esc(link)}</b><br>2. Ketuk menu ⋮ → <b>Tambahkan ke layar utama</b> / <b>Instal aplikasi</b><br>3. Di HP-mu akan ada 2 aplikasi: <b>LLK Admin</b> & <b>LLK Guru</b></div>
+    <button class="btn btn-ghost" id="gaCopy">${I('copy')} Salin Link</button>
+    <button class="btn btn-ghost" id="gaOpen">${I('external')} Buka Aplikasi Guru sekarang</button>
+    <button class="btn btn-ghost" id="gaClose">Tutup</button>`);
+  $('gaCopy').onclick = async () => { try { await navigator.clipboard.writeText(link); toast('✅ Link tersalin'); } catch (e) { prompt('Salin link ini:', link); } };
+  $('gaOpen').onclick = () => { location.href = MITRA_URL; };
+  $('gaClose').onclick = closeModal;
+}
+async function stopSelfTeach() {
+  try {
+    const snap = await getDocs(collection(db, 'orgs', S.org.id, 'students'));
+    const n = snap.docs.filter(d => d.data().active && (d.data().classes || []).some(c => c.mitraUid === S.user.uid)).length;
+    if (n) { toast('⚠️ Masih ada ' + n + ' murid aktif yang kamu ajar. Pindahkan dulu ke guru lain di menu Murid.', 5000); return; }
+  } catch (e) { toast('❌ ' + friendlyError(e)); return; }
+  confirmDanger({ title: 'Berhenti mengajar?', message: 'Kamu tidak lagi tampil di daftar guru dan kursimu kembali kosong. Riwayat absensimu tetap tersimpan.', confirmText: 'Berhenti Mengajar' }, async () => {
+    try {
+      const b = writeBatch(db);
+      b.update(doc(db, 'orgs', S.org.id, 'members', S.user.uid), { teaches: false });
+      if (S.member.slot) b.delete(doc(db, 'orgs', S.org.id, 'slots', String(S.member.slot)));
+      await b.commit();
+      S.member.teaches = false; S.data = null; toast('Kamu berhenti mengajar'); renderTab();
+    } catch (e) { toast('❌ ' + friendlyError(e), 4000); }
+  });
 }
 
 function openAddMitra() {
@@ -652,10 +719,11 @@ async function loadOrgData(force) {
     getDocs(collection(db, 'orgs', o, 'students')),
     getDocs(collection(db, 'orgs', o, 'members')),
   ]);
-  // Daftar guru = Guru Admin (boleh ikut mengajar) + Guru Mitra
+  // Daftar guru = Guru Mitra + Guru Admin yang juga terdaftar mengajar (lewat aplikasi Guru Mitra)
   const all = mem.docs.map(d => Object.assign({ id: d.id }, d.data()));
-  const mitras = all.filter(x => x.role === 'admin').map(x => Object.assign(x, { name: (x.name || 'Saya') + ' (Admin)', isAdminGuru: true }))
-    .concat(all.filter(x => x.role === 'mitra').sort((a, b) => a.name.localeCompare(b.name)));
+  const mitras = all.filter(x => x.role === 'mitra' || (x.role === 'admin' && x.teaches))
+    .map(x => x.role === 'admin' ? Object.assign(x, { name: (x.name || 'Saya') + ' (Anda)', isSelf: true }) : x)
+    .sort((a, b) => (b.isSelf ? 1 : 0) - (a.isSelf ? 1 : 0) || a.name.localeCompare(b.name));
   S.data = {
     subjects: sub.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.name.localeCompare(b.name)),
     students: stu.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.name.localeCompare(b.name)),
