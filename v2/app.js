@@ -9,7 +9,7 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signI
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, updateDoc, writeBatch, collection, query, where, serverTimestamp, Timestamp }
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
-import { renderSlipCanvas, canvasToBlob, slipWaText, compressPhoto, slipNo, fmtKey } from './slip.js';
+import { renderSlipCanvas, canvasToBlob, slipWaText, compressPhoto, slipNo, fmtKey, slipPdfBlob, slipDefaultFormat, SLIP_PDF_FROM } from './slip.js';
 
 // Ikon garis dari sprite di index.html (satu set dengan V1)
 const I = (n, c) => `<svg class="ico${c ? ' ' + c : ''}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
@@ -1537,38 +1537,57 @@ async function savePayout() {
     await showSlipReady(p, info.unpaid, g);
   } catch (e) { console.error(e); $('poGo').disabled = false; $('poGo').textContent = 'Simpan & Buat Slip'; $('poMsg').innerHTML = `<div class="msg msg-err">Gagal menyimpan: ${esc(friendlyError(e))}</div>`; }
 }
-// Slip siap → tombol kirim (dipisah supaya menu bagikan HP tidak diblokir browser)
+// Slip siap → pilih format (JPG / PDF) lalu kirim (dipisah supaya menu bagikan HP tidak diblokir browser)
 async function showSlipReady(p, rows, g) {
   const cv = await renderSlipCanvas(p, rows, S.org, S.member.name);
-  const blob = await canvasToBlob(cv, 'image/jpeg', 0.9);
+  const jpg = await canvasToBlob(cv, 'image/jpeg', 0.9);
   const after = PO && PO.after;
+  const F = { fmt: slipDefaultFormat(rows.length), pdf: null };
+  const many = rows.length >= SLIP_PDF_FROM;
   openModal(`
     <div class="modal-t">${I('check-circle')} Gaji ${esc(p.mitraName)} tercatat</div>
     <div class="modal-sub">${esc(rupiah(p.total))} · ${p.sessions} pertemuan · ditransfer ${esc(fmtKey(p.paidDate))}. Kirim slip honor ke WA ${esc(p.mitraName)}:</div>
-    <div class="slip-prev"><img src="${URL.createObjectURL(blob)}" alt="Slip honor"/></div>
-    <button class="btn btn-green" id="slSend">${I('chat')} Kirim Slip ke WA ${esc(p.mitraName)}${g.phone ? ' (' + esc(g.phone) + ')' : ''}</button>
-    <button class="btn btn-ghost" id="slDl">${I('download')} Unduh Slip (JPG)</button>
+    <div class="slip-prev"><img src="${URL.createObjectURL(jpg)}" alt="Slip honor"/></div>
+    <div class="field" style="margin-bottom:8px"><label>Format slip</label>
+      <div class="seg" style="margin-bottom:4px"><button class="seg-b" data-fmt="jpg">${I('image', 'sm')} Gambar JPG</button><button class="seg-b" data-fmt="pdf">${I('receipt', 'sm')} Dokumen PDF</button></div>
+      <div class="hint" id="slHint"></div></div>
+    <button class="btn btn-green" id="slSend"></button>
+    <button class="btn btn-ghost" id="slDl"></button>
     <button class="btn btn-ghost" id="slClose">Selesai</button>`);
-  $('slSend').onclick = () => sendSlip(p, cv, blob, g);
-  $('slDl').onclick = () => dlBlob(blob, slipNo(p) + '.jpg');
+  const paint = () => {
+    document.querySelectorAll('[data-fmt]').forEach(x => x.classList.toggle('on', x.dataset.fmt === F.fmt));
+    const pdf = F.fmt === 'pdf';
+    $('slHint').textContent = pdf ? 'PDF ukuran A4, rapi dibaca & dicetak' + (many ? ' — disarankan karena ' + rows.length + ' pertemuan.' : '.')
+      : 'Gambar langsung tampil di chat WA' + (many ? '. ' + rows.length + ' pertemuan: gambar jadi panjang, lebih rapi pakai PDF.' : '.');
+    $('slSend').innerHTML = `${I('chat')} Kirim Slip ${pdf ? 'PDF' : 'JPG'} ke WA ${esc(p.mitraName)}${g.phone ? ' (' + esc(g.phone) + ')' : ''}`;
+    $('slDl').innerHTML = `${I('download')} Unduh Slip (${pdf ? 'PDF' : 'JPG'})`;
+  };
+  // PDF dibuat lebih dulu (saat format dipilih) supaya tombol kirim tetap dianggap klik langsung oleh HP
+  const prepPdf = async () => { if (!F.pdf) { try { F.pdf = await slipPdfBlob(cv, slipNo(p)); } catch (e) { toast('❌ ' + e.message); } } return F.pdf; };
+  document.querySelectorAll('[data-fmt]').forEach(x => x.onclick = () => { F.fmt = x.dataset.fmt; paint(); if (F.fmt === 'pdf') prepPdf(); });
+  paint(); if (F.fmt === 'pdf') prepPdf();
+  const file = async () => (F.fmt === 'pdf' ? { blob: await prepPdf(), ext: 'pdf', type: 'application/pdf' } : { blob: jpg, ext: 'jpg', type: 'image/jpeg' });
+  $('slSend').onclick = async () => { const f = await file(); if (f.blob) sendSlip(p, cv, f, g); };
+  $('slDl').onclick = async () => { const f = await file(); if (f.blob) dlBlob(f.blob, slipNo(p) + '.' + f.ext); };
   $('slClose').onclick = () => { closeModal(); if (after) after(); };
   if (after) after(true);
 }
 function dlBlob(blob, name) { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }
-async function sendSlip(p, cv, blob, g) {
+async function sendSlip(p, cv, f, g) {
   const text = slipWaText(p, S.org.name, S.member.name);
-  const file = new File([blob], slipNo(p) + '.jpg', { type: 'image/jpeg' });
+  const name = slipNo(p) + '.' + f.ext, file = new File([f.blob], name, { type: f.type });
   const mobile = (navigator.userAgentData && navigator.userAgentData.mobile) || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
   try {
     if (mobile && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
   } catch (e) { if (e && e.name === 'AbortError') return; }
-  // PC (atau HP tanpa fitur bagikan): salin gambar slip, lalu buka chat WA guru dengan pesannya
+  // PC (atau HP tanpa fitur bagikan): JPG → gambar disalin (Ctrl+V di chat); PDF → file diunduh lalu dilampirkan
   let copied = false;
-  try { const png = await canvasToBlob(cv, 'image/png'); await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]); copied = true; } catch (e) {}
+  if (f.ext === 'jpg') { try { const png = await canvasToBlob(cv, 'image/png'); await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]); copied = true; } catch (e) {} }
   const ph = waNumber(g.phone || '');
   window.open('https://wa.me/' + (ph || '') + '?text=' + encodeURIComponent(text), '_blank');
-  if (!copied) dlBlob(blob, slipNo(p) + '.jpg');
-  toast(copied ? '✅ Slip tersalin — di chat WA ' + p.mitraName + ' tekan Ctrl+V lalu kirim' : 'ℹ️ Slip diunduh — lampirkan ke chat WA ' + p.mitraName, 7000);
+  if (!copied) dlBlob(f.blob, name);
+  toast(copied ? '✅ Slip tersalin — di chat WA ' + p.mitraName + ' tekan Ctrl+V lalu kirim'
+    : 'ℹ️ Slip ' + f.ext.toUpperCase() + ' diunduh (' + name + ') — lampirkan ke chat WA ' + p.mitraName + ' (📎 → Dokumen, atau seret filenya)', 8000);
 }
 async function viewSlip(p) {
   const rows = S.pay.att.filter(a => (p.attIds || []).includes(a.id));
