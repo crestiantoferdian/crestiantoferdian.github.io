@@ -236,6 +236,21 @@ service cloud.firestore {
         allow delete: if isAdmin(orgId);
       }
 
+      // ── Keuangan: pembayaran murid (hanya Admin) ──
+      // 1 dokumen = 1 pembayaran paket untuk 1 kelas (mis. 4x pertemuan Rp 400.000).
+      match /payments/{pid} {
+        allow read, delete: if isAdmin(orgId);
+        allow create, update: if isAdmin(orgId)
+          && request.resource.data.keys().hasOnly(['studentId', 'studentName', 'classId', 'subjectName', 'sessions', 'amount', 'rate', 'date', 'note', 'by', 'createdAt'])
+          && request.resource.data.sessions is int && request.resource.data.sessions >= 1 && request.resource.data.sessions <= 200
+          && request.resource.data.amount is int && request.resource.data.amount >= 0 && request.resource.data.amount <= 1000000000
+          && request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      }
+      // ── Pengaturan lembaga (mis. paket: berapa pertemuan per pembayaran) — hanya Admin ──
+      match /settings/{key} {
+        allow read, write: if isAdmin(orgId);
+      }
+
       // ── Tahap 3: Absensi per sesi — id = {classId}_{YYYY-MM-DD} ──
       // Guru Mitra: hanya kelas yang ditugaskan kepadanya, hanya Hadir/Alpa,
       // hanya di HARI YANG SAMA (WIB, dengan kelonggaran untuk WITA/WIT),

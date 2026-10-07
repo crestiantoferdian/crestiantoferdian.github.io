@@ -282,3 +282,14 @@ main.wide{max-width:1280px}
 .bulk-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--red);border-radius:14px;padding:10px 12px;margin-bottom:12px}
 .bulk-bar select{min-height:44px;border:1px solid var(--border);background:var(--card);border-radius:12px;padding:0 12px;font-size:0.88rem;color:var(--text)}
 @media (max-width:899px){ .tbl td.td-chk{display:block;width:auto} }
+/* Keuangan */
+.keu-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (min-width:1100px){ .keu-cards{grid-template-columns:repeat(4,1fr)} }
+.keu-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px}
+.kc-l{font-size:0.78rem;font-weight:700;color:var(--muted)}
+.kc-n{font-family:var(--font-display);font-size:1.45rem;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+.kc-d{font-size:0.74rem;color:var(--muted);margin-top:2px}
+.act-row{display:flex;gap:6px;justify-content:flex-end}
+.tr-total td{background:var(--card2);border-top:1px solid var(--border)}
+.card-t .pill{margin-left:6px}
+@media (max-width:899px){ .tbl-static .td-act{display:block!important;width:auto;margin-top:8px} .tbl-static .act-row{justify-content:flex-start} }
