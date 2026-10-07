@@ -7,7 +7,8 @@
     "test:v2t2": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-tahap2.test.cjs\"",
     "test:v2t3": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-tahap3.test.cjs\"",
     "test:sim": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-simulasi.test.cjs\"",
-    "test:bulan": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-sim-bulan.test.cjs\""
+    "test:bulan": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-sim-bulan.test.cjs\"",
+    "test:gaji": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-gaji.test.cjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.0",

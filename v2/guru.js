@@ -11,6 +11,7 @@ import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/fi
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, writeBatch, collection, query, where, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import { ICONS, LLK_SUBJECT_ICON } from './v1-shared.js';
+import { renderSlipCanvas, canvasToBlob, slipNo, fmtKey } from './slip.js';
 
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyAvD4ABTYIjCtPCYzUaRM8AHsjiOamHQLU',
@@ -116,10 +117,12 @@ function paintHeader() {
 // ══════════════════════════════════════════════════════════════════════
 async function loadData() {
   const o = G.org.id, u = G.user.uid;
-  const [sc, at] = await Promise.all([
+  const [sc, at, po] = await Promise.all([
     getDocs(query(collection(db, 'orgs', o, 'sched'), where('mitraUid', '==', u))),
     getDocs(query(collection(db, 'orgs', o, 'att'), where('mitraUid', '==', u))),
+    getDocs(query(collection(db, 'orgs', o, 'payouts'), where('mitraUid', '==', u))).catch(() => ({ docs: [] })),
   ]);
+  G.payouts = po.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.paidDate.localeCompare(a.paidDate));
   G.sched = sc.docs.map(d => Object.assign({ id: d.id }, d.data()));
   G.att = {}; at.docs.forEach(d => { G.att[d.id] = Object.assign({ id: d.id }, d.data()); });
 }
@@ -454,6 +457,21 @@ function renderHonor() {
         <div class="stat-card s-hadir"><div class="stat-label">Sesi ${MONTH_ID[new Date().getMonth()]}</div><div class="stat-num">${now.n}</div></div>
         <div class="stat-card"><div class="stat-label">Honor ${MONTH_ID[new Date().getMonth()]}</div><div class="stat-num" style="font-size:1.25rem">${esc(rupiah(now.sum))}</div></div>
       </div>
+      ${(() => {
+        // Gaji: yang sudah ditransfer (slip dari Guru Admin) & yang masih menunggu gajian
+        const paidIds = new Set((G.payouts || []).flatMap(p => p.attIds || []));
+        const wait = paid.filter(a => !paidIds.has(a.id)), waitSum = wait.reduce((n, a) => n + (a.honor || 0), 0);
+        const b = G.member.bank || {};
+        return `<div class="menu-card" style="padding:14px 16px;margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-size:0.8rem;color:var(--muted);font-weight:700">Belum dibayar</div>
+            <div style="font-family:var(--font-display);font-size:1.4rem;font-weight:600" id="hnWait">${esc(rupiah(waitSum))}</div><div class="llk-hint" style="margin:0">${wait.length} pertemuan${G.member.payDay ? ' · gajian tiap tanggal ' + G.member.payDay : ' · tanggal gajian belum diatur Admin'}</div></div>
+            <div style="text-align:right" class="llk-hint">${b.number ? 'Ditransfer ke<br><b style="color:var(--text)">' + esc([b.bank, b.number].filter(Boolean).join(' ')) + '</b>' : '<span style="color:var(--alpa);font-weight:700">Rekening belum diisi</span><br>Isi di menu Lainnya'}</div></div></div>
+        <div class="llk-section-label">${I('receipt')}Gaji diterima</div>
+        <div class="menu-card" style="margin-bottom:14px" id="hnPaid">${(G.payouts || []).length ? G.payouts.map(p => `<div class="menu-item" data-slip="${esc(p.id)}">
+            <div class="menu-icon green">${I('check')}</div>
+            <div class="menu-text"><div class="menu-label">${esc(fmtKey(p.paidDate))} · ${esc(rupiah(p.total))}</div><div class="menu-desc">${p.sessions} pertemuan · ${esc(fmtKey(p.periodFrom))} – ${esc(fmtKey(p.periodTo))}</div></div>
+            <span class="menu-arrow">${I('chevron-right')}</span></div>`).join('')
+          : '<div class="llk-hint" style="padding:14px 16px;margin:0">Belum ada gaji yang ditransfer. Slip honor muncul di sini setelah Guru Admin membayar.</div>'}</div>`; })()}
       <div class="llk-section-label">${I('wallet')}Honor per pertemuan saat ini: <b style="color:var(--text);margin-left:4px">${esc(rupiah(G.member.honor))}</b></div>
       <div class="menu-card">${keys.length ? keys.map(k => `<div class="menu-item" style="cursor:default">
           <div class="menu-icon green">${I('calendar')}</div>
@@ -461,6 +479,23 @@ function renderHonor() {
           <div style="font-weight:800">${esc(rupiah(months.get(k).sum))}</div></div>`).join('')
         : `<div class="empty">${ill('notebook')}<div class="empty-t">Belum ada honor</div><div class="empty-d">Honor muncul setelah kamu mengisi absensi Hadir/Alpa.</div></div>`}</div>
     </div>`;
+  $('mainContent').querySelectorAll('[data-slip]').forEach(el => el.onclick = () => openSlip(G.payouts.find(p => p.id === el.dataset.slip)));
+}
+async function openSlip(p) {
+  if (!p) return;
+  const rows = (p.attIds || []).map(id => G.att[id]).filter(Boolean);
+  const cv = await renderSlipCanvas(p, rows, G.org, 'Guru Admin');
+  const blob = await canvasToBlob(cv, 'image/jpeg', 0.9);
+  const url = URL.createObjectURL(blob);
+  let ov = $('slipOverlay'); if (ov) ov.remove();
+  ov = document.createElement('div'); ov.id = 'slipOverlay'; ov.className = 'overlay open';
+  ov.innerHTML = `<div class="modal"><div class="modal-handle"></div><div class="modal-title">${I('receipt')} Slip Honor</div>
+    <div class="modal-sub">${esc(fmtKey(p.paidDate))} · ${esc(rupiah(p.total))}</div>
+    <div style="max-height:56vh;overflow:auto;border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:12px"><img src="${url}" alt="Slip honor" style="width:100%;display:block"/></div>
+    <div class="mactions"><button class="mbtn mbtn-cancel" id="slX">Tutup</button><a class="mbtn mbtn-save" id="slDl" href="${url}" download="${esc(slipNo(p))}.jpg" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px">${I('download')} Unduh</a></div></div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  $('slX').onclick = () => ov.remove();
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -486,6 +521,18 @@ function renderLainnya() {
         <div class="menu-icon red">${I('user')}</div>
         <div class="menu-text"><div class="menu-label">${esc(G.member.name)}</div><div class="menu-desc">${esc(G.user.email || '')} · Guru Mitra ${esc(G.org.name)}${G.isAdmin ? ' (juga Guru Admin)' : ''}</div></div></div></div>
       <div>
+        <div class="llk-section-label">${I('card')}Rekening gaji & No WA</div>
+        <div class="menu-card" style="padding:14px 16px">
+          <div class="llk-hint" style="margin:0 0 10px">Dipakai Guru Admin untuk mentransfer honor & mengirim slip gaji ke WA-mu. Hanya Guru Admin yang bisa melihatnya.</div>
+          <div class="mfield" style="margin:0 0 10px"><label>Bank / e-wallet</label><input id="mlBank" list="mlBankList" maxlength="40" placeholder="cth: BCA" value="${esc((G.member.bank || {}).bank || '')}"/>
+            <datalist id="mlBankList">${['BCA', 'BRI', 'BNI', 'Mandiri', 'BSI', 'CIMB Niaga', 'Permata', 'BTN', 'Danamon', 'Bank Jago', 'SeaBank', 'blu by BCA', 'DANA', 'GoPay', 'OVO', 'ShopeePay'].map(x => `<option value="${x}">`).join('')}</datalist></div>
+          <div class="mfield" style="margin:0 0 10px"><label>Nomor rekening</label><input id="mlNum" inputmode="numeric" maxlength="40" placeholder="cth: 1234567890" value="${esc((G.member.bank || {}).number || '')}"/></div>
+          <div class="mfield" style="margin:0 0 10px"><label>Atas nama</label><input id="mlHolder" maxlength="80" placeholder="Nama sesuai buku tabungan" value="${esc((G.member.bank || {}).holder || '')}"/></div>
+          <div class="mfield" style="margin:0 0 10px"><label>No WhatsApp</label><input id="mlPhone" type="tel" inputmode="tel" maxlength="20" placeholder="cth: 0812xxxxxxx" value="${esc(G.member.phone || '')}"/></div>
+          <button class="llk-btn primary block" id="mlBankSave">${I('check')} Simpan Rekening</button>
+        </div>
+      </div>
+      <div>
         <div class="llk-section-label">${I('table')}Spreadsheet absensi guru</div>
         <div class="menu-card" style="padding:14px 16px">
           <div class="llk-hint" style="margin:0 0 10px">Link Google Sheet tempat kamu mencatat absensi mengajar (untuk Guru Admin).</div>
@@ -506,6 +553,14 @@ function renderLainnya() {
       </div>
     </div>`;
   if (G.isAdmin) $('mlAdmin').onclick = () => { location.href = './'; };
+  $('mlBankSave').onclick = async () => {
+    const bank = { bank: $('mlBank').value.trim(), number: $('mlNum').value.replace(/[^\d-]/g, '').trim(), holder: $('mlHolder').value.trim() };
+    const phone = $('mlPhone').value.replace(/[^\d+]/g, '');
+    if (!bank.bank || !bank.number || !bank.holder) { toast('⚠️ Isi bank, nomor rekening & atas nama'); return; }
+    if (phone.replace(/\D/g, '').length < 9) { toast('⚠️ No WhatsApp belum benar'); return; }
+    try { await updateDoc(doc(db, 'orgs', G.org.id, 'members', G.user.uid), { bank, phone }); G.member.bank = bank; G.member.phone = phone; toast('✅ Rekening & No WA tersimpan'); }
+    catch (e) { toast('❌ ' + friendlyError(e)); }
+  };
   $('mlSave').onclick = async () => {
     const v = $('mlSheet').value.trim();
     if (v && !/^https?:\/\//i.test(v)) { toast('⚠️ Link harus diawali https://'); return; }
