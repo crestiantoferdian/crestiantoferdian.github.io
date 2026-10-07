@@ -3966,9 +3966,20 @@ function llkStatusDates(name, status, afterDk, untilDk){
 // Pengaturan tampilan invoice. Hadir & Alpa (yang ditagih) WAJIB tampil; yang
 // bisa diatur: harga per baris, baris Izin, baris Off (guru izin). Default tampil.
 // Hanya tampilan — nilai tagihan & data pembayaran tidak berubah.
-const LLK_INV_OPTS={price:'Harga per pertemuan',izin:'Baris Izin',off:'Baris Off (guru izin)'};
+const LLK_INV_OPTS={price:'Harga per pertemuan',izin:'Baris Izin',izinNote:'Keterangan Izin',off:'Baris Off (guru izin)'};
 const LLK_INV_ZERO={izin:{label:'Izin',bg:'#fef6e4',ink:'#a15c07'},off:{label:'Off (guru izin)',bg:'#eef1f5',ink:'#4f5d6e'}};
 function llkInvShow(k){ return localStorage.getItem('llk_inv_show_'+k)!=='0'; }
+// Alasan Izin (dari catatan kehadiran) milik murid di tanggal itu — sesi reguler dulu, lalu sesi tambahan
+function llkIzinReason(name, dk){
+  const dayAtt=attendance[dk]||{};
+  const keys=[name].concat(Object.keys(dayAtt).filter(k=>k.startsWith(name+'_extra_')));
+  for(const k of keys){
+    if(dayAtt[k]!=='izin') continue;
+    const r=((attNotes[dk+'_'+k]||{}).reason||'').replace(/\s+/g,' ').trim();
+    if(r) return r;
+  }
+  return '';
+}
 // Baris invoice untuk ditampilkan: pertemuan ditagih (bernomor) + Izin/Off (Rp 0,
 // tanpa nomor), urut tanggal. Invoice lama tanpa daftar Izin/Off → diambil di
 // antara tanggal pertemuan pertama & terakhirnya (maks. tanggal invoice dibuat).
@@ -3987,7 +3998,9 @@ function llkInvoiceRows(inv){
     // Sisipkan sebelum pertemuan bertanggal pertama yang lebih baru (baris tanpa tanggal tetap di tempatnya)
     list.forEach(dk=>{
       const at=rows.findIndex(r=>r.date&&r.date>dk);
-      rows.splice(at<0?rows.length:at,0,{zero:kind,date:dk,label:LLK_INV_ZERO[kind].label,amount:0});
+      // Keterangan Izin (mis. "Izin · Sakit") — bisa disembunyikan lewat pengaturan "Keterangan Izin"
+      const why=kind==='izin'&&llkInvShow('izinNote')?llkIzinReason(inv.studentName,dk):'';
+      rows.splice(at<0?rows.length:at,0,{zero:kind,date:dk,label:LLK_INV_ZERO[kind].label+(why?' · '+why:''),amount:0});
     });
   });
   return rows;
@@ -4057,9 +4070,11 @@ async function renderInvoiceCanvas(inv, copyDate){
     c.fillText(z?'–':String(r.no),colNo,y+37);
     c.fillText(r.date?fmtInvDate(r.date):'-',colDate,y+37);
     const full=r.label;
-    let lbl=full; while(c.measureText(lbl).width>colAmt-colDesc-200 && lbl.length>4) lbl=lbl.slice(0,-2);
+    if(z) c.font=font(700,25);
+    const maxLbl=colAmt-colDesc-(showPrice?200:20);
+    let lbl=full; while(c.measureText(lbl).width>maxLbl && lbl.length>4) lbl=lbl.slice(0,-2);
     if(lbl!==full) lbl=lbl.trim()+'…';
-    c.fillStyle=z?ink:'#4b5563'; if(z) c.font=font(700,25); if(lbl) c.fillText(lbl,colDesc,y+37); c.font=font(500,25);
+    c.fillStyle=z?ink:'#4b5563'; if(lbl) c.fillText(lbl,colDesc,y+37); c.font=font(500,25);
     if(showPrice){ c.fillStyle=ink; c.textAlign='right'; c.fillText(formatRupiah(r.amount),colAmt,y+37); c.textAlign='left'; }
     y+=rowH;
   });
@@ -4219,7 +4234,7 @@ async function llkRefreshInvoicePreview(inv){
 // Pintasan "Tampilan Invoice" di layar invoice — sama dengan saklar di Pengaturan Pembayaran
 function llkInvChipsHtml(){
   return '<span style="font-size:0.78rem;color:var(--muted);font-weight:600;margin-right:2px">Tampilkan:</span>'
-    +[['price','Harga'],['izin','Izin'],['off','Off']].map(([k,t])=>{ const on=llkInvShow(k);
+    +[['price','Harga'],['izin','Izin'],['izinNote','Ket. Izin'],['off','Off']].filter(([k])=>k!=='izinNote'||llkInvShow('izin')).map(([k,t])=>{ const on=llkInvShow(k);
       return '<button type="button" class="llk-cp-chip'+(on?' on':'')+'" style="min-height:32px;gap:4px" aria-pressed="'+on+'" onclick="llkInvChipToggle(\''+k+'\')">'+(on?llkI('check'):'')+t+'</button>'; }).join('');
 }
 async function llkInvChipToggle(k){
@@ -7752,7 +7767,7 @@ const BACKUP_SETTINGS_KEYS=[
   'llk_tpl_session','llk_tpl_monthly','llk_progress_dest','llk_progress_fields','llk_tpl_progress',
   'llk_tpl_admin','llk_pay_timing','llk_pay_info','llk_tpl_prepaid_session','llk_tpl_prepaid_monthly',
   'llk_theme','llk_push_lead_minutes','llk_notif_pr_time','llk_rem_jadwal','llk_rem_progres','llk_rem_laporan','llk_rem_pr',
-  'llk_inv_show_price','llk_inv_show_izin','llk_inv_show_off'
+  'llk_inv_show_price','llk_inv_show_izin','llk_inv_show_izinNote','llk_inv_show_off'
 ];
 function collectSettingsData(){
   const out={};
@@ -8932,6 +8947,7 @@ function renderPaymentSettings(){
         <div style="font-size:0.8rem;color:var(--muted);margin-bottom:6px;line-height:1.5">Pertemuan <b>Hadir</b> & <b>Alpa</b> (yang ditagih) selalu tampil. Pilih yang lain di bawah — berlaku untuk invoice/kuitansi & pesan WA. Total tagihan tidak berubah.</div>
         ${[['price','Harga per pertemuan','Kolom biaya tiap baris (Total tetap tampil)'],
            ['izin','Baris Izin','Pertemuan yang murid izin, ditulis Rp 0'],
+           ['izinNote','Keterangan Izin','Alasan izin di samping tulisan Izin, mis. "Izin · Sakit" (dari catatan absensi)'],
            ['off','Baris Off (guru izin)','Pertemuan yang guru berhalangan, ditulis Rp 0']
           ].map(([k,t,d])=>{ const on=llkInvShow(k); return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border)">
           <div style="flex:1;min-width:0"><div style="font-size:0.92rem;font-weight:700;color:var(--text)">${t}</div><div style="font-size:0.78rem;color:var(--muted);margin-top:2px;line-height:1.45">${d}</div></div>

@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 7 Okt 2026 (Admin khusus administrasi; Admin yang mengajar = Guru Mitra di aplikasi Guru)_
+_Terakhir diperbarui: 7 Okt 2026 (V1: keterangan Izin di invoice)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -15,6 +15,10 @@ _Terakhir diperbarui: 7 Okt 2026 (Admin khusus administrasi; Admin yang mengajar
 - Perbaikan: `llkProjectionScan()` (satu sumber untuk jumlah sesi & rupiah) + `llkIsMovedAwayCard(x,dk)` — kartu asal dilewati selama tanggal barunya ≥ tanggal itu (sama dengan yang tampil di Absensi), sesi yang sudah bertanda apa pun tidak diproyeksikan lagi. Reschedule diubah berkali-kali tetap 1 data (`reschedules` per hari) → tetap 1 sesi. Tambahan Kelas ikut dihitung. Teruji `projtest.js`/`projui.js`.
 - Tagihan & pengingat (izin pemilik 6 Okt): `upcomingSessionList` (daftar "Terjadwal" invoice bayar di depan, Bayar Custom, hitungan bulanan) dan pengingat 7 hari (`llkDesiredReminders`) sekarang juga memakai `llkIsMovedAwayCard`. Dulu selama reschedule masih berlaku, **semua** hari rutin yang sama ikut hilang (contoh: Senin dipindah ke Rabu 7 Okt → invoice November kosong, invoice 4x pertemuan berisi 3 "tanggal menyusul", pengingat Senin 12 Okt tidak dijadwalkan). Teruji `upcomtest.js` (versi lama vs baru) + paytest/imptest/impmonthly/rcptest/offtest/kirimtest tetap lolos.
 - Reschedule > 1 minggu (permintaan pemilik 6 Okt): kalau tanggal baru melewati hari rutin itu ≥ 2 kali (`llkRsCrossedDates`), `saveReschedule` tidak menyimpan, tapi membuka jendela **"Reschedule lebih dari 1 minggu tidak bisa"** (tanpa penjelasan teknis, langsung saran) (`llkOpenRsLong`): pilih **Les yang diganti** (hari rutin 4 minggu terakhir + yang terlewati; yang sudah Hadir/Alpa tidak bisa dipilih) dan **Judul jadwal tambahan** (otomatis "Reschedule minggu lalu (Sen, 5 Okt)" / "Ganti les Sen, 12 Okt", bisa diedit) → **Izin + Jadwal Tambahan** (`llkRsLongApply`): tanggal asal jadi Izin (alasan "Reschedule ke …"; Izin/Off yang sudah ada dibiarkan), `extraDates` baru dengan `note` sendiri, reschedule lama hari itu dihapus. "Ganti Tanggal" kembali ke form tanpa menyimpan. Judul per sesi (`ed.note`) dipakai kartu Absensi, invoice, & form Edit Murid. Teruji `rslong.js` (17 cek).
+
+## 🧾 V1 Invoice: keterangan Izin bisa ditampilkan/disembunyikan (7 Okt 2026)
+- Baris Izin di invoice/kuitansi kini bisa menulis alasannya: **"Izin · Sakit demam"** (dari `attNotes[tanggal_nama].reason`, juga sesi tambahan) — `llkIzinReason()` dipakai di `llkInvoiceRows()`, jadi ikut ke gambar/PDF/print **dan** pesan WA. Keterangan baris Hadir/Alpa tetap tidak tampil (keputusan lama pemilik).
+- Pengaturan baru `llk_inv_show_izinNote` (default tampil, ikut backup/cloud): saklar **"Keterangan Izin"** di Pengaturan Pembayaran → Tampilan Invoice, dan chip **"Ket. Izin"** di layar invoice (muncul hanya kalau baris Izin ditampilkan). Teks panjang dipotong "…"; tanpa kolom harga tersedia ruang lebih lebar. Teruji `izinnote.js` + paytest/offtest/rcptest/kirimtest/imptest.
 
 ## 🧾 Kartu Siswa: tombol kuitansi hilang setelah dikirim + tanda murid impor (5 Okt 2026)
 - Dulu tombol "Kirim Ulang Kuitansi" selalu ada di kartu murid yang pernah bayar. Sekarang kartu menampilkan **"Kirim Kuitansi"** hanya selama kuitansi pembayaran terakhir **belum** dikirim (`receiptSentAt` terisi saat dikirim WA/dibagikan/diunduh/dicetak). Kirim ulang kuitansi lama tetap di **profil murid**.
