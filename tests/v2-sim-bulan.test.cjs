@@ -6,7 +6,7 @@
 // Di akhir: gaji guru & pemasukan di aplikasi dibandingkan dengan hitungan manual.
 const { chromium } = require('playwright'); const fs=require('fs');
 const { initializeTestEnvironment } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, serverTimestamp } = require('firebase/firestore');
+const { doc, setDoc, updateDoc, serverTimestamp, Timestamp } = require('firebase/firestore');
 const FB=__dirname+'/node_modules/firebase/';
 const OUT=__dirname+'/out/'; fs.mkdirSync(OUT,{recursive:true});
 let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'  ✅ ':'  ❌ ')+m);};
@@ -48,6 +48,8 @@ const end=t=>{const [h,m]=t.split(':').map(Number);const x=h*60+m+60;return Stri
   const A=await dev({uid:'bRani',email:'rani@gmail.com',displayName:'Rani'},{w:1440,h:900});
   await A.goto(URL); await A.waitForSelector('#rcLembaga',{timeout:15000});
   await A.click('#rcLembaga'); await sleep(300); await A.fill('#coName','Les Musik Rani'); await A.click('#coGo'); await sleep(2000);
+  // Rani berlangganan Paket Mulai + 1 slot = Rp300.000 → 3 slot Guru Mitra (Rani, Dimas, Sari)
+  { const id=await A.evaluate(()=>window.__llk.S.org.id); await env.withSecurityRulesDisabled(async c=>{ await updateDoc(doc(c.firestore(),'orgs',id),{seats:3,plan:'pro',period:'monthly',activeUntil:Timestamp.fromMillis(Date.now()+30*864e5)}); }); await A.reload(); await sleep(2500); }
   await A.click('#selfTeach'); await sleep(300); await A.fill('#stHonor','40000'); await A.click('#stGo'); await sleep(1800); await A.click('#gaClose'); await sleep(600);
   const G={Rani:{uid:'bRani',page:null}};
   for(const [n,uid,em] of [['Pak Dimas','bDimas','dimas@gmail.com'],['Bu Sari','bSari','sari@gmail.com']]){

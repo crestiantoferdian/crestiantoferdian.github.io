@@ -301,7 +301,7 @@ test('harga V2: 200rb + slot 100rb, 5 slot 449rb, tahunan 10x', () => {
 });
 
 test('V2 langganan: Rani (uji coba) pilih 1 slot tambahan bulanan → Rp300.000, ke Midtrans sandbox', async () => {
-  seedOrg({ slots: ['member', 'self'] });
+  seedOrg({ slots: ['member', 'member'] });
   const sent = fakeSnap();
   const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 1, period: 'monthly' }, asRani);
   assert.strictEqual(r.grossAmount, 300000);
@@ -321,12 +321,12 @@ test('V2 langganan: hanya Guru Admin, pilihan tidak valid ditolak', async () => 
   await assert.rejects(fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 0, period: 'monthly' }, {}), (e) => e.code === 'unauthenticated');
 });
 
-test('V2 langganan: slot tidak boleh kurang dari guru yang sudah ada (Admin mengajar tidak dihitung)', async () => {
+test('V2 langganan: slot tidak boleh kurang dari guru yang sudah ada (Admin yang mengajar ikut dihitung)', async () => {
   seedOrg({ seats: 5, slots: ['member', 'member', 'member', 'self'] });
   fakeSnap();
-  await assert.rejects(fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 0, period: 'monthly' }, asRani), (e) => e.code === 'failed-precondition');
-  const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 1, period: 'monthly' }, asRani);
-  assert.strictEqual(r.grossAmount, 300000);
+  await assert.rejects(fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 1, period: 'monthly' }, asRani), (e) => e.code === 'failed-precondition');
+  const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 2, period: 'monthly' }, asRani);
+  assert.strictEqual(r.grossAmount, 400000);
 });
 
 test('V2 webhook: lunas → slot & masa aktif lembaga diperbarui, sisa uji coba tidak hangus, riwayat tercatat', async () => {

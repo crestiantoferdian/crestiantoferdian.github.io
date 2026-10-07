@@ -8,7 +8,7 @@
  * - Tambah slot Guru Mitra: Rp100.000/slot/bulan; setiap 5 slot = Rp449.000
  *   (hemat Rp51.000). Dihitung dari TOTAL slot tambahan, bukan per kali beli.
  * - Tahunan = 10x bulanan (bayar 10 bulan, aktif 12 bulan).
- * - Guru Admin yang juga mengajar tidak memakai slot.
+ * - Guru Admin yang juga mengajar memakai 1 slot Guru Mitra (aplikasi Admin tidak untuk mengajar).
  * - Uji coba: 31 hari sejak lembaga dibuat, 2 slot.
  */
 const DAY_MS = 24 * 60 * 60 * 1000;
