@@ -9,10 +9,10 @@
  *   (hemat Rp51.000). Dihitung dari TOTAL slot tambahan, bukan per kali beli.
  * - Tahunan = 10x bulanan (bayar 10 bulan, aktif 12 bulan).
  * - Guru Admin yang juga mengajar memakai 1 slot Guru Mitra (aplikasi Admin tidak untuk mengajar).
- * - Uji coba: 31 hari sejak lembaga dibuat, 2 slot.
+ * - Uji coba: 14 hari sejak lembaga dibuat, 2 slot.
  */
 const DAY_MS = 24 * 60 * 60 * 1000;
-const ORG_TRIAL_DAYS = 31;
+const ORG_TRIAL_DAYS = 14;
 const ORG_BASE = 200000;
 const ORG_BASE_SLOTS = 2;
 const ORG_SLOT = 100000;
@@ -32,7 +32,7 @@ function extraPrice(extra) {
 function monthlyPrice(extra) { return ORG_BASE + extraPrice(extra); }
 function periodPrice(extra, period) { return monthlyPrice(extra) * ORG_PERIODS[period].months; }
 
-// Masa aktif lembaga: activeUntil (setelah bayar) atau createdAt + 31 hari (uji coba)
+// Masa aktif lembaga: activeUntil (setelah bayar) atau createdAt + 14 hari (uji coba)
 function orgEndsMs(org) {
   if (org && org.activeUntilMs) return org.activeUntilMs;
   return (org && org.createdAtMs ? org.createdAtMs : 0) + ORG_TRIAL_DAYS * DAY_MS;
