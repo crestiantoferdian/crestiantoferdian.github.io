@@ -1,6 +1,8 @@
-// SIMULASI pemilik: pengguna LLK V1 dengan 30 murid → buka LLK Lembaga (V2) →
-// daftar lembaga → undang 2 Guru Mitra → impor murid V1 → bagi 10/10/10
-// (Admin ikut mengajar 10) → cek tampilan tiap guru.
+// SIMULASI pemilik: Rani (pengguna LLK V1, 30 murid) kewalahan → minta tolong
+// Pak Dimas & Bu Sari. Aplikasi Admin 1 (Rani, khusus administrasi) + aplikasi
+// Guru Mitra 3 (Rani sendiri, Pak Dimas, Bu Sari). Di HP Rani ada 2 aplikasi.
+// Alur: V1 → LLK Lembaga → daftar → "Saya juga mengajar" → undang 2 guru →
+// impor 30 murid V1 → bagi 10/10/10 → cek tiap aplikasi.
 const { chromium } = require('playwright'); const fs=require('fs');
 const FB=__dirname+'/node_modules/firebase/';
 const OUT=__dirname+'/out/'; fs.mkdirSync(OUT,{recursive:true});
@@ -34,8 +36,8 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   const BASE=(process.env.BASE_URL||'http://localhost:8765');
   const URL=BASE+'/v2/';
 
-  console.log('\n[1] Pemilik memakai LLK V1 dengan 30 murid');
-  const A=await dev({uid:'simOwner',email:'pemilik@rms.com',displayName:'Ferdian'},{w:1440,h:900,v1:V1});
+  console.log('\n[1] Rani memakai LLK V1 dengan 30 murid');
+  const A=await dev({uid:'simRani',email:'rani@gmail.com',displayName:'Rani'},{w:1440,h:900,v1:V1});
   await A.goto(BASE+'/'); await sleep(2500);
   await A.evaluate(()=>{ const g=document.getElementById('loginGate'); if(g) g.style.display='none'; setTab('lainnya'); });
   await sleep(500);
@@ -47,9 +49,22 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   ok(A.url().includes('/v2/'),'menu itu membuka LLK Lembaga (V2)');
   const v1After=await A.evaluate(()=>JSON.parse(localStorage.getItem('rms4_s')||'[]').length);
 
-  console.log('\n[2] Daftar lembaga (jadi Guru Admin)');
-  await A.click('#rcLembaga'); await sleep(400); await A.fill('#coName','Rytmic Music School'); await A.click('#coGo'); await sleep(2000);
-  ok((await txt(A)).includes('GURU ADMIN')&&(await txt(A)).includes('0 / 5'),'lembaga dibuat · kursi Guru Mitra 0/5');
+  console.log('\n[2] Daftar lembaga (aplikasi Admin)');
+  await A.click('#rcLembaga'); await sleep(400); await A.fill('#coName','Les Musik Rani'); await A.click('#coGo'); await sleep(2000);
+  t=await txt(A);
+  ok(t.includes('GURU ADMIN')&&t.includes('0 / 5'),'lembaga dibuat · kursi Guru Mitra 0/5');
+  ok(!(await A.evaluate(()=>[...document.querySelectorAll('.bnav')].some(b=>/Mengajar/.test(b.textContent)))),'aplikasi Admin tanpa menu mengajar (khusus administrasi)');
+  const RG=await dev({uid:'simRani',email:'rani@gmail.com'});
+  await RG.goto(URL+'guru.html'); await sleep(3000);
+  ok((await txt(RG)).includes('Kamu Guru Admin')&&(await txt(RG)).includes('Saya juga mengajar'),'aplikasi Guru di HP Rani: belum terdaftar mengajar → diarahkan');
+
+  console.log('\n[2b] Rani mendaftar "Saya juga mengajar" (1 kursi Guru Mitra)');
+  await A.click('#selfTeach'); await sleep(300); await A.fill('#stHonor','0'); await A.click('#stGo'); await sleep(2000);
+  t=await txt(A);
+  ok(t.includes('Kamu terdaftar sebagai guru')&&t.includes('guru.html')&&t.includes('LLK Guru'),'petunjuk pasang aplikasi Guru Mitra di HP Rani');
+  await A.screenshot({path:OUT+'sim2_saya_mengajar.png'});
+  await A.click('#gaClose'); await sleep(800);
+  t=await txt(A); ok(t.includes('1 / 5')&&t.includes('ANDA'),'Rani tampil di daftar guru (kursi 1/5)');
 
   console.log('\n[3] Mendaftarkan 2 guru baru');
   const invite=async(n,email)=>{ await A.click('#addMitra'); await A.fill('#amName',n); await A.fill('#amHonor','35000'); await A.fill('#amEmail',email); await A.click('#amGo'); await sleep(1300);
@@ -62,7 +77,8 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   for(const [P,c] of [[D,c1],[Sr,c2]]){ await P.goto(URL+'?kode='+c); await sleep(2500); await P.click('#jJoin'); await sleep(3000); }
   ok(D.url().includes('guru.html')&&Sr.url().includes('guru.html'),'kedua guru bergabung & masuk tampilan guru');
   await A.click('[data-tab=guru]'); await sleep(1500);
-  t=await txt(A); ok(t.includes('2 / 5')&&t.includes('Pak Dimas')&&t.includes('Bu Sari'),'Admin: 2 Guru Mitra aktif (2/5)');
+  t=await txt(A); ok(t.includes('3 / 5')&&t.includes('Pak Dimas')&&t.includes('Bu Sari')&&t.includes('Guru Mitra aktif (3)'),'3 Guru Mitra: Rani, Pak Dimas, Bu Sari (3/5)');
+  await A.screenshot({path:OUT+'sim3_guru.png'});
 
   console.log('\n[4] Salin 30 murid dari V1');
   await A.click('[data-tab=murid]'); await sleep(1500);
@@ -74,7 +90,7 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   await A.click('#ivGo'); await sleep(4000);
   t=await txt(A); ok(t.includes('30 murid aktif')&&t.includes('30 kelas belum ada guru'),'30 murid masuk, semua belum ada guru');
   const gurus=await A.evaluate(()=>[...document.querySelectorAll('#bkGuru option, #fGuru option')].map(o=>o.textContent));
-  ok(gurus.some(x=>x.includes('(Admin)'))&&gurus.includes('Pak Dimas')&&gurus.includes('Bu Sari'),'pilihan guru: Admin sendiri + Pak Dimas + Bu Sari');
+  ok(gurus.includes('Rani (Anda)')&&gurus.includes('Pak Dimas')&&gurus.includes('Bu Sari'),'pilihan guru: Rani (Anda), Pak Dimas, Bu Sari');
 
   console.log('\n[5] Bagi murid 10 / 10 / 10');
   const assign=async(from,to,label)=>{
@@ -82,7 +98,7 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
     await sleep(300);
     await A.selectOption('#bkGuru',{label}); await A.click('#bkGo'); await sleep(3500);
   };
-  const adminLabel=gurus.find(x=>x.includes('(Admin)'));
+  const adminLabel='Rani (Anda)';
   await assign(0,10,adminLabel);
   await A.screenshot({path:OUT+'sim5_bagi.png'});
   await assign(10,20,'Pak Dimas'); await assign(20,30,'Bu Sari');
@@ -109,29 +125,30 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   }
   await D.screenshot({path:OUT+'sim6_dimas_absensi.png'}); await D.click('[data-tab=siswa]'); await sleep(300); await D.screenshot({path:OUT+'sim6_dimas_siswa.png'});
 
-  console.log('\n[7] Admin juga mengajar 10 murid (menu Mengajar)');
-  await A.click('[data-tab=mengajar]'); await A.waitForURL(/guru\.html/); await sleep(3000);
-  t=await txt(A);
-  ok(t.includes('Guru Admin (mengajar)')&&t.includes('Absensi Harian'),'menu Mengajar membuka tampilan guru (sama dengan V1)');
-  await A.click('[data-tab=siswa]'); await sleep(400); t=await txt(A);
-  ok(t.includes('10 siswa diajar')&&names[adminLabel].every(n=>t.includes(n)),'Admin melihat 10 murid miliknya');
-  await A.click('[data-tab=absensi]'); await sleep(400);
-  const todayMine=await A.evaluate(()=>document.querySelectorAll('.s-item').length);
-  if(todayMine){
-    await A.evaluate(()=>document.querySelector('.s-item .s-avatar').click()); await sleep(300);
-    const lbl=await A.evaluate(()=>[...document.querySelectorAll('.s-item.expanded .att-btn')].map(b=>b.getAttribute('aria-label')).join(','));
-    ok(lbl==='Hadir,Izin,Alpa','Admin (mengajar): tombol Hadir, Izin, Alpa');
-    await A.click('.s-item.expanded .att-btn.a-hadir'); await sleep(300); await A.fill('#noteProgress','Tangga nada C mayor'); await A.click('#noteSaveBtn'); await sleep(1500);
-    ok((await txt(A)).includes('Tangga nada C mayor'),'Admin mengisi Hadir + progres muridnya sendiri');
-  } else ok(true,'(hari ini tidak ada jadwal murid Admin — dilewati)');
-  await A.screenshot({path:OUT+'sim7_admin_mengajar.png'});
-  await A.click('#tab-honor'); await A.waitForURL(/\/v2\/(\?.*)?$/); await sleep(2500);
-  ok((await txt(A)).includes('GURU ADMIN'),'tombol "Panel Admin" kembali ke panel Admin');
+  console.log('\n[7] HP Rani: aplikasi Guru Mitra untuk 10 muridnya');
+  await RG.reload(); await sleep(3000);
+  t=await txt(RG);
+  ok(RG.url().includes('guru.html')&&t.includes('Absensi Harian')&&t.includes('Rani · Guru Mitra'),'aplikasi Guru Mitra Rani terbuka seperti V1');
+  await RG.click('[data-tab=siswa]'); await sleep(400); t=await txt(RG);
+  ok(t.includes('10 siswa diajar')&&names[adminLabel].every(n=>t.includes(n)),'Rani melihat 10 murid miliknya');
+  await RG.click('[data-tab=absensi]'); await sleep(400);
+  if(await RG.evaluate(()=>document.querySelectorAll('.s-item').length)){
+    await RG.evaluate(()=>document.querySelector('.s-item .s-avatar').click()); await sleep(300);
+    const lbl=await RG.evaluate(()=>[...document.querySelectorAll('.s-item.expanded .att-btn')].map(b=>b.getAttribute('aria-label')).join(','));
+    ok(lbl==='Hadir,Alpa','Rani sebagai Guru Mitra: tombol Hadir & Alpa (sama dengan guru lain)');
+    await RG.click('.s-item.expanded .att-btn.a-hadir'); await sleep(300); await RG.fill('#noteProgress','Tangga nada C mayor'); await RG.click('#noteSaveBtn'); await sleep(1500);
+    ok((await txt(RG)).includes('Tangga nada C mayor'),'Rani mengisi Hadir + progres di aplikasi Guru');
+    await A.click('[data-tab=absensi]'); await sleep(1500);
+    ok((await txt(A)).includes('Tangga nada C mayor'),'progres Rani terlihat di aplikasi Admin (tab Absensi)');
+  } else ok(true,'(hari ini tidak ada jadwal murid Rani — dilewati)');
+  await RG.screenshot({path:OUT+'sim7_rani_guru.png'});
+  await RG.click('[data-tab=lainnya]'); await sleep(300);
+  ok((await txt(RG)).includes('Buka Aplikasi Admin')&&!(await txt(RG)).includes('Keluar dari'),'Lainnya (Rani): tautan ke aplikasi Admin, tanpa "Keluar dari lembaga"');
 
   console.log('\n[8] Data V1 tetap utuh');
   await A.goto(BASE+'/'); await sleep(1500);
   ok((await A.evaluate(()=>JSON.parse(localStorage.getItem('rms4_s')||'[]').length))===30&&v1After===30,'LLK V1 masih 30 murid (tidak berubah)');
 
-  const errs=[D,Sr].flatMap(p=>p.errs); ok(errs.length===0,'tidak ada error JavaScript di V2'+(errs.length?': '+errs.join(' | '):''));
+  const errs=[D,Sr,RG].flatMap(p=>p.errs); ok(errs.length===0,'tidak ada error JavaScript di V2'+(errs.length?': '+errs.join(' | '):''));
   console.log(`\nHASIL: ${pass} lulus, ${fail} gagal`); await b.close(); process.exit(fail?1:0);
 })().catch(e=>{console.error(e);process.exit(2);});

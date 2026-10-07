@@ -134,6 +134,14 @@ await t('Mitra menghapus tanda hari ini', assertSucceeds(deleteDoc(aref(mitra2))
 
 await t('Admin bisa menghapus murid + jadwalnya', assertSucceeds((async()=>{ const b=writeBatch(a2); b.delete(doc(a2,'orgs','org2','students','s1')); b.delete(doc(a2,'orgs','org2','sched','c1')); await b.commit(); })()));
 
+console.log('\n[Guru Admin juga mengajar (aplikasi Guru Mitra)]');
+const selfTeach=(db,u,o,slot,honor=0)=>{ const b=writeBatch(db); b.update(doc(db,'orgs',o,'members',u),{teaches:true,honor,slot}); b.set(doc(db,'orgs',o,'slots',String(slot)),{kind:'self',uid:u}); return b.commit(); };
+await t('Admin mendaftarkan dirinya sebagai guru (pakai 1 kursi)', assertSucceeds(selfTeach(a2,'admin2','org2',3,25000)));
+await t('Kursi "self" tidak bisa dibuat untuk orang lain', assertFails((async()=>{ const b=writeBatch(a2); b.set(doc(a2,'orgs','org2','slots','4'),{kind:'self',uid:'mitra2'}); await b.commit(); })()));
+await t('Mitra tidak bisa mengubah dirinya jadi admin lewat field baru', assertFails(updateDoc(doc(mitra2,'orgs','org2','members','mitra2'),{teaches:true})));
+await t('Kursi "self" tidak bisa dikosongkan selama Admin masih mengajar', assertFails(deleteDoc(doc(a2,'orgs','org2','slots','3'))));
+await t('Admin berhenti mengajar + kosongkan kursinya', assertSucceeds((async()=>{ const b=writeBatch(a2); b.update(doc(a2,'orgs','org2','members','admin2'),{teaches:false}); b.delete(doc(a2,'orgs','org2','slots','3')); await b.commit(); })()));
+
 console.log('\n[V1 tetap aman]');
 await t('Guru Lepas bisa baca/tulis backup miliknya', assertSucceeds(setDoc(doc(other,'backups','other1','parts','students'),{data:[]})));
 await t('Orang lain tidak bisa baca backup milik orang lain', assertFails(getDoc(doc(mitra,'backups','other1','parts','students'))));
