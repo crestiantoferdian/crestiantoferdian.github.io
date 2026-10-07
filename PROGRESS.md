@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 6 Okt 2026 (LLK V2 Tahap 2: murid, kelas, jadwal mingguan)_
+_Terakhir diperbarui: 6 Okt 2026 (LLK V2 Tahap 3: tampilan & absensi Guru Mitra)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -282,7 +282,15 @@ Murni tampilan: **tidak ada logika, alur data, key localStorage, nama fungsi/var
   - Mitra: tab **Jadwal Saya** kini menampilkan murid & jadwal yang ditugaskan (per hari), tanpa No HP/tarif.
   - Tes: `tests/firestore-rules.test.mjs` 58 lulus (16 baru), `tests/v2-tahap2.test.cjs` 25 lulus (`npm run test:v2t2`), `v2-e2e` 21 lulus.
   - ⚠️ **Langkah pemilik:** publish `firestore.rules` terbaru (Firebase Console → Firestore → Rules → tempel isi file → Publish). Sebelum dipublish, menyimpan murid di V2 ditolak server ("Akses ditolak"). Bagian V1 di rules tidak berubah.
-- **Tahap 3 (berikutnya):** Mitra mengabsen (Hadir/Alpa + progres wajib, edit hari yang sama), Izin oleh Admin, honor otomatis.
+- **Tahap 3 (selesai, 6 Okt 2026 — perlu publish `firestore.rules` lagi):** permintaan pemilik "tampilan untuk guru sama persis seperti LLK V1".
+  - Guru Mitra otomatis dibuka di **`v2/guru.html` + `v2/guru.js`** yang memakai **CSS & ikon V1 asli**: `tools/sync-v1-to-v2.py` menyalin `<style>` utama `index.html` → `v2/v1.css`, sprite ikon → `guru.html` (penanda V1-SPRITE), `ICONS`/`LLK_SUBJECT_ICON` → `v2/v1-shared.js`. **Setiap CSS/ikon V1 berubah, jalankan skrip ini** supaya V2 ikut sama. Tema V1 (`llk_theme`: Latte/Happy/Dark) ikut dipakai & bisa diganti di Lainnya.
+  - Keputusan pemilik: menu Mitra **Absensi, Siswa, Track, Honor, Lainnya**; **Izin hanya Admin**; **Reschedule/Off/Tambah hanya Admin**; **tidak ada tombol Kirim** — guru hanya menulis progres, PR siswa & PR guru, pengiriman ke ortu hanya oleh Admin.
+  - Absensi Mitra: markup sama dengan `renderAbsensi()` V1 (strip 14 tanggal, kotak Hadir/Izin/Alpa/Belum, kartu murid dengan ikon pelajaran). Tombol **Hadir & Alpa saja**, hanya di **hari les itu**; tanggal lain terkunci ("minta tolong Guru Admin"); Izin/Off dari Admin tampil terkunci. Modal catatan V1 (tanpa foto): Hadir = progres **wajib** + PR siswa + PR guru; Alpa = alasan; tombol Hapus tanda (hari yang sama).
+  - Data: `orgs/{org}/att/{classId}_{YYYY-MM-DD}` {classId, studentId, studentName, subjectName, mitraUid, date, start, end, status, progress, prSiswa, prGuru, reason, honor, by, updatedAt}. Rules: Mitra hanya kelas yang ditugaskan (`sched.mitraUid`), status hadir/alpa, Hadir wajib progres, `honor` = honor dia saat itu, hanya hari yang sama (jendela UTC −9 jam s/d +18 jam dari tanggal — aman untuk WIB/WITA/WIT), tidak bisa menimpa Izin/Off Admin. Admin bebas (hadir/alpa/izin/off). Query Mitra: `where mitraUid == uid` (tanpa indeks gabungan).
+  - Siswa (murid ditugaskan + riwayat lama), profil murid (riwayat progres/PR/PR guru per periode), Track Record (per periode, per murid), Honor (Hadir+Alpa × honor tercatat, per bulan), Lainnya (link spreadsheet, tema, ganti mode `./?pilih=1`, keluar lembaga, logout).
+  - Admin: tab **Absensi** (PC) per tanggal: semua sesi semua guru, status, progres & PR, isi/hapus **Izin** (honor 0).
+  - Tes: rules 73 lulus, `v2-e2e` 21, `v2-tahap2` 25, `v2-tahap3` 22 (`npm run test:v2t3`).
+- **Berikutnya (Tahap 4):** Admin mengirim progres ke ortu (WA) dari tab Absensi, koreksi Hadir/Alpa oleh Admin, Reschedule/Off/Tambah kelas oleh Admin; lalu Tahap 5 Keuangan (tagihan ortu & rekap honor).
 
 ## ⏳ Yang belum / berikutnya
 1. **Google Play Billing untuk V1** (sedang dikerjakan):
@@ -315,7 +323,7 @@ Murni tampilan: **tidak ada logika, alur data, key localStorage, nama fungsi/var
    - Setelah pindah: pakai `https://leslesanku.com` untuk isian website di Play Console, dan `https://leslesanku.com/privacy-policy.html` untuk kebijakan privasi. Aplikasi Android (TWA) versi baru harus memakai host `leslesanku.com`.
 3. **Closed testing** 12 penguji × 14 hari, lalu isi formulir **Data Safety** di Play Console.
 4. ✅ **Celah reset trial** — kode siap di PR #14, aktif setelah functions di-deploy.
-5. **V2 Tahap 3** (Tahap 2 selesai 6 Okt 2026).
+5. **V2 Tahap 4** (Tahap 2 & 3 selesai 6 Okt 2026).
 6. **Midtrans** tetap dipakai untuk versi web. Saat rilis, ganti ke URL dan Client Key production.
 
 ## 💻 Tampilan laptop (V1)

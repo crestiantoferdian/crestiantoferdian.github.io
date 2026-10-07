@@ -36,7 +36,8 @@ const V1=[
   for(const [n,h] of [['Budi',30000],['Sinta',30000]]){ await A.click('#addMitra'); await A.fill('#amName',n); await A.fill('#amHonor',String(h)); await A.click('#amGo'); await sleep(1300); codes.push(await A.evaluate(()=>document.querySelector('.modal .code-box').textContent.trim())); await A.click('#icClose'); await sleep(800); }
   const Mb=await dev({uid:'t2budi',email:'budi@x.com'}); await Mb.goto(URL+'?kode='+codes[0]); await sleep(2500); await Mb.click('#jJoin'); await sleep(2000);
   const Ms=await dev({uid:'t2sinta',email:'sinta@x.com'}); await Ms.goto(URL+'?kode='+codes[1]); await sleep(2500); await Ms.click('#jJoin'); await sleep(2000);
-  ok((await txt(Mb)).includes('Belum ada murid'),'Mitra baru: Jadwal Saya kosong');
+  await Mb.click('[data-tab=siswa]'); await sleep(300);
+  ok((await txt(Mb)).includes('Belum ada murid'),'Mitra baru: daftar Siswa kosong');
 
   console.log('\n[Mata Pelajaran]');
   await A.reload(); await sleep(2500); await A.click('[data-tab=murid]'); await sleep(1500);
@@ -88,24 +89,23 @@ const V1=[
   await A.screenshot({path:OUT+'t2_jadwal_pc.png'});
 
   console.log('\n[Guru Mitra hanya melihat miliknya]');
-  await Mb.reload(); await sleep(2500); t=await txt(Mb);
-  ok(t.includes('Brilian')&&t.includes('Cici')&&t.includes('Piano')&&t.includes('2 murid · 2 sesi'),'Budi melihat Brilian (Piano) & Cici');
+  const siswa=async P=>{ await P.reload(); await sleep(3000); await P.click('[data-tab=siswa]'); await sleep(400); return txt(P); };
+  t=await siswa(Mb);
+  ok(t.includes('Brilian')&&t.includes('Cici')&&t.includes('Piano')&&t.includes('2 siswa diajar'),'Budi melihat Brilian (Piano) & Cici');
   ok(!t.includes('Vokal')&&!t.includes('081234567')&&!t.includes('Bu Ani')&&!t.includes('50.000'),'Budi tidak melihat kelas Sinta, No HP, ortu, maupun tarif');
   await Mb.screenshot({path:OUT+'t2_mitra_jadwal.png'});
-  await Ms.reload(); await sleep(2500); t=await txt(Ms);
+  t=await siswa(Ms);
   ok(t.includes('Brilian')&&t.includes('Vokal')&&!t.includes('Cici')&&!t.includes('Piano'),'Sinta hanya melihat kelas Vokal Brilian');
 
   console.log('\n[Ubah murid: pindah guru & nonaktif]');
   await A.click('[data-view=daftar]'); await sleep(400);
   await A.click('tr[data-stu]:has-text("Cici")'); await sleep(300);
   await pick('select[data-c="0"][data-k="mitraUid"]','Sinta'); await A.click('#sfGo'); await sleep(1500);
-  await Mb.reload(); await sleep(2500);
-  ok(!(await txt(Mb)).includes('Cici'),'Cici dipindah ke Sinta → hilang dari jadwal Budi');
+  ok(!(await siswa(Mb)).includes('Cici'),'Cici dipindah ke Sinta → hilang dari jadwal Budi');
   await A.click('tr[data-stu]:has-text("Brilian")'); await sleep(300);
   await A.selectOption('#sfActive','0'); await A.click('#sfGo'); await sleep(1500);
   ok(!(await A.evaluate(()=>document.getElementById('stuList').innerText)).includes('Brilian'),'Brilian nonaktif → tidak tampil di filter Aktif');
-  await Mb.reload(); await sleep(2500);
-  ok((await txt(Mb)).includes('Belum ada murid'),'murid nonaktif hilang dari jadwal Mitra');
+  ok((await siswa(Mb)).includes('Belum ada murid'),'murid nonaktif hilang dari jadwal Mitra');
 
   console.log('\n[Impor dari LLK V1]');
   await A.click('#impV1'); await sleep(400);

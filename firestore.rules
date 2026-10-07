@@ -216,6 +216,40 @@ service cloud.firestore {
           && request.resource.data.active is bool;
         allow delete: if isAdmin(orgId);
       }
+
+      // ── Tahap 3: Absensi per sesi — id = {classId}_{YYYY-MM-DD} ──
+      // Guru Mitra: hanya kelas yang ditugaskan kepadanya, hanya Hadir/Alpa,
+      // hanya di HARI YANG SAMA (WIB, dengan kelonggaran untuk WITA/WIT),
+      // Hadir wajib ada progres, honor = honor dia saat itu. Izin/Off hanya Admin.
+      match /att/{aid} {
+        function attKeys() { return ['classId', 'studentId', 'studentName', 'subjectName', 'mitraUid', 'date', 'start', 'end', 'status', 'progress', 'prSiswa', 'prGuru', 'reason', 'honor', 'by', 'updatedAt']; }
+        function dayStart(d) { return timestamp.date(int(d.split('-')[0]), int(d.split('-')[1]), int(d.split('-')[2])); }
+        function sameDay(d) { return request.time >= dayStart(d) - duration.value(9, 'h') && request.time < dayStart(d) + duration.value(18, 'h'); }
+        function validAtt(x) {
+          return x.keys().hasOnly(attKeys())
+            && x.date is string && x.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && aid == x.classId + '_' + x.date
+            && x.honor is int && x.honor >= 0
+            && (x.status != 'hadir' || (x.progress is string && x.progress.trim().size() > 0));
+        }
+        function mitraWrite(x) {
+          return isMember(orgId) && validAtt(x)
+            && x.mitraUid == uid() && x.by == uid()
+            && x.status in ['hadir', 'alpa']
+            && get(/databases/$(database)/documents/orgs/$(orgId)/sched/$(x.classId)).data.mitraUid == uid()
+            && x.honor == get(memberPath(orgId, uid())).data.honor
+            && sameDay(x.date);
+        }
+        allow read: if isAdmin(orgId) || (isMember(orgId) && resource.data.mitraUid == uid());
+        allow create: if (isAdmin(orgId) && validAtt(request.resource.data) && request.resource.data.status in ['hadir', 'alpa', 'izin', 'off'])
+          || mitraWrite(request.resource.data);
+        allow update: if (isAdmin(orgId) && validAtt(request.resource.data) && request.resource.data.status in ['hadir', 'alpa', 'izin', 'off'])
+          || (resource.data.mitraUid == uid() && resource.data.status in ['hadir', 'alpa']
+              && request.resource.data.classId == resource.data.classId
+              && mitraWrite(request.resource.data));
+        allow delete: if isAdmin(orgId)
+          || (isMember(orgId) && resource.data.mitraUid == uid() && resource.data.status in ['hadir', 'alpa'] && sameDay(resource.data.date));
+      }
     }
   }
 }
