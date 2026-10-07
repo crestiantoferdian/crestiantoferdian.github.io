@@ -243,7 +243,7 @@ exports.createOrgTransaction = functions.https.onCall(async (data, context) => {
   }
   const o = orgSnap.data();
   const org = { ...o, activeUntilMs: o.activeUntil ? o.activeUntil.toMillis() : 0, createdAtMs: o.createdAt ? o.createdAt.toMillis() : Date.now() };
-  const used = slotsSnap.docs.filter((d) => d.data().kind !== 'self').length; // Admin mengajar = gratis
+  const used = slotsSnap.size; // undangan + guru (Guru Admin yang ikut mengajar juga memakai slot)
   const now = Date.now();
   let order;
   if (data.action === 'subscribe') {

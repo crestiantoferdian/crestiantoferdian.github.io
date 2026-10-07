@@ -1,5 +1,5 @@
-// SIMULASI LANGGANAN LLK V2 (Lembaga): uji coba 31 hari (2 slot) → slot penuh →
-// berlangganan Paket Mulai + 1 slot (Rp300.000) → murid meledak, tambah 5 slot
+// SIMULASI LANGGANAN LLK V2 (Lembaga): uji coba 31 hari (2 slot: Rani yang ikut mengajar
+// + Pak Dimas) → slot penuh → berlangganan Paket Mulai + 1 slot (Rp300.000) untuk Bu Sari → murid meledak, tambah 5 slot
 // (Rp449.000/bulan, bayar sisa hari) → langganan habis (absensi terkunci) → perpanjang.
 // Midtrans & Cloud Functions diganti tiruan: harga dihitung dengan functions/orgPlans.js
 // (kode server asli), aktivasi meniru webhook (OP.nextOrg).
@@ -25,7 +25,7 @@ const FAKE_SNAP=`window.snap={pay:function(token,cb){ window.__llkPaid(token).th
   async function server(name,data){
     if(name==='checkMidtransPayment') return {activated:0,checked:0};
     const org=await orgNow(), now=Date.now();
-    const used=await admin(async f=>(await getDocs(collection(f,'orgs',data.orgId,'slots'))).docs.filter(d=>d.data().kind!=='self').length);
+    const used=await admin(async f=>(await getDocs(collection(f,'orgs',data.orgId,'slots'))).size);
     let o;
     if(data.action==='subscribe'){
       if(OP.ORG_BASE_SLOTS+data.extra<used) throw new Error('Slot terpakai '+used);
@@ -72,17 +72,18 @@ const FAKE_SNAP=`window.snap={pay:function(token,cb){ window.__llkPaid(token).th
   ORG=await A.evaluate(()=>window.__llk.S.org.id);
   t=await txt(A); ok(t.includes('0 / 2'),'slot Guru Mitra 0/2');
   await A.click('#selfTeach'); await sleep(300); await A.fill('#stHonor','40000'); await A.click('#stGo'); await sleep(1800); await A.click('#gaClose'); await sleep(600);
-  ok((await txt(A)).includes('0 / 2'),'Rani juga mengajar → gratis, slot tetap 0/2');
+  ok((await txt(A)).includes('1 / 2'),'Rani juga mengajar → memakai 1 slot (1/2)');
   const G={};
-  for(const [n,uid,em] of [['Pak Dimas','gDimas','dimas@gmail.com'],['Bu Sari','gSari','sari@gmail.com']]){
+  const inviteJoin=async(n,uid,em)=>{
     await A.click('#addMitra'); await A.fill('#amName',n); await A.fill('#amHonor','40000'); await A.click('#amGo'); await sleep(1200);
     const code=await A.evaluate(()=>document.querySelector('.modal .code-box').textContent.trim()); await A.click('#icClose'); await sleep(600);
     const P=await dev({uid,email:em}); await P.goto(URL+'?kode='+code); await sleep(2500); await P.click('#jJoin'); await sleep(2500);
     G[n]=P;
-  }
+  };
+  await inviteJoin('Pak Dimas','gDimas','dimas@gmail.com');
   await A.click('[data-tab=guru]'); await sleep(1500);
   t=await txt(A);
-  ok(t.includes('2 / 2')&&await A.evaluate(()=>document.getElementById('addMitra').disabled)&&!!(await A.$('#addSlot')),'Rani + Pak Dimas + Bu Sari → slot penuh 2/2, muncul "Tambah Slot Guru"');
+  ok(t.includes('2 / 2')&&await A.evaluate(()=>document.getElementById('addMitra').disabled)&&!!(await A.$('#addSlot')),'Rani + Pak Dimas → slot penuh 2/2, muncul "Tambah Slot Guru" (Bu Sari belum bisa diundang)');
   await A.click('[data-tab=lainnya]'); await sleep(800);
   t=await txt(A); ok(t.includes('Langganan Lembaga')&&t.includes('UJI COBA')&&t.includes('2 slot Guru Mitra'),'Lainnya → Langganan Lembaga: UJI COBA, 2 slot');
 
@@ -113,6 +114,9 @@ const FAKE_SNAP=`window.snap={pay:function(token,cb){ window.__llkPaid(token).th
   ok(org.seats===3&&org.plan==='pro'&&Math.abs(org.activeUntilMs-(trialEnd+30*DAY))<5*60e3,'lembaga: 3 slot, aktif sampai sisa uji coba + 30 hari (uji coba tidak hangus)');
   await A.click('#waClose').catch(()=>{}); await A.click('[data-tab=guru]'); await sleep(1500);
   t=await txt(A); ok(t.includes('2 / 3')&&!(await A.evaluate(()=>document.getElementById('addMitra').disabled)),'slot 2/3 → bisa mengundang 1 guru lagi');
+  await inviteJoin('Bu Sari','gSari','sari@gmail.com');
+  await A.click('[data-tab=guru]'); await sleep(1500);
+  t=await txt(A); ok(t.includes('3 / 3')&&t.includes('Bu Sari')&&t.includes('Guru Mitra aktif (3)'),'Bu Sari bergabung → Rani, Pak Dimas, Bu Sari (3/3) dengan Rp 300.000');
 
   console.log('\n[4] Murid meledak: tambah 5 slot sekaligus');
   await A.click('[data-tab=lainnya]'); await sleep(1200);
@@ -128,7 +132,7 @@ const FAKE_SNAP=`window.snap={pay:function(token,cb){ window.__llkPaid(token).th
   org=await orgNow();
   ok(org.seats===8&&Math.abs(org.activeUntilMs-(trialEnd+30*DAY))<5*60e3,'slot jadi 8, masa aktif tetap');
   await A.click('#waClose').catch(()=>{}); await A.click('[data-tab=guru]'); await sleep(1500);
-  ok((await txt(A)).includes('2 / 8'),'tab Guru: slot 2/8');
+  ok((await txt(A)).includes('3 / 8'),'tab Guru: slot 3/8');
 
   console.log('\n[5] Langganan habis → absensi terkunci, data aman');
   await admin(f=>updateDoc(doc(f,'orgs',ORG),{activeUntil:Timestamp.fromMillis(Date.now()-DAY)}));

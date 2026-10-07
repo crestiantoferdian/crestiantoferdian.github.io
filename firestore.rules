@@ -197,21 +197,19 @@ service cloud.firestore {
       }
 
       // ── Kursi (slot) Guru Mitra: id "1".."seats" — mencegah melebihi kuota paket ──
-      // Slot "0" = Guru Admin yang juga mengajar (gratis, tidak memakai kuota).
       match /slots/{n} {
         allow read: if isAdmin(orgId);
         allow create: if isAdmin(orgId)
+          && int(n) >= 1 && int(n) <= get(orgPath(orgId)).data.seats
+          && orgActive(orgId)
           && (
-            (int(n) >= 1 && int(n) <= get(orgPath(orgId)).data.seats
-              && orgActive(orgId)
-              && request.resource.data.keys().hasOnly(['kind', 'code'])
+            (request.resource.data.keys().hasOnly(['kind', 'code'])
               && request.resource.data.kind == 'invite'
               && getAfter(invitePath(request.resource.data.code)).data.orgId == orgId
               && getAfter(invitePath(request.resource.data.code)).data.slot == int(n))
             ||
-            // Guru Admin yang juga mengajar (lewat aplikasi Guru Mitra): slot "0", gratis
-            (n == '0'
-              && request.resource.data.keys().hasOnly(['kind', 'uid'])
+            // Guru Admin yang juga mengajar (lewat aplikasi Guru Mitra) memakai 1 slot
+            (request.resource.data.keys().hasOnly(['kind', 'uid'])
               && request.resource.data.kind == 'self'
               && request.resource.data.uid == uid()
               && getAfter(memberPath(orgId, uid())).data.get('teaches', false) == true

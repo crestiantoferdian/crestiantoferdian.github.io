@@ -142,13 +142,13 @@ await t('Mitra menghapus tanda hari ini', assertSucceeds(deleteDoc(aref(mitra2))
 await t('Admin bisa menghapus murid + jadwalnya', assertSucceeds((async()=>{ const b=writeBatch(a2); b.delete(doc(a2,'orgs','org2','students','s1')); b.delete(doc(a2,'orgs','org2','sched','c1')); await b.commit(); })()));
 
 console.log('\n[Guru Admin juga mengajar (aplikasi Guru Mitra)]');
-const selfTeach=(db,u,o,slot=0,honor=0)=>{ const b=writeBatch(db); b.update(doc(db,'orgs',o,'members',u),{teaches:true,honor,slot}); b.set(doc(db,'orgs',o,'slots',String(slot)),{kind:'self',uid:u}); return b.commit(); };
-await t('Admin mengajar tidak bisa memakai slot berbayar', assertFails(selfTeach(a2,'admin2','org2',3,25000)));
-await t('Admin mendaftarkan dirinya sebagai guru (slot 0, gratis)', assertSucceeds(selfTeach(a2,'admin2','org2',0,25000)));
+const selfTeach=(db,u,o,slot,honor=0)=>{ const b=writeBatch(db); b.update(doc(db,'orgs',o,'members',u),{teaches:true,honor,slot}); b.set(doc(db,'orgs',o,'slots',String(slot)),{kind:'self',uid:u}); return b.commit(); };
+await t('Admin mengajar tidak bisa memakai slot "0" (gratis)', assertFails(selfTeach(a2,'admin2','org2',0,25000)));
+await t('Admin mendaftarkan dirinya sebagai guru (pakai 1 slot)', assertSucceeds(selfTeach(a2,'admin2','org2',3,25000)));
 await t('Kursi "self" tidak bisa dibuat untuk orang lain', assertFails((async()=>{ const b=writeBatch(a2); b.set(doc(a2,'orgs','org2','slots','4'),{kind:'self',uid:'mitra2'}); await b.commit(); })()));
 await t('Mitra tidak bisa mengubah dirinya jadi admin lewat field baru', assertFails(updateDoc(doc(mitra2,'orgs','org2','members','mitra2'),{teaches:true})));
-await t('Kursi "self" tidak bisa dikosongkan selama Admin masih mengajar', assertFails(deleteDoc(doc(a2,'orgs','org2','slots','0'))));
-await t('Admin berhenti mengajar + kosongkan kursinya', assertSucceeds((async()=>{ const b=writeBatch(a2); b.update(doc(a2,'orgs','org2','members','admin2'),{teaches:false}); b.delete(doc(a2,'orgs','org2','slots','0')); await b.commit(); })()));
+await t('Kursi "self" tidak bisa dikosongkan selama Admin masih mengajar', assertFails(deleteDoc(doc(a2,'orgs','org2','slots','3'))));
+await t('Admin berhenti mengajar + kosongkan kursinya', assertSucceeds((async()=>{ const b=writeBatch(a2); b.update(doc(a2,'orgs','org2','members','admin2'),{teaches:false}); b.delete(doc(a2,'orgs','org2','slots','3')); await b.commit(); })()));
 
 console.log('\n[Keuangan]');
 const pay={studentId:'s1',studentName:'Brilian',classId:'c1',subjectName:'Piano',sessions:4,amount:400000,rate:100000,date:'2026-10-01',note:'',by:'admin2'};
@@ -185,7 +185,7 @@ const a3=as('admin3','a3@x.com');
 await createOrg(a3,'admin3','org3');
 await t('Uji coba: slot 1 & 2 bisa dipakai', assertSucceeds((async()=>{ await inviteBatch(a3,'org3','LLK-JJJJ-0001',1,{by:'admin3'}); await inviteBatch(a3,'org3','LLK-JJJJ-0002',2,{by:'admin3'}); })()));
 await t('Uji coba: slot ke-3 ditolak (harus berlangganan)', assertFails(inviteBatch(a3,'org3','LLK-JJJJ-0003',3,{by:'admin3'})));
-await t('Admin mengajar tetap bisa walau 2 slot penuh (gratis)', assertSucceeds(selfTeach(a3,'admin3','org3',0,30000)));
+await t('Slot penuh: Admin juga tidak bisa ikut mengajar (memakai slot)', assertFails(selfTeach(a3,'admin3','org3',3,30000)));
 await setDoc(doc(a2,'orgs','org2','students','s5'),{...stu,name:'Citra'});
 const expire=(o,ms)=>env.withSecurityRulesDisabled(async c=>{ await updateDoc(doc(c.firestore(),'orgs',o),{activeUntil:Timestamp.fromMillis(Date.now()+ms)}); });
 await expire('org2',-864e5);

@@ -4,6 +4,8 @@
 // Alur: V1 → LLK Lembaga → daftar → "Saya juga mengajar" → undang 2 guru →
 // impor 30 murid V1 → bagi 10/10/10 → cek tiap aplikasi.
 const { chromium } = require('playwright'); const fs=require('fs');
+const { initializeTestEnvironment } = require('@firebase/rules-unit-testing');
+const { doc, updateDoc, Timestamp } = require('firebase/firestore');
 const FB=__dirname+'/node_modules/firebase/';
 const OUT=__dirname+'/out/'; fs.mkdirSync(OUT,{recursive:true});
 let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'  ✅ ':'  ❌ ')+m);};
@@ -58,13 +60,20 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   await RG.goto(URL+'guru.html'); await sleep(3000);
   ok((await txt(RG)).includes('Kamu Guru Admin')&&(await txt(RG)).includes('Saya juga mengajar'),'aplikasi Guru di HP Rani: belum terdaftar mengajar → diarahkan');
 
-  console.log('\n[2b] Rani mendaftar "Saya juga mengajar" (gratis, tanpa slot)');
+  const env=await initializeTestEnvironment({projectId:'llk-67a30',firestore:{host:'127.0.0.1',port:8089,rules:fs.readFileSync(__dirname+'/../firestore.rules','utf8')}});
+  // Rani berlangganan Paket Mulai Rp200.000 + 1 slot Rp100.000 = Rp300.000 (3 Guru Mitra: Rani, Dimas, Sari).
+  // Pembayaran Midtrans diuji di v2-langganan.test.cjs; di sini cukup hasil aktivasinya.
+  const ORGID=await A.evaluate(()=>window.__llk.S.org.id);
+  await env.withSecurityRulesDisabled(async c=>{ await updateDoc(doc(c.firestore(),'orgs',ORGID),{seats:3,plan:'pro',period:'monthly',activeUntil:Timestamp.fromMillis(Date.now()+30*864e5)}); });
+  await A.reload(); await sleep(2500);
+  ok((await txt(A)).includes('0 / 3'),'Rani berlangganan Rp 300.000 → 3 slot Guru Mitra (0/3)');
+  console.log('\n[2b] Rani mendaftar "Saya juga mengajar" (memakai 1 slot)');
   await A.click('#selfTeach'); await sleep(300); await A.fill('#stHonor','0'); await A.click('#stGo'); await sleep(2000);
   t=await txt(A);
   ok(t.includes('Kamu terdaftar sebagai guru')&&t.includes('guru.html')&&t.includes('LLK Guru'),'petunjuk pasang aplikasi Guru Mitra di HP Rani');
   await A.screenshot({path:OUT+'sim2_saya_mengajar.png'});
   await A.click('#gaClose'); await sleep(800);
-  t=await txt(A); ok(t.includes('0 / 2')&&t.includes('ANDA')&&t.includes('mengajar gratis'),'Rani tampil di daftar guru tanpa memakai slot (0/2)');
+  t=await txt(A); ok(t.includes('1 / 3')&&t.includes('ANDA'),'Rani tampil di daftar guru, memakai 1 slot (1/3)');
 
   console.log('\n[3] Mendaftarkan 2 guru baru');
   const invite=async(n,email)=>{ await A.click('#addMitra'); await A.fill('#amName',n); await A.fill('#amHonor','35000'); await A.fill('#amEmail',email); await A.click('#amGo'); await sleep(1300);
@@ -77,7 +86,7 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   for(const [P,c] of [[D,c1],[Sr,c2]]){ await P.goto(URL+'?kode='+c); await sleep(2500); await P.click('#jJoin'); await sleep(3000); }
   ok(D.url().includes('guru.html')&&Sr.url().includes('guru.html'),'kedua guru bergabung & masuk tampilan guru');
   await A.click('[data-tab=guru]'); await sleep(1500);
-  t=await txt(A); ok(t.includes('2 / 2')&&t.includes('Pak Dimas')&&t.includes('Bu Sari')&&t.includes('Guru Mitra aktif (3)'),'3 guru: Rani (gratis), Pak Dimas, Bu Sari — slot 2/2 (pas Paket Mulai)');
+  t=await txt(A); ok(t.includes('3 / 3')&&t.includes('Pak Dimas')&&t.includes('Bu Sari')&&t.includes('Guru Mitra aktif (3)'),'3 Guru Mitra: Rani, Pak Dimas, Bu Sari — slot 3/3');
   await A.screenshot({path:OUT+'sim3_guru.png'});
 
   console.log('\n[4] Salin 30 murid dari V1');
@@ -150,5 +159,5 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   ok((await A.evaluate(()=>JSON.parse(localStorage.getItem('rms4_s')||'[]').length))===30&&v1After===30,'LLK V1 masih 30 murid (tidak berubah)');
 
   const errs=[D,Sr,RG].flatMap(p=>p.errs); ok(errs.length===0,'tidak ada error JavaScript di V2'+(errs.length?': '+errs.join(' | '):''));
-  console.log(`\nHASIL: ${pass} lulus, ${fail} gagal`); await b.close(); process.exit(fail?1:0);
+  console.log(`\nHASIL: ${pass} lulus, ${fail} gagal`); await b.close(); await env.cleanup(); process.exit(fail?1:0);
 })().catch(e=>{console.error(e);process.exit(2);});

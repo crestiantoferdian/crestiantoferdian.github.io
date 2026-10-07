@@ -446,7 +446,7 @@ async function renderGuru(m) {
   m.innerHTML = '<div class="page-title">Guru Mitra</div><div class="page-sub">Memuat…</div>';
   let g;
   try { g = await loadGuru(); await loadPayroll(); } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
-  const seats = S.org.seats || 0, used = g.slots.filter(x => x.kind !== 'self').length, full = used >= seats, oi = orgInfo();
+  const seats = S.org.seats || 0, used = g.slots.length, full = used >= seats, oi = orgInfo();
   const meTeaches = !!(S.member && S.member.teaches);
   const mitraHtml = g.mitras.length ? g.mitras.map(x => `
     <div class="card">
@@ -471,8 +471,8 @@ async function renderGuru(m) {
   const selfCard = meTeaches ? '' : `
     <div class="card" style="border-style:dashed">
       <div class="row"><div class="avatar" style="background:var(--blue-bg);color:var(--blue)">${I('user')}</div>
-        <div class="grow"><div class="t-name">Kamu juga mengajar?</div><div class="t-meta" style="white-space:normal">Aplikasi Admin khusus administrasi. Untuk mengajar, daftarkan dirimu sebagai Guru Mitra (<b>gratis</b>, tidak memakai slot), lalu pasang aplikasi <b>Guru Mitra</b> di HP — login dengan akun Google yang sama.</div></div></div>
-      <button class="btn btn-ghost" id="selfTeach" style="margin-top:12px">${I('user-plus','sm')} Saya juga mengajar</button>
+        <div class="grow"><div class="t-name">Kamu juga mengajar?</div><div class="t-meta" style="white-space:normal">Aplikasi Admin khusus administrasi. Untuk mengajar, daftarkan dirimu sebagai Guru Mitra (memakai 1 slot), lalu pasang aplikasi <b>Guru Mitra</b> di HP — login dengan akun Google yang sama.</div></div></div>
+      <button class="btn btn-ghost" id="selfTeach" ${full || !oi.active ? 'disabled' : ''} style="margin-top:12px">${I('user-plus','sm')} Saya juga mengajar</button>
     </div>`;
   const invHtml = g.invites.length ? g.invites.map(x => {
     const exp = isExpired(x);
@@ -498,7 +498,7 @@ async function renderGuru(m) {
     <div class="card">
       <div class="row"><div class="grow"><div class="card-t" style="margin:0">Slot Guru Mitra</div></div><b>${used} / ${seats}</b></div>
       <div class="seat-bar"><div class="seat-fill" style="width:${seats ? Math.min(100, used / seats * 100) : 0}%;${full ? 'background:var(--amber)' : ''}"></div></div>
-      <div class="t-meta" style="margin-top:8px;white-space:normal">${!oi.active ? '<span class="t-warn">Langganan habis</span> — perpanjang dulu untuk mengundang guru.' : full ? 'Slot penuh. Dapat guru baru? Tambah slot ' + esc(rupiah(BL.ORG_SLOT)) + '/bulan (5 slot ' + esc(rupiah(BL.ORG_BUNDLE_PRICE)) + ').' : 'Undangan yang belum dipakai juga menempati slot sampai dicabut.'}${S.member.teaches ? ' Kamu sendiri mengajar gratis (tidak memakai slot).' : ''}</div>
+      <div class="t-meta" style="margin-top:8px;white-space:normal">${!oi.active ? '<span class="t-warn">Langganan habis</span> — perpanjang dulu untuk mengundang guru.' : full ? 'Slot penuh. Dapat guru baru? Tambah slot ' + esc(rupiah(BL.ORG_SLOT)) + '/bulan (5 slot ' + esc(rupiah(BL.ORG_BUNDLE_PRICE)) + ').' : 'Undangan yang belum dipakai juga menempati slot sampai dicabut.'}${S.member.teaches ? ' Kamu sendiri juga memakai 1 slot karena ikut mengajar.' : ''}</div>
       ${full || !oi.active ? `<button class="btn btn-ghost" id="addSlot" style="margin-top:12px">${I('plus', 'sm')} ${oi.active ? 'Tambah Slot Guru' : 'Perpanjang Langganan'}</button>` : ''}
     </div>
     <button class="btn btn-primary" id="addMitra" ${full || !oi.active ? 'disabled' : ''} style="margin-bottom:18px">＋ Tambah Guru Mitra</button>
@@ -523,7 +523,7 @@ async function renderGuru(m) {
 function openSelfTeach() {
   openModal(`
     <div class="modal-t">${I('user-plus')} Saya juga mengajar</div>
-    <div class="modal-sub">Kamu akan tampil di daftar guru dan bisa diberi murid. Absensi & progres murid-muridmu diisi lewat <b>aplikasi Guru Mitra</b> (akun Google yang sama), persis seperti guru lain. <b>Gratis</b> — tidak memakai slot Guru Mitra.</div>
+    <div class="modal-sub">Kamu akan tampil di daftar guru dan bisa diberi murid. Absensi & progres murid-muridmu diisi lewat <b>aplikasi Guru Mitra</b> (akun Google yang sama), persis seperti guru lain. Memakai 1 slot Guru Mitra.</div>
     <div class="field"><label>Honor per pertemuan untuk dirimu (Rp, opsional)</label><input id="stHonor" type="number" inputmode="numeric" min="0" step="1000" value="0"/>
       <div class="hint">Isi kalau ingin gajimu sendiri ikut tercatat di rekap honor. Boleh 0.</div></div>
     <div class="btn-row"><button class="btn btn-ghost" id="stNo">Batal</button><button class="btn btn-primary" id="stGo">${I('check','sm')} Daftarkan</button></div>`);
@@ -532,7 +532,10 @@ function openSelfTeach() {
     const honor = Math.max(0, parseInt($('stHonor').value, 10) || 0);
     $('stGo').disabled = true;
     try {
-      const slot = 0; // slot khusus Guru Admin (gratis)
+      const slotsSnap = await getDocs(collection(db, 'orgs', S.org.id, 'slots'));
+      const taken = new Set(slotsSnap.docs.map(d => d.id));
+      let slot = null; for (let i = 1; i <= (S.org.seats || 0); i++) if (!taken.has(String(i))) { slot = i; break; }
+      if (!slot) throw new Error('Slot Guru Mitra sudah penuh — tambah slot dulu.');
       const b = writeBatch(db);
       b.update(doc(db, 'orgs', S.org.id, 'members', S.user.uid), { teaches: true, honor, slot });
       b.set(doc(db, 'orgs', S.org.id, 'slots', String(slot)), { kind: 'self', uid: S.user.uid });
@@ -1652,10 +1655,10 @@ async function bindSubCard() {
       `<div class="row" style="padding:6px 0;border-top:1px solid var(--border)"><div class="grow">${esc(x.label || '')}<br><span style="font-size:0.78rem">${esc(fmtMs(tsMs(x.paidAt)))} · ${esc(x.id)}</span></div><b style="color:var(--text)">${esc(rupiah(x.amount))}</b></div>`).join('');
   } catch (e) {}
 }
-// Jumlah slot terisi (undangan + guru); Guru Admin yang mengajar tidak dihitung
+// Jumlah slot terisi (undangan + guru, termasuk Guru Admin yang ikut mengajar)
 async function usedSlots() {
   const snap = await getDocs(collection(db, 'orgs', S.org.id, 'slots'));
-  return snap.docs.filter(d => d.data().kind !== 'self').length;
+  return snap.size;
 }
 function stepperHtml(id, v) { return `<div class="stepper"><button class="st-b" data-st="-1" aria-label="Kurangi">−</button><b id="${id}">${v}</b><button class="st-b" data-st="1" aria-label="Tambah">＋</button></div>`; }
 async function openSubscribe() {
