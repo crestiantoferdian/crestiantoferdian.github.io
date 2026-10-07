@@ -9358,6 +9358,7 @@ function openSheetLink(idx){
   // Teks disusun sesuai field yang dicentang di Pengaturan Progres Siswa
   const text=buildProgressText(attKey, s.name, dateKey);
   window._sheetLastText=text;
+  window._sheetCtx={idx:idx, sentKey:sentKey, name:s.name}; // dipakai Kirim ke WA / Buka Sheet untuk menandai terkirim
 
   // Otomatis tersalin ke clipboard begitu popup dibuka
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(()=>fallbackCopyPlain(text));
@@ -9376,7 +9377,7 @@ function openSheetLink(idx){
       <div class="modal-title" style="margin-bottom:10px">${llkI('mail')} Kirim Progres — ${escapeHtml(s.name)}</div>
       <div class="kirim-preview" style="margin-bottom:10px">${text.replace(/</g,'&lt;')}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:0.84rem;color:var(--hadir);margin-bottom:14px;font-weight:600">${llkI('copy','sm')} Teks sudah tersalin ke clipboard</div>
-      ${alreadySent?`<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:0.84rem;color:var(--hadir);margin-bottom:12px;font-weight:600">${llkI('check-circle','sm')} Sudah dikirim untuk tanggal ini</div>`:''}
+      ${alreadySent?`<div style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;font-size:0.84rem;color:var(--hadir);margin-bottom:12px;font-weight:600">${llkI('check-circle','sm')} Sudah dikirim untuk tanggal ini · <button onclick="unmarkSheetSent(${idx},'${sentKey}')" style="background:none;border:none;color:var(--text2);font-family:inherit;font-size:0.82rem;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px">Tandai belum terkirim</button></div>`:''}
       <div style="display:flex;gap:10px;margin-bottom:10px">${actionBtn}</div>
       <button onclick="markSheetSent(${idx},'${sentKey}')" class="llk-btn outline-success block" style="height:52px;margin-bottom:10px">${llkI('check')} Sudah Terkirim</button>
       <button onclick="document.getElementById('sheetPopup').remove()" class="llk-btn soft block">Batal</button>
@@ -9389,27 +9390,49 @@ function openSheetLink(idx){
   history.pushState({tab:currentTab, view:'modal'},'');
 }
 
+// BUGFIX: dulu membuka WA/Sheet TIDAK menandai terkirim — progres yang sudah
+// dikirim lewat WA tetap tampil "belum terkirim" kalau lupa menekan "Sudah
+// Terkirim". Sekarang langsung ditandai (bisa dibatalkan: "Tandai belum terkirim").
+function llkAutoMarkSent(){
+  const c=window._sheetCtx; if(!c) return;
+  window._sheetCtx=null;
+  markSheetSent(c.idx, c.sentKey, true);
+}
 function goToSheet(link){
-  // Hanya buka link, TIDAK menandai sebagai sudah tercatat
   window.open(link,'_blank');
+  llkAutoMarkSent();
 }
 
 function goToWAProgress(phone){
-  // Hanya buka WA, TIDAK menandai sebagai sudah tercatat
   const msg=encodeURIComponent(window._sheetLastText||'');
   const wa=phone.startsWith('62')?phone:'62'+phone.replace(/^0/,'');
   window.open(`https://wa.me/${wa}?text=${msg}`,'_blank');
+  llkAutoMarkSent();
 }
 
-function markSheetSent(idx,sentKey){
+function unmarkSheetSent(idx,sentKey){
+  localStorage.removeItem(sentKey);
+  save(); // ikut tersinkron ke cloud
+  const popup=document.getElementById('sheetPopup');
+  if(popup) popup.remove();
+  toast('Ditandai belum terkirim');
+  if(currentTab==='absensi') setTimeout(renderAbsensi,150);
+  else if(currentTab==='track') setTimeout(renderTrack,150);
+  else if(currentTab==='kirim') setTimeout(renderKirim,150);
+}
+
+function markSheetSent(idx,sentKey,auto){
   localStorage.setItem(sentKey,'1');
+  // BUGFIX: tanda terkirim dulu hanya tersimpan di HP itu (tidak memicu sinkron
+  // cloud) → di perangkat lain / setelah data ditarik ulang tampak "belum terkirim".
+  save();
   const popup=document.getElementById('sheetPopup');
   if(popup) popup.remove();
   document.querySelectorAll('.sheet-btn-'+idx).forEach(btn=>{
     btn.classList.remove('is-send'); btn.classList.add('is-sent');
     btn.innerHTML=llkI('mail-check');
   });
-  toast('✅ Ditandai sudah tercatat');
+  toast(auto?'✅ Progres ditandai terkirim':'✅ Ditandai sudah tercatat');
   // Render ulang halaman yang sedang aktif supaya tampilan pasti sinkron
   // dengan status tersimpan, terlepas dari tab/tampilan mana tombolnya ditekan.
   if(currentTab==='absensi') setTimeout(renderAbsensi,150);
