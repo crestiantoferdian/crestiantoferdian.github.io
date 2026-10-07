@@ -52,19 +52,19 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   console.log('\n[2] Daftar lembaga (aplikasi Admin)');
   await A.click('#rcLembaga'); await sleep(400); await A.fill('#coName','Les Musik Rani'); await A.click('#coGo'); await sleep(2000);
   t=await txt(A);
-  ok(t.includes('GURU ADMIN')&&t.includes('0 / 5'),'lembaga dibuat · kursi Guru Mitra 0/5');
+  ok(t.includes('GURU ADMIN')&&t.includes('0 / 2'),'lembaga dibuat · uji coba 2 slot Guru Mitra (0/2)');
   ok(!(await A.evaluate(()=>[...document.querySelectorAll('.bnav')].some(b=>/Mengajar/.test(b.textContent)))),'aplikasi Admin tanpa menu mengajar (khusus administrasi)');
   const RG=await dev({uid:'simRani',email:'rani@gmail.com'});
   await RG.goto(URL+'guru.html'); await sleep(3000);
   ok((await txt(RG)).includes('Kamu Guru Admin')&&(await txt(RG)).includes('Saya juga mengajar'),'aplikasi Guru di HP Rani: belum terdaftar mengajar → diarahkan');
 
-  console.log('\n[2b] Rani mendaftar "Saya juga mengajar" (1 kursi Guru Mitra)');
+  console.log('\n[2b] Rani mendaftar "Saya juga mengajar" (gratis, tanpa slot)');
   await A.click('#selfTeach'); await sleep(300); await A.fill('#stHonor','0'); await A.click('#stGo'); await sleep(2000);
   t=await txt(A);
   ok(t.includes('Kamu terdaftar sebagai guru')&&t.includes('guru.html')&&t.includes('LLK Guru'),'petunjuk pasang aplikasi Guru Mitra di HP Rani');
   await A.screenshot({path:OUT+'sim2_saya_mengajar.png'});
   await A.click('#gaClose'); await sleep(800);
-  t=await txt(A); ok(t.includes('1 / 5')&&t.includes('ANDA'),'Rani tampil di daftar guru (kursi 1/5)');
+  t=await txt(A); ok(t.includes('0 / 2')&&t.includes('ANDA')&&t.includes('mengajar gratis'),'Rani tampil di daftar guru tanpa memakai slot (0/2)');
 
   console.log('\n[3] Mendaftarkan 2 guru baru');
   const invite=async(n,email)=>{ await A.click('#addMitra'); await A.fill('#amName',n); await A.fill('#amHonor','35000'); await A.fill('#amEmail',email); await A.click('#amGo'); await sleep(1300);
@@ -77,7 +77,7 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   for(const [P,c] of [[D,c1],[Sr,c2]]){ await P.goto(URL+'?kode='+c); await sleep(2500); await P.click('#jJoin'); await sleep(3000); }
   ok(D.url().includes('guru.html')&&Sr.url().includes('guru.html'),'kedua guru bergabung & masuk tampilan guru');
   await A.click('[data-tab=guru]'); await sleep(1500);
-  t=await txt(A); ok(t.includes('3 / 5')&&t.includes('Pak Dimas')&&t.includes('Bu Sari')&&t.includes('Guru Mitra aktif (3)'),'3 Guru Mitra: Rani, Pak Dimas, Bu Sari (3/5)');
+  t=await txt(A); ok(t.includes('2 / 2')&&t.includes('Pak Dimas')&&t.includes('Bu Sari')&&t.includes('Guru Mitra aktif (3)'),'3 guru: Rani (gratis), Pak Dimas, Bu Sari — slot 2/2 (pas Paket Mulai)');
   await A.screenshot({path:OUT+'sim3_guru.png'});
 
   console.log('\n[4] Salin 30 murid dari V1');

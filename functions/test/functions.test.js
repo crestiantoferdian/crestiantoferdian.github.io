@@ -15,6 +15,7 @@ let fakeNow = Date.UTC(2026, 9, 1);
 function docRef(path) {
   return {
     path,
+    collection: (sub) => collRef(path + '/' + sub),
     async get() {
       const d = store.get(path);
       return { exists: d !== undefined, data: () => d };
@@ -33,7 +34,7 @@ function query(name, filters) {
     limit: () => query(name, filters),
     async get() {
       const docs = [...store.entries()]
-        .filter(([k, d]) => k.startsWith(name + '/') && filters.every(([f, v]) => d[f] === v))
+        .filter(([k, d]) => k.startsWith(name + '/') && !k.slice(name.length + 1).includes('/') && filters.every(([f, v]) => d[f] === v))
         .map(([k, d]) => ({ id: k.slice(name.length + 1), data: () => d, ref: docRef(k) }));
       return { docs, size: docs.length };
     },
@@ -41,8 +42,11 @@ function query(name, filters) {
 }
 // Transaksi tiruan: semua tulisan ditahan sampai fungsi selesai (seperti Firestore)
 let txLock = Promise.resolve();
+function collRef(name) {
+  return { doc: (id) => docRef(name + '/' + id), where: (f, op, v) => query(name, [[f, v]]), get: () => query(name, []).get() };
+}
 const db = {
-  collection: (name) => ({ doc: (id) => docRef(name + '/' + id), where: (f, op, v) => query(name, [[f, v]]) }),
+  collection: collRef,
   runTransaction(fn) {
     const run = txLock.then(async () => {
       const writes = [];
@@ -272,4 +276,128 @@ test('langganan yang sudah habis: mulai dari sekarang', () => {
   const now = 1000 * DAY;
   const r = nextSubscription({ status: 'active', tier: 'up', subscriptionEndsMs: now - DAY }, 'up_monthly', now);
   assert.strictEqual(r.subscriptionEndsMs, now + 30 * DAY);
+});
+
+// ── LLK V2: langganan lembaga ─────────────────────────────────────
+const OP = require('../orgPlans.js');
+function seedOrg({ seats = 2, plan = 'trial', createdAgoDays = 3, activeUntil = null, period, slots = [] } = {}) {
+  store.clear();
+  const now = Date.now();
+  store.set('orgs/org1', { name: 'Les Rani', ownerUid: 'rani', seats, plan, period, createdAt: ts(now - createdAgoDays * DAY), activeUntil: activeUntil ? ts(activeUntil) : undefined });
+  store.set('orgs/org1/members/rani', { role: 'admin' });
+  store.set('orgs/org1/members/dimas', { role: 'mitra' });
+  slots.forEach((k, i) => store.set('orgs/org1/slots/' + (k === 'self' ? '0' : i + 1), { kind: k }));
+}
+const asRani = { auth: { uid: 'rani', token: { email: 'rani@gmail.com' } } };
+function fakeSnap() {
+  const sent = [];
+  global.fetch = async (url, opts) => { sent.push({ url, body: JSON.parse(opts.body), auth: opts.headers.Authorization }); return { ok: true, json: async () => ({ token: 'tok', redirect_url: 'http://x' }) }; };
+  return sent;
+}
+
+test('harga V2: 200rb + slot 100rb, 5 slot 449rb, tahunan 10x', () => {
+  assert.deepStrictEqual([0, 1, 2, 3, 4, 5, 6, 10].map(OP.monthlyPrice), [200000, 300000, 400000, 500000, 600000, 649000, 749000, 1098000]);
+  assert.strictEqual(OP.periodPrice(1, 'yearly'), 3000000);
+});
+
+test('V2 langganan: Rani (uji coba) pilih 1 slot tambahan bulanan → Rp300.000, ke Midtrans sandbox', async () => {
+  seedOrg({ slots: ['member', 'self'] });
+  const sent = fakeSnap();
+  const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 1, period: 'monthly' }, asRani);
+  assert.strictEqual(r.grossAmount, 300000);
+  assert.strictEqual(r.env, 'sandbox');
+  assert.ok(sent[0].url.startsWith('https://app.sandbox.midtrans.com/'));
+  const o = store.get('orders/' + r.orderId);
+  assert.strictEqual(o.type, 'org'); assert.strictEqual(o.grossAmount, 300000); assert.strictEqual(o.extra, 1);
+});
+
+test('V2 langganan: hanya Guru Admin, pilihan tidak valid ditolak', async () => {
+  seedOrg();
+  fakeSnap();
+  await assert.rejects(fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 0, period: 'monthly' }, { auth: { uid: 'dimas', token: {} } }), (e) => e.code === 'permission-denied');
+  await assert.rejects(fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: -1, period: 'monthly' }, asRani), (e) => e.code === 'invalid-argument');
+  await assert.rejects(fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 0, period: 'mingguan' }, asRani), (e) => e.code === 'invalid-argument');
+  await assert.rejects(fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 1.5, period: 'monthly' }, asRani), (e) => e.code === 'invalid-argument');
+  await assert.rejects(fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 0, period: 'monthly' }, {}), (e) => e.code === 'unauthenticated');
+});
+
+test('V2 langganan: slot tidak boleh kurang dari guru yang sudah ada (Admin mengajar tidak dihitung)', async () => {
+  seedOrg({ seats: 5, slots: ['member', 'member', 'member', 'self'] });
+  fakeSnap();
+  await assert.rejects(fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 0, period: 'monthly' }, asRani), (e) => e.code === 'failed-precondition');
+  const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 1, period: 'monthly' }, asRani);
+  assert.strictEqual(r.grossAmount, 300000);
+});
+
+test('V2 webhook: lunas → slot & masa aktif lembaga diperbarui, sisa uji coba tidak hangus, riwayat tercatat', async () => {
+  seedOrg({ createdAgoDays: 21 }); // uji coba tinggal 10 hari
+  fakeSnap();
+  const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 5, period: 'monthly' }, asRani);
+  assert.strictEqual(r.grossAmount, 649000);
+  const res = fakeRes();
+  await fns.midtransWebhook(webhookReq(r.orderId, 649000), res);
+  assert.strictEqual(res.code, 200);
+  const org = store.get('orgs/org1');
+  assert.strictEqual(org.seats, 7); assert.strictEqual(org.plan, 'pro'); assert.strictEqual(org.period, 'monthly');
+  const left = org.activeUntil.toMillis() - Date.now();
+  assert.ok(left > 39.9 * DAY && left < 40.1 * DAY, '10 hari sisa uji coba + 30 hari');
+  const inv = store.get('orgs/org1/invoices/' + r.orderId);
+  assert.strictEqual(inv.amount, 649000); assert.strictEqual(inv.seats, 7);
+  await fns.midtransWebhook(webhookReq(r.orderId, 649000), fakeRes());
+  assert.strictEqual(store.get('orgs/org1').activeUntil.toMillis(), org.activeUntil.toMillis(), 'notifikasi ganda tidak dobel');
+});
+
+test('V2 tambah slot di tengah bulan: bayar sisa hari, diskon 5 slot dihitung dari total', async () => {
+  const now = Date.now();
+  seedOrg({ seats: 6, plan: 'pro', period: 'monthly', createdAgoDays: 60, activeUntil: now + 15 * DAY, slots: ['member', 'member', 'member', 'member', 'member', 'member'] });
+  fakeSnap();
+  // 4 slot tambahan (Rp600rb) → 5 slot (Rp649rb): selisih Rp49.000/bulan, sisa 15 hari → Rp25.000 (dibulatkan ke atas)
+  const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'addSlots', add: 1 }, asRani);
+  assert.strictEqual(r.grossAmount, Math.ceil(49000 * 15 / 30 / 1000) * 1000);
+  await fns.midtransWebhook(webhookReq(r.orderId, r.grossAmount), fakeRes());
+  const org = store.get('orgs/org1');
+  assert.strictEqual(org.seats, 7);
+  assert.strictEqual(org.activeUntil.toMillis(), now + 15 * DAY, 'masa aktif tidak berubah');
+});
+
+test('V2 tambah slot saat sisa uji coba: hari uji coba tidak ikut dibayar', async () => {
+  const now = Date.now();
+  // lembaga dibuat 21 hari lalu (uji coba tinggal 10 hari), sudah bayar 1 bulan → aktif sampai 40 hari lagi
+  seedOrg({ seats: 3, plan: 'pro', period: 'monthly', createdAgoDays: 21, activeUntil: now + 40 * DAY });
+  fakeSnap();
+  const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'addSlots', add: 1 }, asRani);
+  assert.strictEqual(r.grossAmount, 100000, '30 hari berbayar × Rp100.000/bulan');
+});
+
+test('V2 tambah slot saat masih uji coba / langganan aktif lewat "subscribe" lebih banyak → ditolak', async () => {
+  seedOrg();
+  fakeSnap();
+  await assert.rejects(fns.createOrgTransaction({ orgId: 'org1', action: 'addSlots', add: 1 }, asRani), (e) => e.code === 'failed-precondition');
+  seedOrg({ seats: 3, plan: 'pro', period: 'monthly', activeUntil: Date.now() + 10 * DAY });
+  await assert.rejects(fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 4, period: 'monthly' }, asRani), (e) => e.code === 'failed-precondition');
+  const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 1, period: 'yearly' }, asRani);
+  assert.strictEqual(r.grossAmount, 3000000, 'perpanjang tahunan dengan slot sama boleh');
+});
+
+test('V2 webhook: kunci V2 terpisah dari V1 (V1 production, V2 sandbox)', async () => {
+  // Order V1 tidak boleh disahkan dengan tanda tangan kunci lain
+  seedOrg();
+  store.set('orders/V1X', { uid: 'u1', plan: 'up_monthly', grossAmount: 75000, status: 'pending' });
+  const req = webhookReq('V1X', 75000);
+  req.body.signature_key = crypto.createHash('sha512').update('V1X' + '200' + '75000.00' + 'KUNCI-LAIN').digest('hex');
+  const res = fakeRes();
+  await fns.midtransWebhook(req, res);
+  assert.strictEqual(res.code, 403);
+});
+
+test('V2 cek status: order lembaga yang lunas di Midtrans diaktifkan', async () => {
+  seedOrg();
+  fakeSnap();
+  const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 0, period: 'monthly' }, asRani);
+  let asked = '';
+  global.fetch = async (url) => { asked = url; return { ok: true, json: async () => ({ order_id: r.orderId, transaction_status: 'settlement', gross_amount: '200000.00' }) }; };
+  const c = await fns.checkMidtransPayment({}, asRani);
+  assert.strictEqual(c.activated, 1);
+  assert.ok(asked.startsWith('https://api.sandbox.midtrans.com/v2/'));
+  assert.strictEqual(store.get('orgs/org1').plan, 'pro');
 });

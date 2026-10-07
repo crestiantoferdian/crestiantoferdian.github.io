@@ -3,6 +3,7 @@ const admin = require('firebase-admin');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { PLANS, resolvePlan, nextSubscription, trialKey } = require('./plans');
+const OP = require('./orgPlans');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -13,12 +14,23 @@ const MIDTRANS_IS_PRODUCTION = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 const MIDTRANS_BASE_URL = MIDTRANS_IS_PRODUCTION
   ? 'https://app.midtrans.com'
   : 'https://app.sandbox.midtrans.com';
-// API status transaksi (Core API) memakai domain berbeda dari Snap
-const MIDTRANS_API_URL = MIDTRANS_IS_PRODUCTION
-  ? 'https://api.midtrans.com'
-  : 'https://api.sandbox.midtrans.com';
-function midtransAuthHeader() {
-  return 'Basic ' + Buffer.from(MIDTRANS_SERVER_KEY + ':').toString('base64');
+function midtransAuthHeader(key) {
+  return 'Basic ' + Buffer.from((key || MIDTRANS_SERVER_KEY) + ':').toString('base64');
+}
+
+// LLK V2 (Lembaga) punya pengaturan Midtrans sendiri supaya V2 bisa diuji di
+// SANDBOX walau V1 sudah PRODUCTION. Kalau kosong: kunci sama dengan V1, mode sandbox.
+const MIDTRANS_V2_SERVER_KEY = process.env.MIDTRANS_V2_SERVER_KEY || MIDTRANS_SERVER_KEY;
+const MIDTRANS_V2_IS_PRODUCTION = process.env.MIDTRANS_V2_IS_PRODUCTION === 'true';
+function midtransCfg(order) {
+  const v2 = !!order && order.type === 'org';
+  const prod = v2 ? MIDTRANS_V2_IS_PRODUCTION : MIDTRANS_IS_PRODUCTION;
+  return {
+    key: v2 ? MIDTRANS_V2_SERVER_KEY : MIDTRANS_SERVER_KEY,
+    env: prod ? 'production' : 'sandbox',
+    snap: prod ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com',
+    api: prod ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com',
+  };
 }
 function isPaidStatus(transaction_status, fraud_status) {
   return (transaction_status === 'capture' && fraud_status === 'accept') ||
@@ -58,13 +70,13 @@ function getMailTransporter() {
  * fungsi ini diam saja (tidak bikin webhook gagal), supaya fitur pembayaran
  * inti tetap jalan normal walau invoice belum di-setup.
  */
-async function sendInvoiceEmail({ toEmail, orderId, plan, grossAmount, paidAtMs, subscriptionEndsMs }) {
+async function sendInvoiceEmail({ toEmail, orderId, plan, label, grossAmount, paidAtMs, subscriptionEndsMs }) {
   const transporter = getMailTransporter();
   if (!transporter || !toEmail) {
     console.log('Lewati kirim invoice (SMTP belum di-setup atau email kosong):', orderId);
     return;
   }
-  const planLabel = (resolvePlan(plan) || {}).label || plan;
+  const planLabel = label || (resolvePlan(plan) || {}).label || plan;
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:12px">
       <h2 style="color:#b31217;margin-bottom:4px">LesLesanKu</h2>
@@ -212,6 +224,114 @@ exports.createMidtransTransaction = functions.https.onCall(async (data, context)
 });
 
 /**
+ * 2b) LLK V2: Guru Admin membayar langganan lembaga / menambah slot Guru Mitra.
+ *     Harga dihitung di server (orgPlans.js), bukan dari aplikasi.
+ *     data: { orgId, action: 'subscribe', extra, period } | { orgId, action: 'addSlots', add }
+ */
+exports.createOrgTransaction = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Harus login dulu.');
+  const uid = context.auth.uid;
+  const orgId = String((data && data.orgId) || '');
+  if (!orgId) throw new functions.https.HttpsError('invalid-argument', 'Lembaga tidak valid.');
+  const [orgSnap, memSnap, slotsSnap] = await Promise.all([
+    db.collection('orgs').doc(orgId).get(),
+    db.collection('orgs').doc(orgId).collection('members').doc(uid).get(),
+    db.collection('orgs').doc(orgId).collection('slots').get(),
+  ]);
+  if (!orgSnap.exists || !memSnap.exists || memSnap.data().role !== 'admin') {
+    throw new functions.https.HttpsError('permission-denied', 'Hanya Guru Admin lembaga ini yang bisa membayar langganan.');
+  }
+  const o = orgSnap.data();
+  const org = { ...o, activeUntilMs: o.activeUntil ? o.activeUntil.toMillis() : 0, createdAtMs: o.createdAt ? o.createdAt.toMillis() : Date.now() };
+  const used = slotsSnap.docs.filter((d) => d.data().kind !== 'self').length; // Admin mengajar = gratis
+  const now = Date.now();
+  let order;
+  if (data.action === 'subscribe') {
+    const extra = data.extra, period = data.period;
+    if (!Number.isInteger(extra) || extra < 0 || extra > OP.ORG_MAX_EXTRA || !OP.ORG_PERIODS[period]) {
+      throw new functions.https.HttpsError('invalid-argument', 'Pilihan paket tidak valid.');
+    }
+    if (OP.ORG_BASE_SLOTS + extra < used) {
+      throw new functions.https.HttpsError('failed-precondition', `Slot terpakai ${used} — pilih minimal ${used - OP.ORG_BASE_SLOTS} slot tambahan, atau keluarkan guru dulu.`);
+    }
+    if (OP.orgPaidActive(org, now) && OP.ORG_BASE_SLOTS + extra > (org.seats || 0)) {
+      throw new functions.https.HttpsError('failed-precondition', 'Langganan masih aktif — tambah slot lewat tombol "Tambah Slot Guru".');
+    }
+    order = { action: 'subscribe', extra, period, grossAmount: OP.periodPrice(extra, period) };
+  } else if (data.action === 'addSlots') {
+    const add = data.add;
+    if (!Number.isInteger(add) || add < 1 || (org.seats || 0) - OP.ORG_BASE_SLOTS + add > OP.ORG_MAX_EXTRA) {
+      throw new functions.https.HttpsError('invalid-argument', 'Jumlah slot tidak valid.');
+    }
+    if (!OP.orgPaidActive(org, now)) {
+      throw new functions.https.HttpsError('failed-precondition', 'Pilih paket langganan dulu (slot bisa dipilih di sana).');
+    }
+    const pr = OP.addSlotsPrice(org, add, now);
+    order = { action: 'addSlots', add, period: pr.period, days: pr.days, grossAmount: pr.amount };
+  } else {
+    throw new functions.https.HttpsError('invalid-argument', 'Aksi tidak valid.');
+  }
+  if (order.grossAmount < 1000) throw new functions.https.HttpsError('invalid-argument', 'Nominal terlalu kecil.');
+
+  const cfg = midtransCfg({ type: 'org' });
+  const orderId = `LLKO-${orgId.slice(0, 8)}-${now}`;
+  const email = context.auth.token.email || null;
+  const label = OP.orderLabel(order);
+  await db.collection('orders').doc(orderId).set({
+    type: 'org', orgId, uid, email, ...order, label, env: cfg.env, status: 'pending',
+    createdAt: admin.firestore.Timestamp.now(),
+  });
+  const resp = await fetch(`${cfg.snap}/snap/v1/transactions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: midtransAuthHeader(cfg.key) },
+    body: JSON.stringify({
+      transaction_details: { order_id: orderId, gross_amount: order.grossAmount },
+      item_details: [{ id: order.action, price: order.grossAmount, quantity: 1, name: label.slice(0, 50) }],
+      customer_details: { email: email || undefined },
+    }),
+  });
+  const snapData = await resp.json();
+  if (!resp.ok) {
+    console.error('Gagal membuat transaksi Midtrans (V2):', snapData);
+    throw new functions.https.HttpsError('internal', 'Gagal membuat transaksi Midtrans.');
+  }
+  return { token: snapData.token, redirectUrl: snapData.redirect_url, orderId, grossAmount: order.grossAmount, env: cfg.env };
+});
+
+// V2: order lunas → perbarui slot & masa aktif lembaga + catat di riwayat pembayaran lembaga
+async function activateOrgOrder(orderId) {
+  const orderRef = db.collection('orders').doc(orderId);
+  const result = await db.runTransaction(async (tx) => {
+    const orderSnap = await tx.get(orderRef);
+    if (!orderSnap.exists) return { activated: false, notFound: true };
+    const order = orderSnap.data();
+    if (order.status === 'paid') return { activated: false, order };
+    const orgRef = db.collection('orgs').doc(order.orgId);
+    const orgSnap = await tx.get(orgRef);
+    if (!orgSnap.exists) return { activated: false, order };
+    const o = orgSnap.data();
+    const now = Date.now();
+    const next = OP.nextOrg({ ...o, activeUntilMs: o.activeUntil ? o.activeUntil.toMillis() : 0, createdAtMs: o.createdAt ? o.createdAt.toMillis() : now }, order, now);
+    const until = admin.firestore.Timestamp.fromMillis(next.activeUntilMs);
+    tx.update(orgRef, { seats: next.seats, plan: next.plan, period: next.period, activeUntil: until, lastOrderId: orderId, billingUpdatedAt: admin.firestore.Timestamp.now() });
+    tx.set(orgRef.collection('invoices').doc(orderId), {
+      action: order.action, extra: order.extra == null ? null : order.extra, add: order.add || null, period: order.period,
+      amount: order.grossAmount, label: order.label || OP.orderLabel(order), seats: next.seats, activeUntil: until,
+      paidAt: admin.firestore.Timestamp.fromMillis(now), by: order.uid,
+    });
+    tx.update(orderRef, { status: 'paid', paidAt: admin.firestore.Timestamp.fromMillis(now) });
+    return { activated: true, order, paidAtMs: now, subscriptionEndsMs: next.activeUntilMs };
+  });
+  if (result.activated) {
+    await sendInvoiceEmail({
+      toEmail: result.order.email, orderId, label: result.order.label, grossAmount: result.order.grossAmount,
+      paidAtMs: result.paidAtMs, subscriptionEndsMs: result.subscriptionEndsMs,
+    });
+  }
+  return result;
+}
+
+/**
  * Aktifkan/perpanjang langganan untuk 1 order yang SUDAH DIBAYAR.
  * Dijalankan dalam transaksi Firestore: kalau notifikasi Midtrans datang
  * dobel di saat bersamaan (atau webhook & pengecekan manual bersamaan),
@@ -219,6 +339,8 @@ exports.createMidtransTransaction = functions.https.onCall(async (data, context)
  */
 async function activateOrder(orderId) {
   const orderRef = db.collection('orders').doc(orderId);
+  const pre = await orderRef.get();
+  if (pre.exists && pre.data().type === 'org') return activateOrgOrder(orderId);
   const result = await db.runTransaction(async (tx) => {
     const orderSnap = await tx.get(orderRef);
     if (!orderSnap.exists) return { activated: false, notFound: true };
@@ -287,11 +409,8 @@ exports.midtransWebhook = functions.https.onRequest(async (req, res) => {
   try {
     const { order_id, status_code, gross_amount, signature_key, transaction_status, fraud_status } = req.body;
 
-    const expected = crypto
-      .createHash('sha512')
-      .update(order_id + status_code + gross_amount + MIDTRANS_SERVER_KEY)
-      .digest('hex');
-    if (expected !== signature_key) {
+    const sig = (key) => crypto.createHash('sha512').update(order_id + status_code + gross_amount + key).digest('hex');
+    if (sig(MIDTRANS_SERVER_KEY) !== signature_key && sig(MIDTRANS_V2_SERVER_KEY) !== signature_key) {
       console.warn('Signature tidak cocok, notifikasi ditolak:', order_id);
       return res.status(403).send('Invalid signature');
     }
@@ -303,6 +422,11 @@ exports.midtransWebhook = functions.https.onRequest(async (req, res) => {
       return res.status(404).send('Order not found');
     }
     const order = orderSnap.data();
+    // Kunci yang cocok harus kunci milik jenis order ini (V1 / V2)
+    if (sig(midtransCfg(order).key) !== signature_key) {
+      console.warn('Signature bukan dari kunci order ini, ditolak:', order_id);
+      return res.status(403).send('Invalid signature');
+    }
     if (Number(gross_amount) !== Number(order.grossAmount)) {
       console.warn('Nominal tidak cocok dengan order, diabaikan:', order_id, gross_amount, order.grossAmount);
       return res.status(400).send('Amount mismatch');
@@ -344,8 +468,9 @@ exports.checkMidtransPayment = functions.https.onCall(async (data, context) => {
     const order = doc.data();
     if (order.createdAt && order.createdAt.toMillis() < sevenDaysAgo) continue;
     checked++;
-    const resp = await fetch(`${MIDTRANS_API_URL}/v2/${encodeURIComponent(doc.id)}/status`, {
-      headers: { Accept: 'application/json', Authorization: midtransAuthHeader() },
+    const cfg = midtransCfg(order);
+    const resp = await fetch(`${cfg.api}/v2/${encodeURIComponent(doc.id)}/status`, {
+      headers: { Accept: 'application/json', Authorization: midtransAuthHeader(cfg.key) },
     });
     const st = await resp.json().catch(() => ({}));
     // Belum ada transaksi (pembeli belum memilih metode bayar) → lewati
