@@ -4,7 +4,7 @@
 // menentukan nominal sebenarnya; ini hanya untuk tampilan di aplikasi.
 // ══════════════════════════════════════════════════════════════════════
 export const DAY_MS = 24 * 60 * 60 * 1000;
-export const ORG_TRIAL_DAYS = 31;
+export const ORG_TRIAL_DAYS = 14;
 export const ORG_BASE = 200000;
 export const ORG_BASE_SLOTS = 2;
 export const ORG_SLOT = 100000;

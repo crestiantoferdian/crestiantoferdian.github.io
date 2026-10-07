@@ -1,4 +1,4 @@
-// SIMULASI LANGGANAN LLK V2 (Lembaga): uji coba 31 hari (2 slot: Rani yang ikut mengajar
+// SIMULASI LANGGANAN LLK V2 (Lembaga): uji coba 14 hari (2 slot: Rani yang ikut mengajar
 // + Pak Dimas) → slot penuh → berlangganan Paket Mulai + 1 slot (Rp300.000) untuk Bu Sari → murid meledak, tambah 5 slot
 // (Rp449.000/bulan, bayar sisa hari) → langganan habis (absensi terkunci) → perpanjang.
 // Midtrans & Cloud Functions diganti tiruan: harga dihitung dengan functions/orgPlans.js
@@ -63,11 +63,11 @@ const FAKE_SNAP=`window.snap={pay:function(token,cb){ window.__llkPaid(token).th
   const modal=p=>p.evaluate(()=>{const m=document.querySelector('.modal');return m?m.innerText:'';});
   const URL=(process.env.BASE_URL||'http://localhost:8765')+'/v2/';
 
-  console.log('\n[1] Rani membuat lembaga → uji coba 31 hari, 2 slot Guru Mitra');
+  console.log('\n[1] Rani membuat lembaga → uji coba 14 hari, 2 slot Guru Mitra');
   const A=await dev({uid:'gRani',email:'rani@gmail.com',displayName:'Rani'},{w:1440,h:900});
   await A.goto(URL); await A.waitForSelector('#rcLembaga',{timeout:15000});
   await A.click('#rcLembaga'); await sleep(300);
-  ok((await txt(A)).includes('Uji coba gratis 31 hari')&&(await txt(A)).includes('Rp 200.000'),'form daftar lembaga menjelaskan uji coba 31 hari & harga mulai Rp 200.000');
+  ok((await txt(A)).includes('Uji coba gratis 14 hari')&&(await txt(A)).includes('Rp 200.000'),'form daftar lembaga menjelaskan uji coba 14 hari & harga mulai Rp 200.000');
   await A.fill('#coName','Les Musik Rani'); await A.click('#coGo'); await sleep(2000);
   ORG=await A.evaluate(()=>window.__llk.S.org.id);
   t=await txt(A); ok(t.includes('0 / 2'),'slot Guru Mitra 0/2');
@@ -110,7 +110,7 @@ const FAKE_SNAP=`window.snap={pay:function(token,cb){ window.__llkPaid(token).th
   ok(o1&&o1.paid&&o1.grossAmount===300000&&o1.extra===1&&o1.period==='monthly','server menerima order Rp 300.000 (1 slot, bulanan) & lunas');
   t=await txt(A); ok(t.includes('Langganan aktif'),'aplikasi menampilkan "Langganan aktif"');
   let org=await orgNow();
-  const trialEnd=org.createdAtMs+31*DAY;
+  const trialEnd=org.createdAtMs+14*DAY;
   ok(org.seats===3&&org.plan==='pro'&&Math.abs(org.activeUntilMs-(trialEnd+30*DAY))<5*60e3,'lembaga: 3 slot, aktif sampai sisa uji coba + 30 hari (uji coba tidak hangus)');
   await A.click('#waClose').catch(()=>{}); await A.click('[data-tab=guru]'); await sleep(1500);
   t=await txt(A); ok(t.includes('2 / 3')&&!(await A.evaluate(()=>document.getElementById('addMitra').disabled)),'slot 2/3 → bisa mengundang 1 guru lagi');

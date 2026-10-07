@@ -198,8 +198,8 @@ await t('Langganan habis: Admin tetap bisa mengisi Izin', assertSucceeds(setDoc(
 await env.withSecurityRulesDisabled(async c=>{ await deleteDoc(doc(c.firestore(),'orgs','org2','att','c8_'+todayWIB)); });
 await expire('org2',30*864e5);
 await t('Diperpanjang: Guru Mitra bisa absen lagi', assertSucceeds(setDoc(aref(mitra2,todayWIB,'c8'),att({classId:'c8',studentId:'s8'}))));
-await env.withSecurityRulesDisabled(async c=>{ await updateDoc(doc(c.firestore(),'orgs','org3'),{createdAt:Timestamp.fromMillis(Date.now()-32*864e5)}); });
-await t('Uji coba lewat 31 hari: Admin tidak bisa menambah murid', assertFails(setDoc(doc(a3,'orgs','org3','students','s1'),{...stu})));
+await env.withSecurityRulesDisabled(async c=>{ await updateDoc(doc(c.firestore(),'orgs','org3'),{createdAt:Timestamp.fromMillis(Date.now()-15*864e5)}); });
+await t('Uji coba lewat 14 hari: Admin tidak bisa menambah murid', assertFails(setDoc(doc(a3,'orgs','org3','students','s1'),{...stu})));
 
 console.log('\n[V1 tetap aman]');
 await t('Guru Lepas bisa baca/tulis backup miliknya', assertSucceeds(setDoc(doc(other,'backups','other1','parts','students'),{data:[]})));

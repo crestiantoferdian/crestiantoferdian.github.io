@@ -57,13 +57,13 @@ service cloud.firestore {
         && (!('payDaySince' in d) || d.payDaySince == null || (d.payDaySince is string && d.payDaySince.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')));
     }
     // Langganan lembaga masih berlaku: activeUntil (diisi server setelah bayar)
-    // atau masa uji coba 31 hari sejak lembaga dibuat. Kalau habis: data tetap
+    // atau masa uji coba 14 hari sejak lembaga dibuat. Kalau habis: data tetap
     // bisa dibaca, tapi Guru Mitra tidak bisa absen & Admin tidak bisa menambah
     // murid / mengundang guru sampai diperpanjang.
     function orgActiveData(o) {
       return (o.get('activeUntil', null) is timestamp && o.activeUntil > request.time)
         || (!(o.get('activeUntil', null) is timestamp) && o.get('createdAt', null) is timestamp
-            && o.createdAt + duration.value(31, 'd') > request.time);
+            && o.createdAt + duration.value(14, 'd') > request.time);
     }
     function orgActive(orgId) { return orgActiveData(get(orgPath(orgId)).data); }
     // Satu akun hanya boleh tergabung di SATU lembaga
@@ -127,7 +127,7 @@ service cloud.firestore {
     // ── Lembaga ──
     match /orgs/{orgId} {
       allow read: if isMember(orgId);
-      // Membuat lembaga: pembuat jadi pemilik; uji coba 31 hari dengan 2 slot Guru Mitra
+      // Membuat lembaga: pembuat jadi pemilik; uji coba 14 hari dengan 2 slot Guru Mitra
       allow create: if signedIn()
         && request.resource.data.ownerUid == uid()
         && request.resource.data.keys().hasOnly(['name', 'logo', 'ownerUid', 'seats', 'plan', 'createdAt', 'updatedAt'])

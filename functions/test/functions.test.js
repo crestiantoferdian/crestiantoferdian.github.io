@@ -330,7 +330,7 @@ test('V2 langganan: slot tidak boleh kurang dari guru yang sudah ada (Admin yang
 });
 
 test('V2 webhook: lunas → slot & masa aktif lembaga diperbarui, sisa uji coba tidak hangus, riwayat tercatat', async () => {
-  seedOrg({ createdAgoDays: 21 }); // uji coba tinggal 10 hari
+  seedOrg({ createdAgoDays: 4 }); // uji coba (14 hari) tinggal 10 hari
   fakeSnap();
   const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 5, period: 'monthly' }, asRani);
   assert.strictEqual(r.grossAmount, 649000);
@@ -362,8 +362,8 @@ test('V2 tambah slot di tengah bulan: bayar sisa hari, diskon 5 slot dihitung da
 
 test('V2 tambah slot saat sisa uji coba: hari uji coba tidak ikut dibayar', async () => {
   const now = Date.now();
-  // lembaga dibuat 21 hari lalu (uji coba tinggal 10 hari), sudah bayar 1 bulan → aktif sampai 40 hari lagi
-  seedOrg({ seats: 3, plan: 'pro', period: 'monthly', createdAgoDays: 21, activeUntil: now + 40 * DAY });
+  // lembaga dibuat 4 hari lalu (uji coba tinggal 10 hari), sudah bayar 1 bulan → aktif sampai 40 hari lagi
+  seedOrg({ seats: 3, plan: 'pro', period: 'monthly', createdAgoDays: 4, activeUntil: now + 40 * DAY });
   fakeSnap();
   const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'addSlots', add: 1 }, asRani);
   assert.strictEqual(r.grossAmount, 100000, '30 hari berbayar × Rp100.000/bulan');
