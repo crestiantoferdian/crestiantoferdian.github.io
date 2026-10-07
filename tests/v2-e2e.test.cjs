@@ -25,7 +25,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   await A.screenshot({path:OUT+'v2_chooser.png'});
   await A.click('#rcLembaga'); await sleep(500);
   await A.fill('#coName','Les Musik Ceria'); await A.click('#coGo'); await sleep(2000);
-  ok((await txt(A)).includes('GURU ADMIN') && (await txt(A)).includes('0 / 5'),'lembaga dibuat → masuk sebagai Guru Admin, kursi 0/5');
+  ok((await txt(A)).includes('GURU ADMIN') && (await txt(A)).includes('0 / 2'),'lembaga dibuat → masuk sebagai Guru Admin, uji coba 2 slot (0/2)');
 
   console.log('\n[Admin mengundang Guru Mitra]');
   await A.click('#addMitra'); await A.fill('#amName','Budi Santoso'); await A.fill('#amHonor','30000'); await A.click('#amGo'); await sleep(1500);
@@ -34,7 +34,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   await A.click('#icWa'); const wa=await A.evaluate(()=>decodeURIComponent(window.__opened[0]||''));
   ok(wa.includes(code)&&wa.includes('?kode='+code),'pesan WA berisi kode & link undangan');
   await A.click('#icClose'); await sleep(800);
-  ok((await txt(A)).includes('1 / 5')&&(await txt(A)).includes('MENUNGGU'),'undangan menempati 1 kursi (1/5)');
+  ok((await txt(A)).includes('1 / 2')&&(await txt(A)).includes('MENUNGGU'),'undangan menempati 1 slot (1/2)');
   await A.screenshot({path:OUT+'v2_admin_guru.png'});
 
   console.log('\n[Mitra bergabung lewat link]');
@@ -71,18 +71,18 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   await A.reload(); await sleep(2500);
   // cabut undangan Sinta
   await A.click('[data-revoke]'); await A.click('#cfYes'); await sleep(1500);
-  ok((await txt(A)).includes('1 / 5')&&!(await txt(A)).includes('MENUNGGU'),'undangan dicabut → kursi kembali (1/5)');
+  ok((await txt(A)).includes('1 / 2')&&!(await txt(A)).includes('MENUNGGU'),'undangan dicabut → slot kembali (1/2)');
   // keluarkan Budi
   await A.click('[data-kick]'); ok(await A.evaluate(()=>document.getElementById('cfYes').disabled),'tombol Keluarkan terkunci sebelum ketik KELUAR');
   await A.fill('#cfWord','KELUAR'); await A.click('#cfYes'); await sleep(1500);
-  ok((await txt(A)).includes('0 / 5')&&(await txt(A)).includes('Belum ada Guru Mitra'),'Budi dikeluarkan → kursi 0/5');
+  ok((await txt(A)).includes('0 / 2')&&(await txt(A)).includes('Belum ada Guru Mitra'),'Budi dikeluarkan → slot 0/2');
   await M.reload(); await sleep(3000);
   await sleep(1500);
   ok((await txt(M)).includes('Pemilik Lembaga Les')&&!M.url().includes('guru.html'),'HP Budi kembali ke layar pilih peran (akses dicabut)');
 
   console.log('\n[Kursi penuh]');
-  for(let i=0;i<5;i++){ await A.click('#addMitra'); await A.fill('#amName','Guru '+i); await A.fill('#amHonor','20000'); await A.click('#amGo'); await sleep(1300); await A.click('#icClose'); await sleep(900); }
-  ok((await txt(A)).includes('5 / 5') && await A.evaluate(()=>document.getElementById('addMitra').disabled),'5/5 → tombol Tambah Guru Mitra nonaktif');
+  for(let i=0;i<2;i++){ await A.click('#addMitra'); await A.fill('#amName','Guru '+i); await A.fill('#amHonor','20000'); await A.click('#amGo'); await sleep(1300); await A.click('#icClose'); await sleep(900); }
+  ok((await txt(A)).includes('2 / 2') && await A.evaluate(()=>document.getElementById('addMitra').disabled) && !!(await A.$('#addSlot')),'2/2 → Tambah Guru Mitra nonaktif, muncul tombol Tambah Slot Guru');
 
   console.log('\n[Tampilan laptop]');
   const D=await dev({uid:'adminA',email:'admin@les.com'},{w:1280,h:800});

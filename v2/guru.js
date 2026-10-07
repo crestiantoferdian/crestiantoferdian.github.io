@@ -12,6 +12,7 @@ import { getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, setDoc, d
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import { ICONS, LLK_SUBJECT_ICON } from './v1-shared.js';
 import { renderSlipCanvas, canvasToBlob, slipNo, fmtKey, slipPdfBlob } from './slip.js';
+import { orgEndsMs } from './billing.js';
 
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyAvD4ABTYIjCtPCYzUaRM8AHsjiOamHQLU',
@@ -181,6 +182,11 @@ function dayBarHtml() {
 function centerDayBar() {
   setTimeout(() => { const bar = $('dayBar'), a = bar && bar.querySelector('.day-pill.active'); if (bar && a) bar.scrollLeft = a.offsetLeft - bar.offsetWidth / 2 + a.offsetWidth / 2; }, 50);
 }
+// Langganan lembaga habis → absensi dikunci (aturan server juga menolak)
+function orgActive() {
+  const ms = t => (t && t.toMillis ? t.toMillis() : 0), o = G.org || {};
+  return orgEndsMs({ activeUntilMs: ms(o.activeUntil), createdAtMs: ms(o.createdAt) || Date.now() }) > Date.now();
+}
 function renderAbsensi() {
   const today = todayStr(), key = G.date || today, isToday = key === today, isPast = key < today;
   const list = sessionsOn(key);
@@ -190,6 +196,7 @@ function renderAbsensi() {
     : `<div class="empty">${ill(isPast ? 'calendar' : 'notebook')}<div class="empty-t">Tidak ada jadwal ${isPast ? 'di tanggal ini' : 'hari ' + dayNameOf(key)}</div><div class="empty-d">Pilih tanggal lain di atas. Jadwal murid diatur oleh Guru Admin.</div></div>`;
   $('mainContent').innerHTML =
     `<div class="page-title-area"><div class="page-title">Absensi Harian</div><div class="page-sub">Tandai siswa yang hadir. Catat progress di setiap pertemuan.</div></div>`
+    + (orgActive() ? '' : `<div id="subOff" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 12px;padding:12px 14px;border-radius:14px;font-size:0.86rem;line-height:1.5;background:var(--alpa-bg);color:var(--alpa-text)">${I('lock')}<div><b>Langganan ${esc(G.org.name)} sudah berakhir.</b> Absensi dikunci sementara — minta Guru Admin memperpanjang. Data tetap aman.</div></div>`)
     + dayBarHtml()
     + `<div class="stats-row"${offC ? ' style="grid-template-columns:repeat(5,1fr)"' : ''}>
       <div class="stat-card s-hadir"><div class="stat-label">Hadir</div><div class="stat-num">${hadirC}</div></div>
@@ -254,6 +261,7 @@ function cardHtml(s, key, isToday, isPast) {
 let N = null;
 function openNote(sessId, status, key) {
   const s = sessionsOn(key).find(x => x.id === sessId); if (!s) return;
+  if (!orgActive()) { toast('🔒 Langganan lembaga berakhir — minta Guru Admin memperpanjang'); return; }
   N = { s, key };
   const r = s.rec || {};
   $('noteTitle').textContent = status === 'hadir' ? 'Catat Kehadiran' : status === 'izin' ? 'Tandai Izin' : 'Tandai Alpa';

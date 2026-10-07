@@ -9,6 +9,8 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signI
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, updateDoc, writeBatch, collection, query, where, serverTimestamp, Timestamp }
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js';
+import * as BL from './billing.js';
 import { renderSlipCanvas, canvasToBlob, slipWaText, compressPhoto, slipNo, fmtKey, slipPdfBlob, slipDefaultFormat, SLIP_PDF_FROM } from './slip.js';
 
 // Ikon garis dari sprite di index.html (satu set dengan V1)
@@ -35,6 +37,9 @@ const app = initializeApp(FIREBASE_CONFIG);
 const db = getFirestore(app);
 const auth = TEST ? null : getAuth(app);
 if (TEST) connectFirestoreEmulator(db, TEST.host, TEST.port, { mockUserToken: { sub: TEST.user.uid, email: TEST.user.email, email_verified: true } });
+// Cloud Functions (pembayaran langganan). Mode uji memakai server tiruan dari skrip pengujian.
+const fns = getFunctions(app, 'us-central1');
+const callFn = (name, data) => (TEST && window.__llkServer ? window.__llkServer(name, data) : httpsCallable(fns, name)(data).then(r => r.data));
 
 // ── State ──
 const S = { sel: new Set(), absDate: '', user: null, profile: null, org: null, member: null, tab: null, guru: null, data: null, muridView: 'daftar', filt: { q: '', guru: '', subj: '', status: 'aktif' }, schedGuru: '' };
@@ -54,7 +59,7 @@ function toast(msg, ms) {
 function setChoice(c) { try { localStorage.setItem(CHOICE_KEY, c); } catch (e) {} }
 function friendlyError(e) {
   const code = (e && e.code) || '';
-  if (code.includes('permission-denied')) return 'Akses ditolak oleh server.';
+  if (code.includes('permission-denied')) return S.org && !orgInfo().active ? 'Langganan lembaga sudah habis — perpanjang di menu Lainnya → Langganan.' : 'Akses ditolak oleh server.';
   if (code.includes('unavailable') || !navigator.onLine) return 'Tidak ada koneksi internet.';
   return (e && e.message) || 'Terjadi kesalahan.';
 }
@@ -254,7 +259,7 @@ function renderCreateOrg() {
         <button class="btn btn-ghost" style="width:auto;padding:10px 16px" id="coLogoBtn">Pilih Gambar</button>
         <input type="file" id="coLogo" accept="image/*" style="display:none"/></div>
     </div>
-    <div class="msg msg-info">Masa uji coba: <b>5 kursi Guru Mitra</b>. Paket berbayar diatur nanti.</div>
+    <div class="msg msg-info">Uji coba gratis <b>${BL.ORG_TRIAL_DAYS} hari</b> · 1 Guru Admin + <b>${BL.ORG_BASE_SLOTS} Guru Mitra</b>. Setelah itu mulai ${esc(rupiah(BL.ORG_BASE))}/bulan — tambah guru kapan saja.</div>
     <button class="btn btn-primary" id="coGo">Buat Lembaga</button>
     <div class="welcome-foot" style="padding-top:18px">Login sebagai ${esc(S.user.email)}</div>
   </div>`;
@@ -272,7 +277,7 @@ function renderCreateOrg() {
     try {
       const orgRef = doc(collection(db, 'orgs'));
       const b = writeBatch(db);
-      b.set(orgRef, { name, logo: logoData, ownerUid: S.user.uid, seats: 5, plan: 'trial', createdAt: serverTimestamp() });
+      b.set(orgRef, { name, logo: logoData, ownerUid: S.user.uid, seats: BL.ORG_BASE_SLOTS, plan: 'trial', createdAt: serverTimestamp() });
       b.set(doc(db, 'orgs', orgRef.id, 'members', S.user.uid), { role: 'admin', name: S.user.displayName || name, email: S.user.email || '', joinedAt: serverTimestamp() });
       b.set(doc(db, 'users', S.user.uid), { orgId: orgRef.id, orgRole: 'admin', mode: 'lembaga', updatedAt: serverTimestamp() });
       await b.commit();
@@ -391,9 +396,11 @@ function renderShell() {
         <div style="min-width:0"><div class="h-name">${esc(S.org.name)}</div><div class="h-sub">${esc(S.member.name)}</div></div>
         <div class="h-badge">${isAdmin() ? 'GURU ADMIN' : 'GURU MITRA'}</div>
       </header>
+      ${subBanner()}
       <main id="main"></main>
     </div>
   </div>`;
+  const sb = $('subBtn'); if (sb) sb.onclick = () => openSubscribe();
   document.querySelectorAll('.bnav').forEach(b => b.onclick = () => {
     S.tab = b.dataset.tab; S.data = null; renderShell(); // data selalu segar saat pindah menu (mis. guru baru bergabung)
   });
@@ -439,7 +446,7 @@ async function renderGuru(m) {
   m.innerHTML = '<div class="page-title">Guru Mitra</div><div class="page-sub">Memuat…</div>';
   let g;
   try { g = await loadGuru(); await loadPayroll(); } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
-  const seats = S.org.seats || 0, used = g.slots.length, full = used >= seats;
+  const seats = S.org.seats || 0, used = g.slots.filter(x => x.kind !== 'self').length, full = used >= seats, oi = orgInfo();
   const meTeaches = !!(S.member && S.member.teaches);
   const mitraHtml = g.mitras.length ? g.mitras.map(x => `
     <div class="card">
@@ -464,8 +471,8 @@ async function renderGuru(m) {
   const selfCard = meTeaches ? '' : `
     <div class="card" style="border-style:dashed">
       <div class="row"><div class="avatar" style="background:var(--blue-bg);color:var(--blue)">${I('user')}</div>
-        <div class="grow"><div class="t-name">Kamu juga mengajar?</div><div class="t-meta" style="white-space:normal">Aplikasi Admin khusus administrasi. Untuk mengajar, daftarkan dirimu sebagai Guru Mitra (memakai 1 kursi), lalu pasang aplikasi <b>Guru Mitra</b> di HP — login dengan akun Google yang sama.</div></div></div>
-      <button class="btn btn-ghost" id="selfTeach" ${full ? 'disabled' : ''} style="margin-top:12px">${I('user-plus','sm')} Saya juga mengajar</button>
+        <div class="grow"><div class="t-name">Kamu juga mengajar?</div><div class="t-meta" style="white-space:normal">Aplikasi Admin khusus administrasi. Untuk mengajar, daftarkan dirimu sebagai Guru Mitra (<b>gratis</b>, tidak memakai slot), lalu pasang aplikasi <b>Guru Mitra</b> di HP — login dengan akun Google yang sama.</div></div></div>
+      <button class="btn btn-ghost" id="selfTeach" style="margin-top:12px">${I('user-plus','sm')} Saya juga mengajar</button>
     </div>`;
   const invHtml = g.invites.length ? g.invites.map(x => {
     const exp = isExpired(x);
@@ -489,16 +496,18 @@ async function renderGuru(m) {
     <div class="page-sub">Undang guru dengan kode unik — satu kode untuk satu guru</div>
     ${dueBanner(g.mitras)}
     <div class="card">
-      <div class="row"><div class="grow"><div class="card-t" style="margin:0">Kursi Guru Mitra</div></div><b>${used} / ${seats}</b></div>
+      <div class="row"><div class="grow"><div class="card-t" style="margin:0">Slot Guru Mitra</div></div><b>${used} / ${seats}</b></div>
       <div class="seat-bar"><div class="seat-fill" style="width:${seats ? Math.min(100, used / seats * 100) : 0}%;${full ? 'background:var(--amber)' : ''}"></div></div>
-      <div class="t-meta" style="margin-top:8px;white-space:normal">${full ? 'Kursi penuh. Tambah kursi lewat paket langganan (segera hadir), atau cabut undangan yang tidak dipakai.' : 'Undangan yang belum dipakai juga menempati kursi sampai dicabut.'}</div>
+      <div class="t-meta" style="margin-top:8px;white-space:normal">${!oi.active ? '<span class="t-warn">Langganan habis</span> — perpanjang dulu untuk mengundang guru.' : full ? 'Slot penuh. Dapat guru baru? Tambah slot ' + esc(rupiah(BL.ORG_SLOT)) + '/bulan (5 slot ' + esc(rupiah(BL.ORG_BUNDLE_PRICE)) + ').' : 'Undangan yang belum dipakai juga menempati slot sampai dicabut.'}${S.member.teaches ? ' Kamu sendiri mengajar gratis (tidak memakai slot).' : ''}</div>
+      ${full || !oi.active ? `<button class="btn btn-ghost" id="addSlot" style="margin-top:12px">${I('plus', 'sm')} ${oi.active ? 'Tambah Slot Guru' : 'Perpanjang Langganan'}</button>` : ''}
     </div>
-    <button class="btn btn-primary" id="addMitra" ${full ? 'disabled' : ''} style="margin-bottom:18px">＋ Tambah Guru Mitra</button>
+    <button class="btn btn-primary" id="addMitra" ${full || !oi.active ? 'disabled' : ''} style="margin-bottom:18px">＋ Tambah Guru Mitra</button>
     ${selfCard}
     ${g.invites.length ? `<div class="card-t">Undangan belum dipakai (${g.invites.length})</div>${invHtml}` : ''}
     <div class="card-t" style="margin-top:6px">Guru Mitra aktif (${g.mitras.length})</div>
     ${mitraHtml || '<div class="card"><div class="empty"><div class="empty-ic">'+I('users')+'</div><div class="empty-t">Belum ada Guru Mitra</div><div class="empty-d">Tekan “Tambah Guru Mitra”, lalu kirim kodenya lewat WA.</div></div></div>'}`;
   $('addMitra').onclick = openAddMitra;
+  const asl = $('addSlot'); if (asl) asl.onclick = () => (orgInfo().paid && orgInfo().active ? openAddSlots() : openSubscribe());
   m.querySelectorAll('[data-wa]').forEach(b => b.onclick = () => shareInvite(g.invites.find(x => x.id === b.dataset.wa)));
   m.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyInvite(g.invites.find(x => x.id === b.dataset.copy)));
   m.querySelectorAll('[data-revoke]').forEach(b => b.onclick = () => revokeInvite(g.invites.find(x => x.id === b.dataset.revoke)));
@@ -514,7 +523,7 @@ async function renderGuru(m) {
 function openSelfTeach() {
   openModal(`
     <div class="modal-t">${I('user-plus')} Saya juga mengajar</div>
-    <div class="modal-sub">Kamu akan tampil di daftar guru dan bisa diberi murid. Absensi & progres murid-muridmu diisi lewat <b>aplikasi Guru Mitra</b> (akun Google yang sama), persis seperti guru lain. Memakai 1 kursi Guru Mitra.</div>
+    <div class="modal-sub">Kamu akan tampil di daftar guru dan bisa diberi murid. Absensi & progres murid-muridmu diisi lewat <b>aplikasi Guru Mitra</b> (akun Google yang sama), persis seperti guru lain. <b>Gratis</b> — tidak memakai slot Guru Mitra.</div>
     <div class="field"><label>Honor per pertemuan untuk dirimu (Rp, opsional)</label><input id="stHonor" type="number" inputmode="numeric" min="0" step="1000" value="0"/>
       <div class="hint">Isi kalau ingin gajimu sendiri ikut tercatat di rekap honor. Boleh 0.</div></div>
     <div class="btn-row"><button class="btn btn-ghost" id="stNo">Batal</button><button class="btn btn-primary" id="stGo">${I('check','sm')} Daftarkan</button></div>`);
@@ -523,10 +532,7 @@ function openSelfTeach() {
     const honor = Math.max(0, parseInt($('stHonor').value, 10) || 0);
     $('stGo').disabled = true;
     try {
-      const slotsSnap = await getDocs(collection(db, 'orgs', S.org.id, 'slots'));
-      const taken = new Set(slotsSnap.docs.map(d => d.id));
-      let slot = null; for (let i = 1; i <= (S.org.seats || 0); i++) if (!taken.has(String(i))) { slot = i; break; }
-      if (!slot) throw new Error('Kursi Guru Mitra sudah penuh.');
+      const slot = 0; // slot khusus Guru Admin (gratis)
       const b = writeBatch(db);
       b.update(doc(db, 'orgs', S.org.id, 'members', S.user.uid), { teaches: true, honor, slot });
       b.set(doc(db, 'orgs', S.org.id, 'slots', String(slot)), { kind: 'self', uid: S.user.uid });
@@ -555,11 +561,11 @@ async function stopSelfTeach() {
     const n = snap.docs.filter(d => d.data().active && (d.data().classes || []).some(c => c.mitraUid === S.user.uid)).length;
     if (n) { toast('⚠️ Masih ada ' + n + ' murid aktif yang kamu ajar. Pindahkan dulu ke guru lain di menu Murid.', 5000); return; }
   } catch (e) { toast('❌ ' + friendlyError(e)); return; }
-  confirmDanger({ title: 'Berhenti mengajar?', message: 'Kamu tidak lagi tampil di daftar guru dan kursimu kembali kosong. Riwayat absensimu tetap tersimpan.', confirmText: 'Berhenti Mengajar' }, async () => {
+  confirmDanger({ title: 'Berhenti mengajar?', message: 'Kamu tidak lagi tampil di daftar guru. Riwayat absensimu tetap tersimpan.', confirmText: 'Berhenti Mengajar' }, async () => {
     try {
       const b = writeBatch(db);
       b.update(doc(db, 'orgs', S.org.id, 'members', S.user.uid), { teaches: false });
-      if (S.member.slot) b.delete(doc(db, 'orgs', S.org.id, 'slots', String(S.member.slot)));
+      if (S.member.slot != null) b.delete(doc(db, 'orgs', S.org.id, 'slots', String(S.member.slot)));
       await b.commit();
       S.member.teaches = false; S.data = null; toast('Kamu berhenti mengajar'); renderTab();
     } catch (e) { toast('❌ ' + friendlyError(e), 4000); }
@@ -593,7 +599,7 @@ function openAddMitra() {
       showInviteCreated(inv);
       renderTab();
     } catch (e) {
-      err(e.message === 'FULL' ? 'Kursi Guru Mitra sudah penuh.' : 'Gagal membuat undangan: ' + friendlyError(e));
+      err(e.message === 'FULL' ? 'Slot Guru Mitra sudah penuh — tambah slot dulu.' : 'Gagal membuat undangan: ' + friendlyError(e));
       $('amGo').disabled = false; $('amGo').textContent = 'Buat Undangan';
     }
   };
@@ -1597,6 +1603,201 @@ async function viewSlip(p) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
+// LANGGANAN LEMBAGA — Paket Mulai 1 Admin + 2 Guru Mitra, tambah slot
+// Rp100.000 (5 slot Rp449.000), bayar lewat Midtrans (functions/index.js).
+// ══════════════════════════════════════════════════════════════════════
+function tsMs(t) { return t && t.toMillis ? t.toMillis() : (t && t.seconds ? t.seconds * 1000 : 0); }
+function orgInfo() {
+  const o = S.org || {}, now = Date.now();
+  const org = { seats: o.seats, plan: o.plan, period: o.period, activeUntilMs: tsMs(o.activeUntil), createdAtMs: tsMs(o.createdAt) || now };
+  const endsMs = BL.orgEndsMs(org);
+  return { org, endsMs, paid: o.plan === 'pro', active: endsMs > now, daysLeft: Math.ceil((endsMs - now) / BL.DAY_MS),
+    seats: o.seats || BL.ORG_BASE_SLOTS, extra: Math.max(0, (o.seats || BL.ORG_BASE_SLOTS) - BL.ORG_BASE_SLOTS), period: o.period || 'monthly' };
+}
+const fmtMs = ms => new Date(ms).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+function subBanner() {
+  if (!isAdmin()) return '';
+  const i = orgInfo();
+  let t = '';
+  if (!i.active) t = `<b>${i.paid ? 'Langganan lembaga berakhir' : 'Masa uji coba berakhir'}</b> ${fmtMs(i.endsMs)}. Data tetap aman, tapi Guru Mitra tidak bisa absen & murid baru tidak bisa ditambah.`;
+  else if (!i.paid && i.daysLeft <= 7) t = `<b>Uji coba tinggal ${i.daysLeft} hari</b> (sampai ${fmtMs(i.endsMs)}). Langganan mulai ${rupiah(BL.ORG_BASE)}/bulan.`;
+  else if (i.paid && i.daysLeft <= 5) t = `<b>Langganan berakhir ${i.daysLeft} hari lagi</b> (${fmtMs(i.endsMs)}).`;
+  if (!t) return '';
+  return `<div class="sub-banner${i.active ? '' : ' is-off'}">${I(i.active ? 'clock' : 'lock')}<div class="grow">${t}</div><button class="mini ${i.active ? '' : 'mini-red'}" id="subBtn">${i.paid ? 'Perpanjang' : 'Langganan'}</button></div>`;
+}
+function subCard() {
+  const i = orgInfo();
+  const status = !i.active ? `<span class="pill pill-red">${i.paid ? 'BERAKHIR' : 'UJI COBA BERAKHIR'}</span>` : i.paid ? '<span class="pill pill-green">AKTIF</span>' : '<span class="pill pill-amber">UJI COBA</span>';
+  return `<div class="card" id="subCard">
+      <div class="row"><div class="grow"><div class="card-t" style="margin:0">Langganan Lembaga</div></div>${status}</div>
+      <div class="t-meta" style="white-space:normal;margin-top:8px;line-height:1.7">
+        ${i.paid ? (i.active ? 'Aktif sampai' : 'Berakhir') : (i.active ? 'Uji coba gratis sampai' : 'Uji coba berakhir')} <b style="color:var(--text)">${esc(fmtMs(i.endsMs))}</b>${i.active ? ' · ' + i.daysLeft + ' hari lagi' : ''}<br>
+        1 Guru Admin + <b style="color:var(--text)">${i.seats} slot Guru Mitra</b>${i.paid ? ' · ' + (i.period === 'yearly' ? 'tahunan' : 'bulanan') + ' ' + esc(rupiah(BL.periodPrice(i.extra, i.period))) : ''}</div>
+      <div class="mini-btns">
+        <button class="mini mini-green" id="subGo">${I('card', 'sm')} ${i.paid ? 'Perpanjang' : 'Pilih Paket Langganan'}</button>
+        ${i.paid && i.active ? `<button class="mini" id="subAdd">${I('plus', 'sm')} Tambah Slot Guru</button>` : ''}
+        <button class="mini" id="subCheck">${I('refresh', 'sm')} Cek status pembayaran</button>
+      </div>
+      <div id="subInv" class="t-meta" style="margin-top:10px;white-space:normal"></div>
+    </div>`;
+}
+async function bindSubCard() {
+  $('subGo').onclick = () => openSubscribe();
+  const a = $('subAdd'); if (a) a.onclick = () => openAddSlots();
+  $('subCheck').onclick = async () => { $('subCheck').disabled = true; await checkPayments(true); };
+  try {
+    const snap = await getDocs(collection(db, 'orgs', S.org.id, 'invoices'));
+    const list = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((x, y) => tsMs(y.paidAt) - tsMs(x.paidAt));
+    if (list.length && $('subInv')) $('subInv').innerHTML = `<div class="card-t" style="margin:6px 0">Riwayat pembayaran</div>` + list.map(x =>
+      `<div class="row" style="padding:6px 0;border-top:1px solid var(--border)"><div class="grow">${esc(x.label || '')}<br><span style="font-size:0.78rem">${esc(fmtMs(tsMs(x.paidAt)))} · ${esc(x.id)}</span></div><b style="color:var(--text)">${esc(rupiah(x.amount))}</b></div>`).join('');
+  } catch (e) {}
+}
+// Jumlah slot terisi (undangan + guru); Guru Admin yang mengajar tidak dihitung
+async function usedSlots() {
+  const snap = await getDocs(collection(db, 'orgs', S.org.id, 'slots'));
+  return snap.docs.filter(d => d.data().kind !== 'self').length;
+}
+function stepperHtml(id, v) { return `<div class="stepper"><button class="st-b" data-st="-1" aria-label="Kurangi">−</button><b id="${id}">${v}</b><button class="st-b" data-st="1" aria-label="Tambah">＋</button></div>`; }
+async function openSubscribe() {
+  const i = orgInfo();
+  let used = 0; try { used = await usedSlots(); } catch (e) {}
+  const lockUp = i.paid && i.active; // langganan aktif: tambah slot lewat "Tambah Slot Guru" (bayar sisa hari)
+  const minX = Math.max(0, used - BL.ORG_BASE_SLOTS), maxX = lockUp ? i.extra : BL.ORG_MAX_EXTRA;
+  const F = { extra: Math.min(maxX, Math.max(minX, i.extra)), period: i.paid ? i.period : 'monthly' };
+  openModal(`
+    <div class="modal-t">${I('card')} ${i.paid ? 'Perpanjang Langganan' : 'Langganan LLK Lembaga'}</div>
+    <div class="modal-sub">Paket Mulai: 1 Guru Admin + ${BL.ORG_BASE_SLOTS} Guru Mitra. Dapat guru baru? Tambah slot kapan saja.</div>
+    <div class="seg" style="margin-bottom:12px"><button class="seg-b" data-per="monthly">Bulanan</button><button class="seg-b" data-per="yearly">Tahunan · gratis 2 bulan</button></div>
+    <div class="field"><label>Slot Guru Mitra tambahan</label>
+      <div class="row" style="gap:12px">${stepperHtml('suX', F.extra)}<div class="grow t-meta" id="suGuru" style="white-space:normal"></div></div>
+      <div class="hint" id="suHint"></div></div>
+    <div class="po-sum" id="suSum" style="display:block"></div>
+    <div id="suMsg"></div>
+    <button class="btn btn-green" id="suPay"></button>
+    <button class="btn btn-ghost" id="suNo">Batal</button>`);
+  const paint = () => {
+    document.querySelectorAll('[data-per]').forEach(b => b.classList.toggle('on', b.dataset.per === F.period));
+    const x = F.extra, mo = BL.monthlyPrice(x), tot = BL.periodPrice(x, F.period), save = BL.bundleSaving(x), r = x % BL.ORG_BUNDLE;
+    $('suX').textContent = x;
+    $('suGuru').innerHTML = `= <b style="color:var(--text)">${BL.ORG_BASE_SLOTS + x} Guru Mitra</b> + 1 Guru Admin`;
+    $('suHint').innerHTML = lockUp && x === maxX ? 'Butuh lebih banyak guru sekarang? Tutup lalu pakai <b>Tambah Slot Guru</b> (bayar sisa hari saja).'
+      : x <= minX && minX > 0 ? `Minimal ${minX} slot tambahan — sudah ada ${used} guru/undangan.`
+      : r === 4 ? `🎁 Tambah 1 slot lagi cuma +${rupiah(BL.ORG_BUNDLE_PRICE - 4 * BL.ORG_SLOT)} (5 slot = ${rupiah(BL.ORG_BUNDLE_PRICE)})`
+      : `${rupiah(BL.ORG_SLOT)}/slot · 5 slot cuma ${rupiah(BL.ORG_BUNDLE_PRICE)} (hemat ${rupiah(BL.ORG_BUNDLE * BL.ORG_SLOT - BL.ORG_BUNDLE_PRICE)})`;
+    const startMs = Math.max(Date.now(), i.endsMs), untilMs = startMs + BL.ORG_PERIODS[F.period].days * BL.DAY_MS;
+    $('suSum').innerHTML = `
+      <div class="row"><div class="grow">Paket Mulai (1 Admin + ${BL.ORG_BASE_SLOTS} Guru Mitra)</div><b>${rupiah(BL.ORG_BASE)}</b></div>
+      ${x ? `<div class="row"><div class="grow">${x} slot tambahan${save ? ` <span class="pill pill-green">🎉 Hemat ${rupiah(save)}</span>` : ''}</div><b>${save ? `<s class="t-meta">${rupiah(x * BL.ORG_SLOT)}</s> ` : ''}${rupiah(BL.extraPrice(x))}</b></div>` : ''}
+      <div class="row" style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px"><div class="grow">Per bulan</div><b>${rupiah(mo)}</b></div>
+      ${F.period === 'yearly' ? `<div class="row"><div class="grow">Tahunan: bayar 10 bulan, aktif 12 bulan</div><b>${rupiah(tot)}</b></div>` : ''}
+      <div class="t-meta" style="margin-top:6px;white-space:normal">Aktif sampai <b style="color:var(--text)">${fmtMs(untilMs)}</b>${i.active ? ' (ditambahkan setelah masa sekarang habis)' : ''}</div>`;
+    $('suPay').innerHTML = `${I('card', 'sm')} Bayar ${rupiah(tot)}`;
+    document.querySelector('[data-st="-1"]').disabled = x <= minX;
+    document.querySelector('[data-st="1"]').disabled = x >= maxX;
+  };
+  document.querySelectorAll('[data-per]').forEach(b => b.onclick = () => { F.period = b.dataset.per; paint(); });
+  document.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { F.extra = Math.min(maxX, Math.max(minX, F.extra + +b.dataset.st)); paint(); });
+  $('suNo').onclick = closeModal;
+  $('suPay').onclick = () => startPayment({ orgId: S.org.id, action: 'subscribe', extra: F.extra, period: F.period }, 'suPay', 'suMsg');
+  paint();
+}
+function openAddSlots() {
+  const i = orgInfo();
+  const F = { add: 1 };
+  openModal(`
+    <div class="modal-t">${I('plus')} Tambah Slot Guru Mitra</div>
+    <div class="modal-sub">Sekarang ${i.seats} slot. Slot baru langsung bisa dipakai mengundang guru.</div>
+    <div class="field"><label>Tambah berapa slot?</label><div class="row" style="gap:12px">${stepperHtml('asN', 1)}<div class="grow t-meta" id="asGuru" style="white-space:normal"></div></div>
+      <div class="hint" id="asHint"></div></div>
+    <div class="po-sum" id="asSum" style="display:block"></div>
+    <div id="asMsg"></div>
+    <button class="btn btn-green" id="asPay"></button>
+    <button class="btn btn-ghost" id="asNo">Batal</button>`);
+  const paint = () => {
+    const n = F.add, oldMo = BL.periodPrice(i.extra, i.period), newMo = BL.periodPrice(i.extra + n, i.period);
+    const pr = BL.addSlotsPrice(i.org, n, Date.now()), per = i.period === 'yearly' ? '/tahun' : '/bulan';
+    const trialLeft = i.org.createdAtMs + BL.ORG_TRIAL_DAYS * BL.DAY_MS > Date.now();
+    const save = BL.bundleSaving(i.extra + n) - BL.bundleSaving(i.extra);
+    $('asN').textContent = n;
+    $('asGuru').innerHTML = `jadi <b style="color:var(--text)">${i.seats + n} Guru Mitra</b>`;
+    $('asHint').innerHTML = n % BL.ORG_BUNDLE === 0 || save > 0 ? `🎉 Harga paket 5 slot: Hemat ${rupiah(save)}${per === '/bulan' ? ' tiap bulan' : ''}` : `${rupiah(BL.ORG_SLOT)}/slot/bulan · 5 slot cuma ${rupiah(BL.ORG_BUNDLE_PRICE)}`;
+    $('asSum').innerHTML = `
+      <div class="row"><div class="grow">Langganan sekarang (${i.seats} slot)</div><b>${rupiah(oldMo)}${per}</b></div>
+      <div class="row"><div class="grow">Setelah tambah ${n} slot (${i.seats + n} slot)</div><b>${rupiah(newMo)}${per}</b></div>
+      <div class="row" style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px"><div class="grow">Bayar sekarang untuk ${pr.days} hari tersisa (sampai ${fmtMs(i.endsMs)})${trialLeft ? ` — gratis selama sisa uji coba` : ''}</div><b>${rupiah(pr.amount)}</b></div>
+      <div class="t-meta" style="margin-top:6px;white-space:normal">Perpanjangan berikutnya ${rupiah(newMo)}${per}.</div>`;
+    $('asPay').innerHTML = `${I('card', 'sm')} Bayar ${rupiah(pr.amount)}`;
+    document.querySelector('[data-st="-1"]').disabled = n <= 1;
+  };
+  document.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { F.add = Math.min(BL.ORG_MAX_EXTRA - i.extra, Math.max(1, F.add + +b.dataset.st)); paint(); });
+  $('asNo').onclick = closeModal;
+  $('asPay').onclick = () => startPayment({ orgId: S.org.id, action: 'addSlots', add: F.add }, 'asPay', 'asMsg');
+  paint();
+}
+let snapLoading = null;
+function loadSnap() {
+  if (window.snap && window.snap.pay) return Promise.resolve(window.snap);
+  if (snapLoading) return snapLoading;
+  snapLoading = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = (BL.MIDTRANS_V2.production ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com') + '/snap/snap.js';
+    sc.setAttribute('data-client-key', BL.MIDTRANS_V2.clientKey);
+    sc.onload = () => (window.snap ? resolve(window.snap) : reject(new Error('Midtrans tidak tersedia')));
+    sc.onerror = () => { snapLoading = null; reject(new Error('Gagal memuat Midtrans (cek internet)')); };
+    document.head.appendChild(sc);
+  });
+  return snapLoading;
+}
+async function startPayment(req, btnId, msgId) {
+  const btn = $(btnId), msg = (t, cls) => { $(msgId).innerHTML = `<div class="msg ${cls || 'msg-err'}">${t}</div>`; };
+  btn.disabled = true; const label = btn.innerHTML; btn.textContent = 'Menyiapkan pembayaran…';
+  let r;
+  try { [r] = await Promise.all([callFn('createOrgTransaction', req), loadSnap()]); }
+  catch (e) { btn.disabled = false; btn.innerHTML = label; msg(esc((e && e.message) || 'Gagal membuat pembayaran')); return; }
+  const done = (kind) => { closeModal(); waitActivation(r.orderId, kind); };
+  window.snap.pay(r.token, {
+    onSuccess: () => done('success'),
+    onPending: () => done('pending'),
+    onError: () => { btn.disabled = false; btn.innerHTML = label; msg('Pembayaran gagal. Coba lagi atau pilih metode lain.'); },
+    onClose: () => { btn.disabled = false; btn.innerHTML = label; checkPayments(false); },
+  });
+}
+// Server mengaktifkan lewat notifikasi Midtrans; aplikasi ikut mengecek supaya cepat tampil
+async function waitActivation(orderId, kind) {
+  openModal(`<div class="modal-t">${I(kind === 'success' ? 'check-circle' : 'hourglass')} ${kind === 'success' ? 'Pembayaran berhasil' : 'Menunggu pembayaran'}</div>
+    <div class="modal-sub" id="waTxt">${kind === 'success' ? 'Mengaktifkan langganan…' : 'Selesaikan pembayaran sesuai petunjuk (transfer VA / QRIS). Langganan aktif otomatis setelah dibayar — boleh tutup jendela ini.'}</div>
+    <button class="btn btn-ghost" id="waClose">Tutup</button>`);
+  $('waClose').onclick = closeModal;
+  for (let k = 0; k < (kind === 'success' ? 12 : 3); k++) {
+    if (k) await new Promise(res => setTimeout(res, 2500));
+    if (await refreshOrg(orderId)) {
+      const i = orgInfo();
+      if ($('waTxt')) $('waTxt').innerHTML = `✅ Langganan aktif sampai <b>${esc(fmtMs(i.endsMs))}</b> · ${i.seats} slot Guru Mitra.`;
+      toast('✅ Langganan aktif · ' + i.seats + ' slot Guru Mitra', 4000);
+      renderShell(); return;
+    }
+    if (k === 1 || k === 6) await checkPayments(false);
+  }
+  if (kind === 'success' && $('waTxt')) $('waTxt').innerHTML = 'Pembayaran diterima. Aktivasi sedang diproses — buka Lainnya → <b>Cek status pembayaran</b> beberapa saat lagi.';
+}
+async function refreshOrg(orderId) {
+  try {
+    const o = await getDoc(doc(db, 'orgs', S.org.id));
+    S.org = Object.assign({ id: o.id }, o.data());
+    return orderId ? S.org.lastOrderId === orderId : true;
+  } catch (e) { return false; }
+}
+async function checkPayments(manual) {
+  try {
+    const before = S.org.lastOrderId;
+    await callFn('checkMidtransPayment', {});
+    await refreshOrg();
+    if (S.org.lastOrderId !== before) { toast('✅ Pembayaran terkonfirmasi — langganan diperbarui', 4000); renderShell(); }
+    else if (manual) { toast('Belum ada pembayaran baru yang lunas', 3000); if (S.tab === 'lainnya') renderTab(); }
+  } catch (e) { if (manual) { toast('❌ ' + ((e && e.message) || 'Gagal mengecek')); if (S.tab === 'lainnya') renderTab(); } }
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // ADMIN — LAINNYA
 // ══════════════════════════════════════════════════════════════════════
 function renderAdminLainnya(m) {
@@ -1611,10 +1812,7 @@ function renderAdminLainnya(m) {
         <input type="file" id="olLogo" accept="image/*" style="display:none"/></div></div>
       <button class="btn btn-primary" id="olSave">${I('check')} Simpan</button>
     </div>
-    <div class="card">
-      <div class="card-t">Paket</div>
-      <div class="t-meta" style="white-space:normal">Masa uji coba · <b style="color:var(--text)">${esc(S.org.seats)} kursi Guru Mitra</b>. Pilihan paket berbayar menyusul.</div>
-    </div>
+    ${subCard()}
     <div class="card" style="padding:4px 14px">
       <button class="menu-item" id="olMode"><div class="menu-ic">${I('repeat')}</div><div><div class="menu-l">Ganti Mode</div><div class="menu-d">Pindah ke Guru Lepas (data pribadi terpisah)</div></div></button>
       <button class="menu-item" id="olOut"><div class="menu-ic" style="color:var(--danger)">${I('logout')}</div><div><div class="menu-l" style="color:var(--danger)">Keluar (Logout)</div><div class="menu-d">${esc(S.user.email)}</div></div></button>
@@ -1630,6 +1828,7 @@ function renderAdminLainnya(m) {
   };
   $('olMode').onclick = renderChooser;
   $('olOut').onclick = logout;
+  bindSubCard();
 }
 
 // ══════════════════════════════════════════════════════════════════════
