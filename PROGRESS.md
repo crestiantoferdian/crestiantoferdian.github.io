@@ -9,6 +9,11 @@ _Terakhir diperbarui: 7 Okt 2026 (V1: invoice & kuitansi dikirim sebagai gambar 
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## 🖼️ Layar pembuka (splash) memakai logo LLK asli (8 Okt 2026)
+- Layar pembuka aplikasi terpasang dibuat otomatis oleh Android dari ikon di manifest. Dulu ikon `icon-192/512.png` dipakai untuk "any maskable" sekaligus, sehingga layar pembuka menampilkan ikon bulat merah dengan sudut hitam (bagian transparan diisi hitam oleh Android).
+- Sekarang: `splash-192/512.png` (purpose **any**: emblem buku + "LLK Les LesanKu", latar transparan di atas krem `#f6f1e9`) untuk layar pembuka, dan `icon-maskable-192/512.png` (purpose **maskable**: merah penuh sampai tepi + LLK di area aman) untuk ikon layar utama, sehingga sudut hitam hilang. Berlaku di `manifest.json` dan kedua manifest V2. File `icon-192/512.png` lama tetap ada (dipakai notifikasi & favicon V2).
+- HP yang sudah memasang aplikasi: Chrome memperbarui ikon/layar pembuka otomatis (bisa makan waktu sampai beberapa hari); cara cepat = hapus aplikasi dari layar utama lalu pasang lagi (data aman, tersimpan di akun Google). Aplikasi versi Play Store (TWA) memakai layar pembuka dari paket Android — perlu dibuat ulang di PWABuilder (pakai `splash-512.png`) saat build AAB berikutnya.
+
 ## 📈 Track: Proyeksi akhir tidak dobel lagi (6 Okt 2026)
 - Angka Estimasi "Semua" = seluruh riwayat (termasuk hasil Impor Riwayat) × tarif murid **saat ini**; Hadir + Alpa dihitung, Izin/Off tidak.
 - Bug Proyeksi (tombol ✨): kartu **asal** reschedule ("Pindah ke …") ikut dihitung → 1 pertemuan yang dipindah terhitung 2x; sama untuk Tambahan Kelas yang dipindah; Izin/Off yang dicatat **di muka** tetap diproyeksikan; di "Hari Ini" murid yang dipindah ke hari lain masih dihitung.
