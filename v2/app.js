@@ -11,10 +11,44 @@ import { getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, updateDoc
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js';
 import * as BL from './billing.js';
+import { ICONS, LLK_SUBJECT_ICON } from './v1-shared.js';
 import { renderSlipCanvas, canvasToBlob, slipWaText, compressPhoto, slipNo, fmtKey, slipPdfBlob, slipDefaultFormat, SLIP_PDF_FROM } from './slip.js';
 
 // Ikon garis dari sprite di index.html (satu set dengan V1)
 const I = (n, c) => `<svg class="ico${c ? ' ' + c : ''}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+
+// ── Ikon mata pelajaran (sama dengan V1 & aplikasi Guru Mitra: getInstrumentIcon + llkSubjectIcon) ──
+function getInstrumentIcon(instrument) {
+  if (!instrument) return '🎵';
+  if (ICONS[instrument]) return ICONS[instrument];
+  const lower = instrument.toLowerCase().trim();
+  const keys = Object.keys(ICONS).filter(k => k !== 'Bahasa');
+  const exact = keys.find(k => k.toLowerCase() === lower);
+  if (exact) return ICONS[exact];
+  const part = keys.filter(k => lower.includes(k.toLowerCase()) || k.toLowerCase().includes(lower));
+  if (part.length) { part.sort((a, b) => b.length - a.length); return ICONS[part[0]]; }
+  if (lower.includes('bahasa') || lower.includes('language')) return '🌐';
+  return '🎵';
+}
+function subjectHue(n) {
+  const k = { piano: 1, drum: 4, guitar: 7, mic: 12, violin: 15, music: 18, math: 0, microscope: 2, atom: 3, flask: 5, dna: 6, globe: 8, scroll: 9, chart: 10, laptop: 11, 'book-open': 13, pencil: 14, scale: 16, lang: 17, users: 19 }[n];
+  return (k === undefined ? 18 : k) * 18;
+}
+function subjectStyle(n) {
+  const h = subjectHue(n), odd = (h / 18) % 2 === 1;
+  if (document.documentElement.getAttribute('data-theme') === 'dark')
+    return odd ? `background:hsl(${h},32%,26%);color:hsl(${h},70%,80%)` : `background:hsl(${h},26%,20%);color:hsl(${h},62%,74%)`;
+  return odd ? `background:hsl(${h},56%,83%);color:hsl(${h},58%,24%)` : `background:hsl(${h},48%,91%);color:hsl(${h},52%,30%)`;
+}
+function subjectIcon(instrument) {
+  const e = getInstrumentIcon(instrument);
+  let n = LLK_SUBJECT_ICON[e];
+  if (!n && /\uD83C[\uDDE6-\uDDFF]/.test(e)) n = 'lang';
+  if (!n && e && e.indexOf('\u200d') >= 0) n = 'users';
+  n = n || 'music';
+  if (document.documentElement.getAttribute('data-theme') === 'happy') return `<span class="llk-subj llk-subj-emo" style="${subjectStyle(n)}">${esc(e || '🎵')}</span>`;
+  return `<span class="llk-subj" style="${subjectStyle(n)}">${I(n)}</span>`;
+}
 
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyAvD4ABTYIjCtPCYzUaRM8AHsjiOamHQLU',
@@ -413,7 +447,7 @@ async function joinOrg(code, inv) {
 // ══════════════════════════════════════════════════════════════════════
 const ADMIN_TABS = [
   { k: 'absensi', i: 'absensi', l: 'Absensi' },
-  { k: 'murid', i: 'cap', l: 'Murid' },
+  { k: 'murid', i: 'cap', l: 'Siswa' },
   { k: 'guru', i: 'users', l: 'Guru' },
   { k: 'keuangan', i: 'wallet', l: 'Keuangan' },
   { k: 'lainnya', i: 'grid', l: 'Lainnya' },
@@ -438,13 +472,14 @@ function renderShell() {
       <header class="app-header">
         <div class="h-logo">${logo}</div>
         <div style="min-width:0"><div class="h-name">${esc(S.org.name)}</div><div class="h-sub">${esc(S.org.fullName || S.member.name)}</div></div>
-        <div class="h-badge">${isAdmin() ? 'GURU ADMIN' : 'GURU MITRA'}</div>
+        <div class="h-badge"><span class="h-badge-t">${I('crown', 'sm')}${isAdmin() ? 'Guru Admin' : 'Guru Mitra'}</span></div>
       </header>
       ${subBanner()}
       <main id="main"></main>
     </div>
   </div>`;
   const sb = $('subBtn'); if (sb) sb.onclick = () => openSubscribe();
+  tickTrial();
   document.querySelectorAll('.bnav').forEach(b => b.onclick = () => {
     S.tab = b.dataset.tab; S.data = null; renderShell(); // data selalu segar saat pindah menu (mis. guru baru bergabung)
   });
@@ -593,7 +628,7 @@ function showGuruAppInfo() {
   const link = location.origin + location.pathname.replace(/[^/]*$/, '') + MITRA_URL;
   openModal(`
     <div class="modal-t">${I('check-circle')} Kamu terdaftar sebagai guru</div>
-    <div class="modal-sub">Sekarang beri murid untukmu di menu <b>Murid</b>. Untuk mengabsen, pasang <b>aplikasi Guru Mitra</b> di HP-mu:</div>
+    <div class="modal-sub">Sekarang beri murid untukmu di menu <b>Siswa</b>. Untuk mengabsen, pasang <b>aplikasi Guru Mitra</b> di HP-mu:</div>
     <div class="msg msg-info" style="line-height:1.7">1. Buka link ini di Chrome HP:<br><b style="word-break:break-all">${esc(link)}</b><br>2. Ketuk menu ⋮ → <b>Tambahkan ke layar utama</b> / <b>Instal aplikasi</b><br>3. Di HP-mu akan ada 2 aplikasi: <b>LLK Admin</b> & <b>LLK Guru Mitra</b></div>
     <button class="btn btn-ghost" id="gaCopy">${I('copy')} Salin Link</button>
     <button class="btn btn-ghost" id="gaOpen">${I('external')} Buka Aplikasi Guru sekarang</button>
@@ -823,12 +858,12 @@ async function commitOps(ops) {
 }
 
 async function renderMurid(m) {
-  m.innerHTML = '<div class="page-title">Murid</div><div class="page-sub">Memuat…</div>';
+  m.innerHTML = '<div class="page-title">Siswa</div><div class="page-sub">Memuat…</div>';
   try { await loadOrgData(); } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
-  const views = [['daftar', 'users', 'Daftar Murid'], ['jadwal', 'calendar', 'Jadwal Mingguan'], ['pelajaran', 'book-open', 'Mata Pelajaran']];
+  const views = [['daftar', 'users', 'Daftar Siswa'], ['jadwal', 'calendar', 'Jadwal Mingguan'], ['pelajaran', 'book-open', 'Mata Pelajaran']];
   m.innerHTML = `
     <div class="page-head">
-      <div><div class="page-title">Murid</div><div class="page-sub" id="mSub"></div></div>
+      <div><div class="page-title">Siswa</div><div class="page-sub" id="mSub"></div></div>
     </div>
     <div class="seg">${views.map(([k, i, l]) => `<button class="seg-b ${S.muridView === k ? 'on' : ''}" data-view="${k}">${I(i, 'sm')} ${l}</button>`).join('')}</div>
     <div id="mBody"></div>`;
@@ -836,7 +871,7 @@ async function renderMurid(m) {
   const d = S.data, act = d.students.filter(x => x.active);
   const nKelas = act.reduce((n, x) => n + (x.classes || []).length, 0);
   const noGuru = act.reduce((n, x) => n + (x.classes || []).filter(c => !mitraOf(c.mitraUid)).length, 0);
-  $('mSub').innerHTML = `${act.length} murid aktif · ${nKelas} kelas${noGuru ? ` · <span class="t-warn">${noGuru} kelas belum ada guru</span>` : ''}`;
+  $('mSub').innerHTML = `${act.length} siswa aktif · ${nKelas} kelas${noGuru ? ` · <span class="t-warn">${noGuru} kelas belum ada guru</span>` : ''}`;
   const body = $('mBody');
   if (S.muridView === 'jadwal') return renderJadwalMingguan(body);
   if (S.muridView === 'pelajaran') return renderPelajaran(body);
@@ -851,12 +886,12 @@ function renderDaftarMurid(body) {
   body.innerHTML = `
     ${d.subjects.length ? '' : `<div class="callout">${I('info')}<div><b>Mulai dari Mata Pelajaran.</b> Tambahkan pelajaran & tarif standarnya dulu (mis. Piano Rp 50.000), lalu tambahkan murid. <button class="link-btn" id="goPel">Buka Mata Pelajaran →</button></div></div>`}
     <div class="toolbar">
-      <div class="search">${I('search', 'sm')}<input id="fQ" placeholder="Cari nama murid / ortu…" value="${esc(f.q)}"/></div>
+      <div class="search">${I('search', 'sm')}<input id="fQ" placeholder="Cari nama siswa / ortu…" value="${esc(f.q)}"/></div>
       <select id="fGuru">${opt('', 'Semua guru', f.guru)}${d.mitras.map(x => opt(x.id, x.name, f.guru)).join('')}${opt('none', 'Belum ada guru', f.guru)}</select>
       <select id="fSubj">${opt('', 'Semua pelajaran', f.subj)}${d.subjects.map(x => opt(x.id, x.name, f.subj)).join('')}</select>
       <select id="fStat">${opt('aktif', 'Aktif', f.status)}${opt('nonaktif', 'Nonaktif', f.status)}${opt('semua', 'Semua status', f.status)}</select>
       <button class="btn btn-ghost tb-btn" id="impV1">${I('download', 'sm')} Impor dari LLK V1</button>
-      <button class="btn btn-primary tb-btn" id="addStu" ${d.subjects.length ? '' : 'disabled'}>${I('plus', 'sm')} Tambah Murid</button>
+      <button class="btn btn-primary tb-btn" id="addStu" ${d.subjects.length ? '' : 'disabled'}>${I('plus', 'sm')} Tambah Siswa</button>
     </div>
     <div id="stuList"></div>`;
   const g = $('goPel'); if (g) g.onclick = () => { S.muridView = 'pelajaran'; rerenderMurid(); };
@@ -885,7 +920,7 @@ function drawStudentList() {
   const box = $('stuList'); if (!box) return;
   const list = filteredStudents();
   if (!list.length) {
-    box.innerHTML = `<div class="card"><div class="empty"><div class="empty-ic">${I('users')}</div><div class="empty-t">${S.data.students.length ? 'Tidak ada murid yang cocok' : 'Belum ada murid'}</div><div class="empty-d">${S.data.students.length ? 'Ubah pencarian atau filter di atas.' : 'Tekan “Tambah Murid”, atau salin dari LLK V1 dengan “Impor dari LLK V1”.'}</div></div></div>`;
+    box.innerHTML = `<div class="card"><div class="empty"><div class="empty-ic">${I('users')}</div><div class="empty-t">${S.data.students.length ? 'Tidak ada siswa yang cocok' : 'Belum ada siswa'}</div><div class="empty-d">${S.data.students.length ? 'Ubah pencarian atau filter di atas.' : 'Tekan “Tambah Siswa”, atau salin dari LLK V1 dengan “Impor dari LLK V1”.'}</div></div></div>`;
     return;
   }
   const row = st => {
@@ -901,34 +936,60 @@ function drawStudentList() {
       <td>${st.active ? '<span class="pill pill-green">AKTIF</span>' : '<span class="pill pill-grey">NONAKTIF</span>'}</td>
       <td class="td-act"><button class="mini" data-edit="${esc(st.id)}">${I('edit', 'sm')} Ubah</button></td></tr>`;
   };
-  // Pilih beberapa murid → tugaskan ke 1 guru sekaligus (membagi murid ke guru-guru)
-  const nSel = list.filter(x => S.sel.has(x.id)).length;
-  const bulk = nSel ? `<div class="bulk-bar"><b>${nSel} murid dipilih</b>
-      <select id="bkGuru"><option value="">Tugaskan ke guru…</option>${S.data.mitras.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('')}<option value="__none">Belum ditentukan</option></select>
+  // Kartu ala LLK V1 (HP) — tabel tetap untuk layar lebar
+  const card = st => {
+    const cl = st.classes || [], on = S.sel.has(st.id);
+    const first = cl.length ? subjOf(cl[0].subjectId) : null;
+    const lines = cl.map(c => {
+      const sj = subjOf(c.subjectId), jd = (c.schedule || []).slice().sort(byDayTime).map(slotTxt).join(', ');
+      return `<div class="stu-line">${jd ? esc(jd) + ' · ' : ''}<b>${esc(sj ? sj.name : '—')}</b></div><div class="stu-guru">${I('user', 'sm')} ${guruLabel(c.mitraUid)}</div>`;
+    }).join('');
+    return `<div class="stu-card${st.active ? '' : ' is-off'}${on ? ' is-sel' : ''}" data-stu="${esc(st.id)}">
+      <label class="stu-chk" aria-label="Pilih ${esc(st.name)}"><input type="checkbox" data-sel="${esc(st.id)}" ${on ? 'checked' : ''}/><span class="chk-box">${I('check', 'sm')}</span></label>
+      <div class="track-avatar">${subjectIcon(first ? first.name : '')}</div>
+      <div class="grow" style="min-width:0">
+        <div class="stu-name">${esc(st.name)}${st.active ? '' : ' <span class="pill pill-grey">NONAKTIF</span>'}</div>
+        ${lines || '<div class="stu-line">Belum ada kelas</div>'}
+      </div>
+      <span class="stu-arrow">${I('chevron-right')}</span>
+    </div>`;
+  };
+  // Pilih beberapa siswa → tugaskan ke 1 guru sekaligus (membagi siswa ke guru-guru)
+  const nSel = list.filter(x => S.sel.has(x.id)).length, allOn = nSel === list.length;
+  const fSubj = S.filt.subj ? subjOf(S.filt.subj) : null;
+  const selBar = `<div class="sel-bar">
+      <label class="sel-all"><input type="checkbox" id="selAll" ${allOn ? 'checked' : ''}/><span class="chk-box">${I('check', 'sm')}</span> Centang semua (${list.length})</label>
+      <span class="t-meta">${nSel ? `<b style="color:var(--text)">${nSel} siswa dipilih</b>` : 'Centang siswa untuk menugaskan ke satu guru sekaligus'}</span></div>`;
+  const bulk = nSel ? `<div class="bulk-bar"><b>${nSel} siswa dipilih</b>
+      <select id="bkGuru"><option value="">Tugaskan ${fSubj ? 'kelas ' + esc(fSubj.name) + ' ' : ''}ke guru…</option>${S.data.mitras.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('')}<option value="__none">Belum ditentukan</option></select>
       <button class="btn btn-primary tb-btn" id="bkGo">${I('check', 'sm')} Terapkan</button>
-      <button class="btn btn-ghost tb-btn" id="bkNo">Batal pilih</button></div>`
-    : `<div class="t-meta" style="margin:0 0 8px">Centang beberapa murid untuk menugaskannya ke satu guru sekaligus.</div>`;
-  box.innerHTML = bulk + `<div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th class="td-chk"><input type="checkbox" id="selAll" ${nSel && nSel === list.length ? 'checked' : ''} aria-label="Pilih semua"/></th><th>Murid</th><th>Pelajaran & Guru</th><th>Jadwal</th><th>Tarif / pertemuan</th><th>No HP ortu</th><th>Status</th><th></th></tr></thead>
-    <tbody>${list.map(row).join('')}</tbody></table></div>
-    <div class="t-meta" style="margin-top:8px">${list.length} murid ditampilkan</div>`;
-  box.querySelectorAll('tr[data-stu]').forEach(tr => tr.onclick = (e) => {
-    if (e.target.closest('.td-chk')) return;
-    openStudentForm(S.data.students.find(x => x.id === tr.dataset.stu));
+      <button class="btn btn-ghost tb-btn" id="bkNo">Batal pilih</button>
+      ${fSubj ? `<div class="t-meta" style="flex-basis:100%;white-space:normal">Hanya kelas <b>${esc(fSubj.name)}</b> yang dipindah; pelajaran lain siswa itu tetap pada gurunya.</div>` : ''}</div>` : '';
+  const wide = window.matchMedia('(min-width: 900px)').matches;
+  box.innerHTML = selBar + bulk + (wide ? `<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th class="td-chk"></th><th>Siswa</th><th>Pelajaran & Guru</th><th>Jadwal</th><th>Tarif / pertemuan</th><th>No HP ortu</th><th>Status</th><th></th></tr></thead>
+    <tbody>${list.map(row).join('')}</tbody></table></div>` : `<div class="stu-cards">${list.map(card).join('')}</div>`) + `
+    <div class="t-meta" style="margin-top:8px">${list.length} siswa ditampilkan</div>`;
+  box.querySelectorAll('[data-stu]').forEach(el => el.onclick = (e) => {
+    if (e.target.closest('.td-chk, .stu-chk')) return;
+    openStudentForm(S.data.students.find(x => x.id === el.dataset.stu));
   });
   box.querySelectorAll('[data-sel]').forEach(c => c.onchange = () => { c.checked ? S.sel.add(c.dataset.sel) : S.sel.delete(c.dataset.sel); drawStudentList(); });
   box.querySelectorAll('.td-chk').forEach(td => td.onclick = (e) => { if (e.target.tagName !== 'INPUT') { const c = td.querySelector('input'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); } });
   $('selAll').onchange = (e) => { list.forEach(x => e.target.checked ? S.sel.add(x.id) : S.sel.delete(x.id)); drawStudentList(); };
   if (nSel) {
     $('bkNo').onclick = () => { S.sel.clear(); drawStudentList(); };
-    $('bkGo').onclick = () => bulkAssign(list.filter(x => S.sel.has(x.id)), $('bkGuru').value);
+    $('bkGo').onclick = () => bulkAssign(list.filter(x => S.sel.has(x.id)), $('bkGuru').value, S.filt.subj);
   }
+  // Ganti tampilan kartu/tabel kalau lebar layar berubah (putar HP / ubah ukuran jendela)
+  if (!drawStudentList.mq) { drawStudentList.mq = window.matchMedia('(min-width: 900px)'); drawStudentList.mq.addEventListener('change', () => drawStudentList()); }
 }
-async function bulkAssign(list, guru) {
+// subjId (filter pelajaran aktif): hanya kelas pelajaran itu yang dipindah ke guru baru
+async function bulkAssign(list, guru, subjId) {
   if (!guru) { toast('Pilih gurunya dulu'); return; }
   const uid = guru === '__none' ? null : guru, o = S.org.id, ops = [];
   list.forEach(st => {
-    const classes = (st.classes || []).map(c => Object.assign({}, c, { mitraUid: uid }));
+    const classes = (st.classes || []).map(c => (!subjId || c.subjectId === subjId) ? Object.assign({}, c, { mitraUid: uid }) : c);
     ops.push(['set', doc(db, 'orgs', o, 'students', st.id), Object.assign({}, st, { classes, updatedAt: serverTimestamp() })]);
     classes.forEach(c => ops.push(['set', doc(db, 'orgs', o, 'sched', c.id), schedDoc(st, c)]));
   });
@@ -938,7 +999,7 @@ async function bulkAssign(list, guru) {
   try {
     await commitOps(ops);
     const g = mitraOf(uid);
-    toast('✅ ' + list.length + ' murid ditugaskan ke ' + (g ? g.name : 'belum ditentukan'));
+    toast('✅ ' + list.length + ' siswa ditugaskan ke ' + (g ? g.name : 'belum ditentukan'));
     S.sel.clear(); await loadOrgData(true); rerenderMurid();
   } catch (e) { console.error(e); $('bkGo').disabled = false; toast('❌ Gagal: ' + friendlyError(e), 4000); }
 }
@@ -950,7 +1011,7 @@ function openStudentForm(st) {
   F = st ? JSON.parse(JSON.stringify(st)) : { id: null, name: '', parentName: '', phone: '', note: '', active: true, classes: [] };
   if (!F.classes.length) F.classes.push(blankClass());
   const ov = openModal(`
-    <div class="modal-t">${I(st ? 'edit' : 'user-plus')} ${st ? 'Ubah Murid' : 'Tambah Murid'}</div>
+    <div class="modal-t">${I(st ? 'edit' : 'user-plus')} ${st ? 'Ubah Siswa' : 'Tambah Siswa'}</div>
     <div class="modal-sub">No HP ortu & tarif hanya terlihat oleh Guru Admin. Guru Mitra hanya melihat nama murid, pelajaran & jadwalnya.</div>
     <div id="sfMsg"></div>
     <div class="grid2">
@@ -1665,15 +1726,27 @@ function orgInfo() {
     seats: o.seats || BL.ORG_BASE_SLOTS, extra: Math.max(0, (o.seats || BL.ORG_BASE_SLOTS) - BL.ORG_BASE_SLOTS), period: o.period || 'monthly' };
 }
 const fmtMs = ms => new Date(ms).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+// Sisa uji coba: "13 hari 5 jam" / "5 jam 12 menit" (diperbarui tiap menit, lihat tickTrial)
+function trialLeftTxt(endsMs) {
+  const ms = Math.max(0, endsMs - Date.now()), m = Math.floor(ms / 60000), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60);
+  return d ? `${d} hari ${h} jam` : `${h} jam ${m % 60} menit`;
+}
+let trialTimer = null;
+function tickTrial() {
+  clearInterval(trialTimer);
+  const el = $('subCd'); if (!el) return;
+  const endsMs = orgInfo().endsMs;
+  trialTimer = setInterval(() => { const e = $('subCd'); if (!e) return clearInterval(trialTimer); e.textContent = trialLeftTxt(endsMs); }, 60000);
+}
 function subBanner() {
   if (!isAdmin()) return '';
   const i = orgInfo();
   let t = '';
   if (!i.active) t = `<b>${i.paid ? 'Langganan lembaga berakhir' : 'Masa uji coba berakhir'}</b> ${fmtMs(i.endsMs)}. Data tetap aman, tapi Guru Mitra tidak bisa absen & murid baru tidak bisa ditambah.`;
-  else if (!i.paid && i.daysLeft <= 7) t = `<b>Uji coba tinggal ${i.daysLeft} hari</b> (sampai ${fmtMs(i.endsMs)}). Langganan mulai ${rupiah(BL.ORG_BASE)}/bulan.`;
+  else if (!i.paid) t = `<b>Uji coba gratis ${BL.ORG_TRIAL_DAYS} hari</b> · sisa <b class="sub-cd" id="subCd">${trialLeftTxt(i.endsMs)}</b><span class="sub-cd-until"> (sampai ${fmtMs(i.endsMs)})</span>`;
   else if (i.paid && i.daysLeft <= 5) t = `<b>Langganan berakhir ${i.daysLeft} hari lagi</b> (${fmtMs(i.endsMs)}).`;
   if (!t) return '';
-  return `<div class="sub-banner${i.active ? '' : ' is-off'}">${I(i.active ? 'clock' : 'lock')}<div class="grow">${t}</div><button class="mini ${i.active ? '' : 'mini-red'}" id="subBtn">${i.paid ? 'Perpanjang' : 'Langganan'}</button></div>`;
+  return `<div class="sub-banner${i.active ? '' : ' is-off'}${!i.paid && i.active && i.daysLeft > 3 ? ' is-trial' : ''}">${I(i.active ? 'clock' : 'lock')}<div class="grow">${t}</div><button class="mini ${i.active ? '' : 'mini-red'}" id="subBtn">${i.paid ? 'Perpanjang' : 'Beli Sekarang'}</button></div>`;
 }
 function subCard() {
   const i = orgInfo();
