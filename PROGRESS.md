@@ -9,6 +9,10 @@ _Terakhir diperbarui: 7 Okt 2026 (V1: invoice & kuitansi dikirim sebagai gambar 
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## 🚪 leslesanku.com → halaman pilih peran dulu (9 Okt 2026)
+- Skrip kecil paling atas `<head>` `index.html`: pengunjung **baru** di **browser** diarahkan ke `v2/` (Selamat datang di LLK: Guru Lepas · LLK V1 / Pemilik Lembaga Les / Guru Mitra). Pilih **Guru Lepas** → `llk_v2_choice='lepas'` → kembali ke V1 (login). Tidak diarahkan: aplikasi terpasang (display-mode standalone / Play Store `android-app://`), browser yang sudah punya data V1 (`rms4_*` / `rms_*`), atau yang sudah memilih Guru Lepas. `?v1=1` = paksa V1. Tidak menyentuh data.
+- Dari menu V1 "Punya guru lain? LLK Lembaga" → `v2/?dari=v1` → pilihan Guru Lepas disembunyikan (PR #80).
+
 ## 🖼️ Layar pembuka (splash) memakai logo LLK asli (8 Okt 2026)
 - Layar pembuka aplikasi terpasang dibuat otomatis oleh Android dari ikon di manifest. Dulu ikon `icon-192/512.png` dipakai untuk "any maskable" sekaligus, sehingga layar pembuka menampilkan ikon bulat merah dengan sudut hitam (bagian transparan diisi hitam oleh Android).
 - Sekarang: `splash-192/512.png` (purpose **any**: emblem buku + "LLK Les LesanKu", latar transparan di atas krem `#f6f1e9`) untuk layar pembuka, dan `icon-maskable-192/512.png` (purpose **maskable**: merah penuh sampai tepi + LLK di area aman) untuk ikon layar utama, sehingga sudut hitam hilang. Berlaku di `manifest.json` dan kedua manifest V2. File `icon-192/512.png` lama tetap ada (dipakai notifikasi & favicon V2).
