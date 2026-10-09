@@ -5,7 +5,7 @@
 // impor 30 murid V1 → bagi 10/10/10 → cek tiap aplikasi.
 const { chromium } = require('playwright'); const fs=require('fs');
 const { initializeTestEnvironment } = require('@firebase/rules-unit-testing');
-const { doc, updateDoc, Timestamp } = require('firebase/firestore');
+const { doc, getDoc, updateDoc, Timestamp } = require('firebase/firestore');
 const FB=__dirname+'/node_modules/firebase/';
 const OUT=__dirname+'/out/'; fs.mkdirSync(OUT,{recursive:true});
 let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'  ✅ ':'  ❌ ')+m);};
@@ -171,6 +171,17 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   await AM.selectOption('#bkGuru',{label:'Bu Sari'}); await AM.click('#bkGo'); await sleep(3500);
   const after=await AM.evaluate(()=>{ const S=window.__llk.S, sari=S.data.mitras.find(m=>m.name==='Bu Sari').id; const o={}; S.data.students.forEach(st=>st.classes.forEach(k=>{ o[st.id+'|'+k.subjectId]={g:k.mitraUid,sari:k.mitraUid===sari}; })); return o; });
   ok(Object.keys(before).every(k=>before[k].p?after[k].sari:after[k].g===before[k].g),'hanya kelas Piano yang pindah ke Bu Sari; pelajaran lain tetap pada gurunya');
+  // Filter "Belum punya guru": jadikan 2 kelas tanpa guru, lalu tugaskan sekaligus
+  const ORG2=await AM.evaluate(()=>window.__llk.S.org.id);
+  const two=await AM.evaluate(()=>window.__llk.S.data.students.slice(0,2).map(s=>s.id));
+  await env.withSecurityRulesDisabled(async c=>{ const db2=c.firestore(); for(const id of two){ const r=doc(db2,'orgs',ORG2,'students',id); const sn=await getDoc(r); await updateDoc(r,{classes:sn.data().classes.map(k=>Object.assign({},k,{mitraUid:null}))}); } });
+  await AM.reload(); await sleep(2500); await AM.click('[data-tab=murid]'); await sleep(1500);
+  t=await txt(AM); ok(/Belum punya guru\s*2/.test(t),'tombol filter "Belum punya guru (2)"');
+  await AM.click('[data-chip=none]'); await sleep(300);
+  ok(await AM.evaluate(()=>document.querySelectorAll('.stu-card').length===2&&document.getElementById('fGuru').value==='none'),'filter Belum punya guru: tampil 2 siswa');
+  await AM.click('.sel-all'); await sleep(200); await AM.selectOption('#bkGuru',{label:'Pak Dimas'}); await AM.click('#bkGo'); await sleep(3500);
+  t=await txt(AM); ok(/Belum punya guru\s*0/.test(t)&&!t.includes('kelas belum ada guru'),'2 siswa ditugaskan ke Pak Dimas → tidak ada lagi yang belum punya guru');
+  await AM.screenshot({path:OUT+'sim7b_belum_guru.png'});
   ok(AM.errs.length===0,'tidak ada error JavaScript di aplikasi Admin (HP)'+(AM.errs.length?': '+AM.errs.join(' | '):''));
 
   console.log('\n[8] Data V1 tetap utuh');
