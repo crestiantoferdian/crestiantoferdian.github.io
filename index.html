@@ -10502,7 +10502,11 @@ function llkEnsureSnap(){
     setTimeout(function(){ resolve(!!(window.snap&&window.snap.pay)); },8000);
   });
 }
+let _llkPayBusy=false;
 async function mulaiLangganan(plan){
+  // Cegah tombol tertekan dua kali (snap.pay kedua ditolak Midtrans: "not allowed in this state")
+  if(_llkPayBusy) return;
+  _llkPayBusy=true; setTimeout(function(){ _llkPayBusy=false; },4000);
   showGlobalLoading('Menyiapkan pembayaran…');
   setPaywallStatus('Menyiapkan pembayaran…');
   try{
@@ -10515,8 +10519,13 @@ async function mulaiLangganan(plan){
       if(result.data&&result.data.redirectUrl){ hideGlobalLoading(); setPaywallStatus('Membuka halaman pembayaran Midtrans…'); location.href=result.data.redirectUrl; return; }
       throw new Error('jendela Midtrans tidak termuat (cek internet)');
     }
+    const goRedirect=function(){
+      if(!(result.data&&result.data.redirectUrl)) return false;
+      hideGlobalLoading(); setPaywallStatus('Membuka halaman pembayaran Midtrans…');
+      location.href=result.data.redirectUrl; return true;
+    };
     waitForSnapThenHideLoading(); // loading TETAP tampil sampai Snap benar-benar muncul
-    window.snap.pay(result.data.token, {
+    const snapCb={
       onSuccess:function(){
         setTimeout(llkUnlockPageScroll,500);
         setPaywallStatus('✅ Pembayaran berhasil! Mengaktifkan langganan…');
@@ -10530,7 +10539,16 @@ async function mulaiLangganan(plan){
       },
       onError:function(){ setTimeout(llkUnlockPageScroll,500); setPaywallStatus('❌ Pembayaran gagal, silakan coba lagi.'); },
       onClose:function(){ setTimeout(llkUnlockPageScroll,500); setPaywallStatus(''); setTimeout(function(){ cekStatusPembayaran(true); },2000); }
-    });
+    };
+    try{ window.snap.pay(result.data.token, snapCb); }
+    catch(e1){
+      // Jendela Snap sebelumnya "nyangkut" (Invalid state transition) → tutup lalu coba sekali lagi,
+      // kalau tetap ditolak buka halaman pembayaran Midtrans langsung.
+      console.warn('snap.pay ditolak, coba ulang:', e1);
+      try{ if(window.snap.hide) window.snap.hide(); }catch(e){}
+      try{ window.snap.pay(result.data.token, snapCb); }
+      catch(e2){ if(!goRedirect()) throw e2; }
+    }
   }catch(err){
     hideGlobalLoading();
     console.error('Gagal membuat transaksi:', err);
