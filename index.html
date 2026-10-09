@@ -8,7 +8,11 @@
 // "Guru Lepas" di sana menyimpan llk_v2_choice='lepas' lalu kembali ke sini.
 // TIDAK diarahkan: aplikasi terpasang (PWA/Play Store), pengguna V1 yang sudah
 // punya data di browser ini, atau yang sudah pernah memilih Guru Lepas.
+// Aplikasi Play Store (TWA) dibuka dengan referrer android-app:// — diingat per sesi
+// (sessionStorage, tidak bocor ke Chrome biasa) supaya fitur yang belum siap bisa disembunyikan.
+window.llkIsPlayApp=function(){ try{ return sessionStorage.getItem('llk_play_app')==='1'; }catch(e){ return false; } };
 (function(){try{
+  if(document.referrer.indexOf('android-app://')===0) sessionStorage.setItem('llk_play_app','1');
   if(/[?&]v1=1/.test(location.search)){ localStorage.setItem('llk_v2_choice','lepas'); return; }
   if(window.matchMedia&&matchMedia('(display-mode: standalone)').matches) return;
   if(navigator.standalone||document.referrer.indexOf('android-app://')===0) return;
@@ -7686,13 +7690,13 @@ function renderLainnya(){
     `<div class="page-title-area"><div class="page-title">Lainnya</div><div class="page-sub">Pengaturan & manajemen data</div></div>
     <div class="lainnya-wrap">
       <div id="accountSectionSlot"></div>
-      <div class="menu-card">
+      ${window.llkIsPlayApp&&window.llkIsPlayApp()?'' /* LLK Lembaga (V2) belum dirilis di aplikasi Play Store */:`<div class="menu-card">
         <div class="menu-item" onclick="location.href='v2/?dari=v1'">
           <div class="menu-icon red">${llkI('users')}</div>
           <div class="menu-text"><div class="menu-label">Punya guru lain? LLK Lembaga</div><div class="menu-desc">Bagi murid ke beberapa guru (Guru Admin + Guru Mitra). Data di sini tidak berubah.</div></div>
           <span class="menu-arrow">${llkI('chevron-right')}</span>
         </div>
-      </div>
+      </div>`}
       <div class="menu-card">
         <div class="menu-item" onclick="openAdd()">
           <div class="menu-icon red">${llkI('user-plus')}</div>
