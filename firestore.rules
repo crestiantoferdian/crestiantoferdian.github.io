@@ -302,6 +302,67 @@ service cloud.firestore {
         allow read, write: if isAdmin(orgId);
       }
 
+      // ── Materi lembaga (tautan & folder, seperti tab Materi V1): Admin mengelola, semua guru membaca ──
+      match /materi/{mid} {
+        allow read: if isMember(orgId);
+        allow delete: if isAdmin(orgId);
+        allow create, update: if isAdmin(orgId)
+          && request.resource.data.keys().hasOnly(['type', 'name', 'url', 'folderId', 'note', 'order', 'by', 'updatedAt'])
+          && request.resource.data.type in ['link', 'folder']
+          && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+          && (!('url' in request.resource.data) || (request.resource.data.url is string && request.resource.data.url.size() <= 1000))
+          && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 500));
+      }
+      // ── Kurikulum per mata pelajaran (id = subjectId): Admin menyusun, semua guru membaca ──
+      match /kurikulum/{sid} {
+        allow read: if isMember(orgId);
+        allow delete: if isAdmin(orgId);
+        allow create, update: if isAdmin(orgId)
+          && request.resource.data.keys().hasOnly(['subjectName', 'items', 'by', 'updatedAt'])
+          && request.resource.data.subjectName is string && request.resource.data.subjectName.size() <= 40
+          && request.resource.data.items is list && request.resource.data.items.size() <= 300;
+      }
+      // ── Centang kurikulum per kelas (id = classId): Admin & guru yang SEKARANG mengajar kelas itu ──
+      match /kurprog/{cid} {
+        function teachesClass() { return isMember(orgId) && get(/databases/$(database)/documents/orgs/$(orgId)/sched/$(cid)).data.mitraUid == uid(); }
+        allow read: if isAdmin(orgId) || teachesClass();
+        allow create, update: if (isAdmin(orgId) || teachesClass())
+          && request.resource.data.keys().hasOnly(['checked', 'by', 'updatedAt'])
+          && request.resource.data.checked is map && request.resource.data.checked.size() <= 300
+          && request.resource.data.by == uid();
+        allow delete: if isAdmin(orgId);
+      }
+      // ── PR / tugas guru (seperti "PR Guru" V1). mitraUid = guru pemilik tugas.
+      //    Guru mengelola tugasnya sendiri; Admin melihat semua & bisa memberi tugas ke guru. ──
+      match /tasks/{tid} {
+        function taskOk(x) {
+          return x.keys().hasOnly(['text', 'done', 'mitraUid', 'studentName', 'sessionDate', 'attId', 'by', 'createdAt', 'updatedAt'])
+            && x.text is string && x.text.size() > 0 && x.text.size() <= 500
+            && x.done is bool && x.mitraUid is string && x.by == uid();
+        }
+        allow read: if isAdmin(orgId) || (isMember(orgId) && resource.data.mitraUid == uid());
+        allow create: if taskOk(request.resource.data) && (isAdmin(orgId) || (isMember(orgId) && request.resource.data.mitraUid == uid()));
+        allow update: if taskOk(request.resource.data) && request.resource.data.mitraUid == resource.data.mitraUid
+          && (isAdmin(orgId) || (isMember(orgId) && resource.data.mitraUid == uid()));
+        allow delete: if isAdmin(orgId) || (isMember(orgId) && resource.data.mitraUid == uid());
+      }
+      // ── Catatan guru → Admin (minta materi, konsumsi, pesan untuk siswa, dll.) ──
+      match /notes/{nid} {
+        allow read: if isAdmin(orgId) || (isMember(orgId) && resource.data.mitraUid == uid());
+        allow create: if isMember(orgId) && orgActive(orgId)
+          && request.resource.data.keys().hasOnly(['text', 'kind', 'mitraUid', 'mitraName', 'studentId', 'studentName', 'status', 'reply', 'createdAt', 'updatedAt'])
+          && request.resource.data.mitraUid == uid()
+          && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000
+          && request.resource.data.kind in ['materi', 'konsumsi', 'pesan', 'lain']
+          && request.resource.data.status == 'baru' && !('reply' in request.resource.data);
+        // Admin menandai dibaca / selesai & membalas; isi catatan guru tidak bisa diubah Admin
+        allow update: if isAdmin(orgId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reply', 'updatedAt'])
+          && request.resource.data.status in ['baru', 'dibaca', 'selesai']
+          && (!('reply' in request.resource.data) || (request.resource.data.reply is string && request.resource.data.reply.size() <= 1000));
+        allow delete: if isAdmin(orgId) || (isMember(orgId) && resource.data.mitraUid == uid() && resource.data.status == 'baru');
+      }
+
       // ── Tahap 3: Absensi per sesi — id = {classId}_{YYYY-MM-DD} ──
       // Guru Mitra: hanya kelas yang ditugaskan kepadanya, hanya Hadir/Alpa,
       // hanya di HARI YANG SAMA (WIB, dengan kelonggaran untuk WITA/WIT),
