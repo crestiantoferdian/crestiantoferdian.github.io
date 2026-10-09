@@ -370,3 +370,51 @@ main.wide{max-width:1280px}
 .theme-opt.on{border-color:var(--red)}
 .theme-opt .tp{display:block;height:44px;border-radius:9px;margin-bottom:6px;position:relative;overflow:hidden}
 .theme-opt .tp i{position:absolute;left:8px;right:8px;height:7px;border-radius:4px}
+
+/* ── Revisi pemilik (9 Okt 2026) ── */
+/* Lencana peran di header: berbingkai, lebih besar, berkilau */
+.h-badge{position:relative;overflow:hidden;padding:6px 13px;border-radius:999px;font-size:0.76rem;letter-spacing:0.06em;text-transform:uppercase;
+  background:linear-gradient(135deg,#fff7e0,#f6dd9a 55%,#fff1c9);color:#6b4a06;border:1.5px solid #c99a2e;
+  box-shadow:0 0 0 2px rgba(201,154,46,0.18),0 2px 8px rgba(201,154,46,0.35);animation:hbGlow 2.8s ease-in-out infinite}
+.h-badge-t{position:relative;z-index:1;display:inline-flex;align-items:center;gap:5px}
+.h-badge .ico{width:15px;height:15px;stroke-width:2}
+.h-badge::after{content:"";position:absolute;top:-20%;bottom:-20%;left:-60%;width:40%;transform:skewX(-20deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.85),transparent);animation:hbShine 3.2s ease-in-out infinite}
+@keyframes hbShine{0%,55%{left:-60%}85%,100%{left:130%}}
+@keyframes hbGlow{0%,100%{box-shadow:0 0 0 2px rgba(201,154,46,0.18),0 2px 8px rgba(201,154,46,0.30)}50%{box-shadow:0 0 0 3px rgba(201,154,46,0.30),0 2px 14px rgba(201,154,46,0.55)}}
+:root[data-theme="dark"] .h-badge{background:linear-gradient(135deg,#3a2c0c,#5a4314 55%,#3a2c0c);color:#f6dd9a;border-color:#a37a1f}
+@media (max-width:420px){ .h-badge{padding:5px 10px;font-size:0.68rem} }
+/* Judul halaman lebih kecil */
+.page-title{font-size:1.4rem}
+@media (min-width:900px){ .page-title{font-size:1.6rem} }
+/* Uji coba: selalu tampil di atas dengan hitung mundur */
+.sub-banner.is-trial{background:var(--blue-bg);border-bottom-color:rgba(47,90,138,0.22)}
+.sub-banner.is-trial>.ico{color:var(--blue)}
+.sub-cd{font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (max-width:599px){ .sub-cd-until{display:none} .sub-banner{font-size:0.82rem;padding:9px 14px} }
+/* Daftar siswa: kartu ala LLK V1 + centang */
+.sel-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.sel-all{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--border);background:var(--card);border-radius:12px;font-weight:700;font-size:0.88rem;cursor:pointer;user-select:none}
+.sel-all input,.stu-chk input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.chk-box{width:22px;height:22px;border-radius:7px;border:2px solid var(--muted2);display:inline-flex;align-items:center;justify-content:center;color:transparent;background:var(--card);flex:0 0 auto;transition:background .12s,border-color .12s}
+.chk-box .ico{width:14px;height:14px;stroke-width:3}
+input:checked+.chk-box{background:var(--red);border-color:var(--red);color:#fff}
+input:focus-visible+.chk-box{outline:2px solid var(--blue);outline-offset:2px}
+.stu-cards{display:flex;flex-direction:column;gap:10px}
+.stu-card{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 12px 12px 6px;cursor:pointer;transition:border-color .12s,transform .12s}
+.stu-card:active{transform:scale(0.99)}
+.stu-card.is-sel{border-color:var(--red);background:var(--red-bg)}
+.stu-card.is-off{background:var(--card2);border-style:dashed}
+.stu-card.is-off .track-avatar{opacity:0.6}
+.stu-chk{position:relative;display:flex;align-items:center;justify-content:center;width:40px;height:44px;flex:0 0 auto;cursor:pointer}
+.stu-name{font-weight:700;font-size:0.98rem;letter-spacing:-0.01em;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.stu-line{font-size:0.8rem;color:var(--muted);margin-top:2px;line-height:1.4}
+.stu-line b{color:var(--text2);font-weight:600}
+.stu-guru{display:inline-flex;align-items:center;gap:4px;font-size:0.74rem;font-weight:600;color:var(--text2);background:var(--paper-2);border-radius:999px;padding:2px 9px 2px 7px;margin-top:5px}
+.stu-guru .ico{width:12px;height:12px}
+.stu-arrow{color:var(--muted2);display:flex;flex:0 0 auto}
+.track-avatar{width:44px;height:44px;border-radius:13px;background:var(--paper-2);color:var(--text2);display:flex;align-items:center;justify-content:center;flex:0 0 auto;overflow:hidden}
+.track-avatar .ico{width:24px;height:24px;stroke-width:1.6}
+.llk-subj{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:inherit}
+.llk-subj-emo{font-size:1.45rem;line-height:1}
+.bulk-bar{position:sticky;top:76px;z-index:20;box-shadow:0 6px 18px rgba(43,36,32,0.12)}
