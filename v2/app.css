@@ -28,7 +28,7 @@ input,select,textarea{font-family:inherit;font-size:16px}
 
 /* ── Layar sambutan / pilih peran ── */
 .welcome{min-height:100vh;padding:48px 20px 32px;max-width:460px;margin:0 auto;display:flex;flex-direction:column}
-.welcome-logo{width:64px;height:64px;border-radius:18px;background:var(--red);color:#fff;font-weight:800;font-size:1rem;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 24px rgba(192,57,43,0.3)}
+.welcome-logo{width:96px;height:96px;object-fit:contain;display:block;margin:0 auto 14px}
 .welcome h1{font-size:1.45rem;font-weight:800;text-align:center;letter-spacing:-0.02em}
 .welcome .sub{text-align:center;color:var(--muted);font-size:0.88rem;margin:6px 0 26px;line-height:1.5}
 .role-card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:1.5px solid var(--border);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);transition:transform .12s,border-color .12s}
@@ -142,7 +142,6 @@ main{padding:18px 16px 110px;max-width:760px;margin:0 auto}
 button{transition:transform 150ms var(--ease-out)}
 button:not(:disabled):active{transform:scale(0.97)}
 :focus-visible{outline:2.5px solid var(--red);outline-offset:2px}
-.welcome-logo{border-radius:16px;box-shadow:none}
 .welcome h1,.panel h2,.page-title,.modal-t{font-family:var(--font-display);font-weight:600;letter-spacing:-0.01em}
 .welcome h1{font-size:1.7rem}
 .role-card{border:1px solid var(--border);box-shadow:none;border-radius:var(--radius);min-height:76px}
