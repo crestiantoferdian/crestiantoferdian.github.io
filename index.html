@@ -14,7 +14,12 @@
 window.llkIsPlayApp=function(){ try{ return sessionStorage.getItem('llk_play_app')==='1'; }catch(e){ return false; } };
 (function(){try{
   if(document.referrer.indexOf('android-app://')===0) sessionStorage.setItem('llk_play_app','1');
-  if(/[?&]v1=1/.test(location.search)){ sessionStorage.setItem('llk_v1_tab','1'); localStorage.setItem('llk_v2_choice','lepas'); return; }
+  if(/[?&]v1=1/.test(location.search)){
+    sessionStorage.setItem('llk_v1_tab','1'); localStorage.setItem('llk_v2_choice','lepas');
+    // Rapikan alamat: buang "?v1=1" (parameter lain tetap) supaya yang terlihat leslesanku.com saja
+    try{ var q=location.search.replace(/([?&])v1=1(&|$)/,function(m,a,b){ return b?a:''; }); history.replaceState(history.state,'',location.pathname+(q==='?'?'':q)+location.hash); }catch(e){}
+    return;
+  }
   if(window.matchMedia&&matchMedia('(display-mode: standalone)').matches) return;
   if(navigator.standalone||document.referrer.indexOf('android-app://')===0) return;
   if(sessionStorage.getItem('llk_v1_tab')==='1') return;
