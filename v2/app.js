@@ -29,6 +29,11 @@ const INVITE_DAYS = 7;
 const CHOICE_KEY = 'llk_v2_choice';     // peran terakhir yang dipilih di HP ini
 const PENDING_KEY = 'llk_v2_pending';   // aksi yang menunggu login (untuk login via redirect)
 const CODE_KEY = 'llk_v2_code';         // kode undangan dari link
+// Dibuka dari menu di LLK V1 (?dari=v1): pilihan "Guru Lepas" disembunyikan supaya tidak bingung.
+// Diingat per tab supaya tetap berlaku setelah login (redirect Google menghapus ?dari).
+const FROM_V1_KEY = 'llk_v2_from_v1';
+try { if (new URLSearchParams(location.search).get('dari') === 'v1') sessionStorage.setItem(FROM_V1_KEY, '1'); } catch (e) {}
+function fromV1() { try { return sessionStorage.getItem(FROM_V1_KEY) === '1'; } catch (e) { return false; } }
 
 // Mode uji otomatis (hanya aktif kalau halaman diberi window.__LLK_TEST__ oleh skrip pengujian)
 const TEST = window.__LLK_TEST__ || null;
@@ -200,11 +205,12 @@ function renderChooser() {
       <div><div class="role-t">Kembali ke ${esc(S.org.name)}</div><div class="role-d">Sebagai ${S.member.role === 'admin' ? 'Guru Admin' : 'Guru Mitra'}</div></div>
       <div class="role-arrow">${I('chevron-right')}</div>
     </button>` : ''}
+    ${fromV1() ? '' : `
     <button class="role-card" id="rcLepas">
-      <div class="role-ic" style="background:var(--amber-bg);color:var(--amber)">${I('user')}</div>
-      <div><div class="role-t">Guru Lepas</div><div class="role-d">Saya mengajar sendiri — atur murid, jadwal & tagihan sendiri</div></div>
+      <div class="role-ic role-ic-app"><img src="../icon-maskable-192.png" alt=""/></div>
+      <div><div class="role-t">Guru Lepas <span class="role-tag">LLK V1</span></div><div class="role-d">Saya mengajar sendiri — atur murid, jadwal & tagihan sendiri</div></div>
       <div class="role-arrow">${I('chevron-right')}</div>
-    </button>
+    </button>`}
     ${inOrg ? '' : `
     <button class="role-card" id="rcLembaga">
       <div class="role-ic" style="background:var(--red-bg);color:var(--red)">${I('users')}</div>
@@ -221,7 +227,7 @@ function renderChooser() {
     </div>
   </div>`;
   const back = $('rcBack'); if (back) back.onclick = () => enterShell();
-  $('rcLepas').onclick = () => { setChoice('lepas'); location.href = V1_URL; };
+  if ($('rcLepas')) $('rcLepas').onclick = () => { setChoice('lepas'); location.href = V1_URL; };
   const l = $('rcLembaga'); if (l) l.onclick = () => startLembaga();
   const m = $('rcMitra'); if (m) m.onclick = () => startMitra();
   const lo = $('lnkLogout'); if (lo) lo.onclick = (e) => { e.preventDefault(); logout(); };
