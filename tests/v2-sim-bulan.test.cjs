@@ -154,7 +154,7 @@ const end=t=>{const [h,m]=t.split(':').map(Number);const x=h*60+m+60;return Stri
     const sum=await P.evaluate(()=>[...document.querySelectorAll('.menu-card .menu-item')].reduce((n,el)=>{const m=el.innerText.match(/Rp ([\d.]+)\s*$/);return n+(m?+m[1].replace(/\./g,''):0);},0));
     ok(sum===E.gaji[g],'Honor '+g+' di aplikasinya: '+rp(sum)+' (manual '+rp(E.gaji[g])+')');
     await P.click('[data-tab=track]'); await sleep(300); await P.click('[data-per="semua"]'); await sleep(300);
-    const t=await P.evaluate(()=>[...document.querySelectorAll('.stats-row .stat-num')].map(e=>e.textContent).join('/'));
+    const t=await P.evaluate(()=>[...document.querySelectorAll('[data-sf] .n')].map(e=>e.textContent).join('/'));
     const s=E.sesi[g]; ok(t===s.h+'/'+s.i+'/'+s.a,'Track '+g+': Hadir/Izin/Alpa = '+t);
   }
   await G['Bu Sari'].page.click('[data-tab=honor]'); await sleep(300); await G['Bu Sari'].page.screenshot({path:OUT+'bulan_honor_sari.png'});
@@ -164,6 +164,8 @@ const end=t=>{const [h,m]=t.split(':').map(Number);const x=h*60+m+60;return Stri
   const tagihan=await A.evaluate(()=>1);
   // Tagih WA untuk murid yang perlu bayar
   await A.click('[data-tab=keuangan]'); await sleep(1500); await A.click('[data-per="30"]'); await sleep(1200);
+  ok(await A.evaluate(()=>{ const n=t=>+document.getElementById(t).textContent.replace(/[^\d]/g,''); return n('kpGross')>0&&n('kpGross')-n('kpGaji')===n('kpNet'); }),'Keuangan: proyeksi jika semua siswa masuk (kotor − gaji guru = bersih)');
+  await A.screenshot({path:OUT+'bulan_keuangan_proyeksi.png'});
   const tg=await A.$('[data-tagih]');
   if(tg){ await tg.click(); const wa=await A.evaluate(()=>decodeURIComponent(window.__wa[window.__wa.length-1]||'')); ok(/wa\.me\/62812555/.test(wa)&&wa.includes('Rp 400.000'),'Tagih WA: pesan tagihan paket Rp 400.000 ke nomor ortu'); }
   const errs=[A,...Object.values(G).map(x=>x.page)].flatMap(p=>p.errs); ok(errs.length===0,'tidak ada error JavaScript'+(errs.length?': '+errs.join(' | '):''));

@@ -477,3 +477,48 @@ input:focus-visible+.chk-box{outline:2px solid var(--blue);outline-offset:2px}
 .ab-act{margin-top:10px;display:flex;gap:6px}
 .ab-act .mini{width:auto;flex:none;padding:0 14px}
 .ab-list .empty{padding:28px 16px}
+/* Absensi Admin — pilihan guru bisa digeser, nama guru berbingkai, kalender, progres */
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+.ab-cal{gap:2px}.ab-cal.active{background:var(--blue);color:#fff;border-style:solid;border-color:var(--blue)}
+.ab-gurus{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px 12px;padding:2px 16px 6px;scroll-snap-type:x proximity}
+.ab-gurus::-webkit-scrollbar{display:none}
+.ab-gp{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 14px;border-radius:999px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-weight:700;font-size:0.88rem;font-family:inherit;cursor:pointer;white-space:nowrap;scroll-snap-align:center}
+.ab-gp .ico{width:16px;height:16px}
+.ab-gp.active{background:var(--text);border-color:var(--text);color:var(--card)}
+.ab-gp[style*="--gc"].active{background:var(--gc);border-color:var(--gc);color:#fff}
+.ab-gp.active .g-dot{background:#fff!important}
+.ab-gn{font-size:0.74rem;font-weight:800;background:var(--paper-2);color:var(--text2);border-radius:999px;padding:1px 8px}
+.ab-gp.active .ab-gn{background:rgba(255,255,255,0.25);color:inherit}
+.ab-gtag{display:inline-flex;align-items:center;gap:7px;margin-top:7px;padding:5px 12px 5px 10px;border-radius:10px;font-size:0.92rem;font-weight:800;color:var(--text);
+  border:2px solid var(--gc,var(--red));background:color-mix(in srgb,var(--gc,var(--red)) 12%,var(--card))}
+.ab-gtag .g-dot{width:10px;height:10px}
+.ab-gtag.is-none{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
+.ab-gtag.is-none .ico{width:16px;height:16px}
+.mini-blue{color:var(--blue);border-color:rgba(47,90,138,0.35);background:var(--blue-bg)}
+.acal{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:12px 12px 14px;margin:0 0 12px}
+.acal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.acal-title{font-family:var(--font-display);font-weight:600;font-size:1.1rem}
+.acal-nav{width:44px;height:44px;border-radius:12px;border:1px solid var(--border);background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--text2);cursor:pointer}
+.acal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.acal-dow{text-align:center;font-size:0.72rem;font-weight:700;color:var(--muted);padding:4px 0}
+.acal-day{position:relative;aspect-ratio:1/1;max-height:52px;border-radius:12px;border:1px solid transparent;background:var(--card2);font-family:inherit;font-weight:600;font-size:0.92rem;color:var(--text);cursor:pointer}
+.acal-day.has-data::after{content:'';position:absolute;bottom:6px;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--green)}
+.acal-day.today{border-color:var(--red);color:var(--red)}
+.acal-day.selected{background:var(--text);color:var(--card)}
+.prog-box{background:var(--card2);border:1px solid var(--border2);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.prog-l{font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-top:8px}
+.prog-l:first-child{margin-top:0}
+.prog-v{white-space:pre-wrap;font-size:0.92rem;line-height:1.5;margin-top:2px}
+.btn-wa{background:#1f8a4c;border-color:#1f8a4c}
+textarea#pgMsg{width:100%;font-size:0.88rem;line-height:1.5}
+/* Keuangan — proyeksi jika semua siswa masuk (ala V1) */
+.keu-proj{background:linear-gradient(135deg,#2b2420,#4a3a30);color:#fff;border-radius:18px;padding:16px 18px;margin:0 0 14px}
+.kp-head{display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:700;color:#e6dccf}
+.kp-head .ico{width:16px;height:16px}
+.kp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.kp-l{font-size:0.72rem;color:#cbbfb1;font-weight:600}
+.kp-n{font-family:var(--font-display);font-size:1.25rem;font-weight:600;font-variant-numeric:lining-nums tabular-nums;margin-top:2px}
+.kp-net{color:#9be3b5}
+.kp-d{font-size:0.7rem;color:#cbbfb1;margin-top:2px}
+.kp-foot{font-size:0.72rem;color:#cbbfb1;margin-top:10px;line-height:1.5}
+@media (max-width:520px){ .kp-grid{grid-template-columns:1fr} .kp-n{font-size:1.4rem} }
