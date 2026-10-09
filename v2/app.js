@@ -887,21 +887,32 @@ function renderDaftarMurid(body) {
     ${d.subjects.length ? '' : `<div class="callout">${I('info')}<div><b>Mulai dari Mata Pelajaran.</b> Tambahkan pelajaran & tarif standarnya dulu (mis. Piano Rp 50.000), lalu tambahkan murid. <button class="link-btn" id="goPel">Buka Mata Pelajaran →</button></div></div>`}
     <div class="toolbar">
       <div class="search">${I('search', 'sm')}<input id="fQ" placeholder="Cari nama siswa / ortu…" value="${esc(f.q)}"/></div>
-      <select id="fGuru">${opt('', 'Semua guru', f.guru)}${d.mitras.map(x => opt(x.id, x.name, f.guru)).join('')}${opt('none', 'Belum ada guru', f.guru)}</select>
+      <select id="fGuru">${opt('', 'Semua guru', f.guru)}${d.mitras.map(x => opt(x.id, x.name, f.guru)).join('')}${opt('none', 'Belum punya guru', f.guru)}</select>
       <select id="fSubj">${opt('', 'Semua pelajaran', f.subj)}${d.subjects.map(x => opt(x.id, x.name, f.subj)).join('')}</select>
       <select id="fStat">${opt('aktif', 'Aktif', f.status)}${opt('nonaktif', 'Nonaktif', f.status)}${opt('semua', 'Semua status', f.status)}</select>
       <button class="btn btn-ghost tb-btn" id="impV1">${I('download', 'sm')} Impor dari LLK V1</button>
       <button class="btn btn-primary tb-btn" id="addStu" ${d.subjects.length ? '' : 'disabled'}>${I('plus', 'sm')} Tambah Siswa</button>
     </div>
+    <div class="chips" id="fChips"></div>
     <div id="stuList"></div>`;
   const g = $('goPel'); if (g) g.onclick = () => { S.muridView = 'pelajaran'; rerenderMurid(); };
   $('fQ').oninput = (e) => { f.q = e.target.value; drawStudentList(); };
   $('fGuru').onchange = (e) => { f.guru = e.target.value; drawStudentList(); };
+  // Tombol cepat "Belum punya guru" (sama dengan pilihan di daftar guru)
+  $('fChips').onclick = (e) => { const b = e.target.closest('[data-chip]'); if (!b) return; f.guru = b.dataset.chip === 'none' && f.guru !== 'none' ? 'none' : ''; $('fGuru').value = f.guru; S.sel.clear(); drawStudentList(); };
   $('fSubj').onchange = (e) => { f.subj = e.target.value; drawStudentList(); };
   $('fStat').onchange = (e) => { f.status = e.target.value; drawStudentList(); };
   $('addStu').onclick = () => openStudentForm(null);
   $('impV1').onclick = openImportV1;
   drawStudentList();
+}
+// Kelas yang cocok dengan filter pelajaran & guru (dipakai juga saat menugaskan sekaligus)
+function classMatch(c) {
+  const f = S.filt;
+  if (f.subj && c.subjectId !== f.subj) return false;
+  if (f.guru === 'none' && mitraOf(c.mitraUid)) return false;
+  if (f.guru && f.guru !== 'none' && c.mitraUid !== f.guru) return false;
+  return true;
 }
 function filteredStudents() {
   const f = S.filt, q = f.q.trim().toLowerCase();
@@ -909,16 +920,22 @@ function filteredStudents() {
     if (f.status === 'aktif' && !st.active) return false;
     if (f.status === 'nonaktif' && st.active) return false;
     if (q && !(st.name.toLowerCase().includes(q) || String(st.parentName || '').toLowerCase().includes(q))) return false;
-    const cl = st.classes || [];
-    if (f.subj && !cl.some(c => c.subjectId === f.subj)) return false;
-    if (f.guru === 'none' && !cl.some(c => !mitraOf(c.mitraUid))) return false;
-    if (f.guru && f.guru !== 'none' && !cl.some(c => c.mitraUid === f.guru)) return false;
+    if ((f.subj || f.guru) && !(st.classes || []).some(classMatch)) return false;
     return true;
   });
 }
 function drawStudentList() {
   const box = $('stuList'); if (!box) return;
   const list = filteredStudents();
+  const ch = $('fChips');
+  if (ch) {
+    const nNo = S.data.students.filter(st => st.active && (st.classes || []).some(c => !mitraOf(c.mitraUid))).length;
+    ch.innerHTML = `<button class="chip ${S.filt.guru === 'none' ? 'on' : ''}" data-chip="none">${I('user-plus', 'sm')} Belum punya guru <span class="chip-n">${nNo}</span></button>`;
+  }
+  if (!list.length && S.filt.guru === 'none' && !S.filt.q && S.data.students.length) {
+    box.innerHTML = `<div class="card"><div class="empty"><div class="empty-ic">${I('check-circle')}</div><div class="empty-t">Semua siswa sudah punya guru</div><div class="empty-d">Tidak ada kelas yang menunggu guru${S.filt.subj ? ' untuk pelajaran ini' : ''}.</div></div></div>`;
+    return;
+  }
   if (!list.length) {
     box.innerHTML = `<div class="card"><div class="empty"><div class="empty-ic">${I('users')}</div><div class="empty-t">${S.data.students.length ? 'Tidak ada siswa yang cocok' : 'Belum ada siswa'}</div><div class="empty-d">${S.data.students.length ? 'Ubah pencarian atau filter di atas.' : 'Tekan “Tambah Siswa”, atau salin dari LLK V1 dengan “Impor dari LLK V1”.'}</div></div></div>`;
     return;
@@ -956,7 +973,7 @@ function drawStudentList() {
   };
   // Pilih beberapa siswa → tugaskan ke 1 guru sekaligus (membagi siswa ke guru-guru)
   const nSel = list.filter(x => S.sel.has(x.id)).length, allOn = nSel === list.length;
-  const fSubj = S.filt.subj ? subjOf(S.filt.subj) : null;
+  const fSubj = S.filt.subj ? subjOf(S.filt.subj) : null, fNone = S.filt.guru === 'none';
   const selBar = `<div class="sel-bar">
       <label class="sel-all"><input type="checkbox" id="selAll" ${allOn ? 'checked' : ''}/><span class="chk-box">${I('check', 'sm')}</span> Centang semua (${list.length})</label>
       <span class="t-meta">${nSel ? `<b style="color:var(--text)">${nSel} siswa dipilih</b>` : 'Centang siswa untuk menugaskan ke satu guru sekaligus'}</span></div>`;
@@ -964,7 +981,7 @@ function drawStudentList() {
       <select id="bkGuru"><option value="">Tugaskan ${fSubj ? 'kelas ' + esc(fSubj.name) + ' ' : ''}ke guru…</option>${S.data.mitras.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('')}<option value="__none">Belum ditentukan</option></select>
       <button class="btn btn-primary tb-btn" id="bkGo">${I('check', 'sm')} Terapkan</button>
       <button class="btn btn-ghost tb-btn" id="bkNo">Batal pilih</button>
-      ${fSubj ? `<div class="t-meta" style="flex-basis:100%;white-space:normal">Hanya kelas <b>${esc(fSubj.name)}</b> yang dipindah; pelajaran lain siswa itu tetap pada gurunya.</div>` : ''}</div>` : '';
+      ${fSubj || fNone ? `<div class="t-meta" style="flex-basis:100%;white-space:normal">Hanya kelas ${fSubj ? '<b>' + esc(fSubj.name) + '</b> ' : ''}${fNone ? 'yang <b>belum punya guru</b> ' : ''}yang ditugaskan; kelas lain siswa itu tetap pada gurunya.</div>` : ''}</div>` : '';
   const wide = window.matchMedia('(min-width: 900px)').matches;
   box.innerHTML = selBar + bulk + (wide ? `<div class="tbl-wrap"><table class="tbl">
     <thead><tr><th class="td-chk"></th><th>Siswa</th><th>Pelajaran & Guru</th><th>Jadwal</th><th>Tarif / pertemuan</th><th>No HP ortu</th><th>Status</th><th></th></tr></thead>
@@ -979,17 +996,17 @@ function drawStudentList() {
   $('selAll').onchange = (e) => { list.forEach(x => e.target.checked ? S.sel.add(x.id) : S.sel.delete(x.id)); drawStudentList(); };
   if (nSel) {
     $('bkNo').onclick = () => { S.sel.clear(); drawStudentList(); };
-    $('bkGo').onclick = () => bulkAssign(list.filter(x => S.sel.has(x.id)), $('bkGuru').value, S.filt.subj);
+    $('bkGo').onclick = () => bulkAssign(list.filter(x => S.sel.has(x.id)), $('bkGuru').value);
   }
   // Ganti tampilan kartu/tabel kalau lebar layar berubah (putar HP / ubah ukuran jendela)
   if (!drawStudentList.mq) { drawStudentList.mq = window.matchMedia('(min-width: 900px)'); drawStudentList.mq.addEventListener('change', () => drawStudentList()); }
 }
-// subjId (filter pelajaran aktif): hanya kelas pelajaran itu yang dipindah ke guru baru
-async function bulkAssign(list, guru, subjId) {
+// Hanya kelas yang cocok dengan filter (pelajaran / guru / belum punya guru) yang dipindah ke guru baru
+async function bulkAssign(list, guru) {
   if (!guru) { toast('Pilih gurunya dulu'); return; }
   const uid = guru === '__none' ? null : guru, o = S.org.id, ops = [];
   list.forEach(st => {
-    const classes = (st.classes || []).map(c => (!subjId || c.subjectId === subjId) ? Object.assign({}, c, { mitraUid: uid }) : c);
+    const classes = (st.classes || []).map(c => classMatch(c) ? Object.assign({}, c, { mitraUid: uid }) : c);
     ops.push(['set', doc(db, 'orgs', o, 'students', st.id), Object.assign({}, st, { classes, updatedAt: serverTimestamp() })]);
     classes.forEach(c => ops.push(['set', doc(db, 'orgs', o, 'sched', c.id), schedDoc(st, c)]));
   });
