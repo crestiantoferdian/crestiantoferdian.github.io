@@ -1,9 +1,9 @@
 {
-  "id": "/v2/guru",
+  "id": "/v2/guru-mitra",
   "name": "LLK Guru Mitra",
   "short_name": "LLK Guru Mitra",
   "description": "Absensi & progres murid untuk guru lembaga",
-  "start_url": "guru.html",
+  "start_url": "guru.html?app=mitra",
   "scope": "guru",
   "display": "standalone",
   "background_color": "#f6f1e9",
