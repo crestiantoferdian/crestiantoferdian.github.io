@@ -24,7 +24,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '894092774293',
   appId: '1:894092774293:web:8c66654aada5b42bf5c49c'
 };
-const V1_URL = '../';
+const V1_URL = '../?v1=1';
 const INVITE_DAYS = 7;
 const CHOICE_KEY = 'llk_v2_choice';     // peran terakhir yang dipilih di HP ini
 const PENDING_KEY = 'llk_v2_pending';   // aksi yang menunggu login (untuk login via redirect)
