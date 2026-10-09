@@ -487,7 +487,7 @@ function renderShell() {
 }
 function renderTab() {
   const m = $('main');
-  m.classList.toggle('wide', isAdmin() && ['murid', 'absensi', 'keuangan'].includes(S.tab));
+  m.classList.toggle('wide', isAdmin() && ['murid', 'keuangan'].includes(S.tab));
   if (isAdmin()) {
     if (S.tab === 'guru') return renderGuru(m);
     if (S.tab === 'absensi') return renderAdminAbsensi(m);
@@ -1340,38 +1340,73 @@ async function renderAdminAbsensi(m) {
   Object.values(att).filter(a => !seen.has(a.id)).forEach(a => rows.push({ id: a.id, st: null, c: { id: a.classId }, name: a.studentName, subj: a.subjectName, uid: a.mitraUid, start: a.start, end: a.end, rec: a }));
   rows.sort((a, b) => String(a.start).localeCompare(String(b.start)) || a.name.localeCompare(b.name));
   const stOf = r => (r.rec && r.rec.status) || 'belum';
-  const n = st => rows.filter(r => stOf(r) === st).length;
-  const pill = st => ({ hadir: '<span class="pill pill-green">HADIR</span>', izin: '<span class="pill pill-amber">IZIN</span>', alpa: '<span class="pill pill-red">ALPA</span>', off: '<span class="pill pill-grey">OFF</span>' }[st] || '<span class="pill pill-grey">BELUM</span>');
+  // Kotak pilih guru di bawah kalender: hanya jadwal guru itu yang tampil
+  const gSel = S.absGuru || '';
+  const guruOf = r => mitraOf(r.uid) ? r.uid : 'none';
+  const cntG = g => rows.filter(r => guruOf(r) === g).length;
+  const shown = rows.filter(r => !gSel || guruOf(r) === gSel);
+  const n = st => shown.filter(r => stOf(r) === st).length;
   const shift = (k, d) => { const x = new Date(k + 'T00:00:00'); x.setDate(x.getDate() + d); return localKey(x); };
+  // Strip tanggal ala V1 (7 hari sebelum s/d 6 hari sesudah tanggal terpilih) + tombol kalender
+  const DSH = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'], MSH = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  let pills = '';
+  for (let i = -7; i <= 6; i++) {
+    const k = shift(key, i), d = new Date(k + 'T00:00:00'), showMonth = i === -7 || d.getDate() === 1;
+    pills += `<button class="ab-pill${k === key ? ' active' : ''}${k === today && k !== key ? ' today' : ''}${k < today ? ' past' : ''}" data-date="${k}">`
+      + `<span class="dp-d">${k === today ? 'Hari ini' : DSH[d.getDay()]}</span><span class="dp-n">${d.getDate()}${showMonth ? ' ' + MSH[d.getMonth()] : ''}</span></button>`;
+  }
+  const diff = Math.round((new Date(key + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
+  const rel = diff === 0 ? 'Hari ini' : diff === -1 ? 'Kemarin' : diff === 1 ? 'Besok' : diff < 0 ? (-diff) + ' hari lalu' : diff + ' hari lagi';
+  const gName = gSel === 'none' ? 'Belum punya guru' : gSel ? (mitraOf(gSel) || {}).name : '';
+  const badge = st => ({ hadir: ['var(--hadir-solid,var(--green))', 'check'], izin: ['var(--izin-solid,var(--amber))', 'minus'], alpa: ['var(--alpa-solid,var(--danger))', 'x'], off: ['#4f5d6e', 'pause'] }[st]);
+  const pill = st => ({ hadir: '<span class="pill pill-green">HADIR</span>', izin: '<span class="pill pill-amber">IZIN</span>', alpa: '<span class="pill pill-red">ALPA</span>', off: '<span class="pill pill-grey">OFF</span>' }[st] || '<span class="pill pill-grey">BELUM</span>');
+  const item = r => {
+    const a = r.rec || {}, st = stOf(r), bd = badge(st), dim = st === 'izin' || st === 'alpa' || st === 'off';
+    return `<div class="ab-item status-${st}" data-row="${esc(r.id)}">
+      <div class="ab-av" style="${dim ? 'opacity:0.55' : ''}">${subjectIcon(r.subj)}${bd ? `<span class="ab-badge" style="background:${bd[0]}">${I(bd[1])}</span>` : ''}</div>
+      <div class="ab-body">
+        <div class="ab-top"><div class="ab-name">${esc(r.name)}</div><div class="ab-time">${esc(r.start)}${r.end ? '–' + esc(r.end) : ''}</div></div>
+        <div class="ab-sub"><b>${esc(r.subj)}</b> · ${guruLabel(r.uid)}</div>
+        <div class="ab-st">${pill(st)}${a.reason ? `<span class="ab-reason">${esc(a.reason)}</span>` : ''}</div>
+        ${a.progress ? `<div class="ab-note">${I('note', 'sm')}<span>${esc(a.progress)}</span></div>` : ''}
+        ${a.prSiswa ? `<div class="ab-note" style="color:var(--plum,#6b4e9b)">${I('book', 'sm')}<span>PR: ${esc(a.prSiswa)}</span></div>` : ''}
+        ${st === 'izin' ? `<div class="ab-act"><button class="mini" data-unizin="${esc(r.id)}">${I('x', 'sm')} Hapus Izin</button></div>` : (st === 'belum' && r.st ? `<div class="ab-act"><button class="mini" data-izin="${esc(r.id)}">${I('hand', 'sm')} Izin</button></div>` : '')}
+      </div>
+    </div>`;
+  };
   m.innerHTML = `
     <div class="page-head"><div><div class="page-title">Absensi</div>
-      <div class="page-sub">${esc(day)}, ${esc(new Date(key + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }))}${key === today ? ' · hari ini' : ''}</div></div></div>
-    <div class="toolbar">
-      <button class="btn btn-ghost tb-btn" id="abPrev">${I('chevron-left', 'sm')}</button>
-      <input type="date" id="abDate" value="${key}" class="date-in"/>
-      <button class="btn btn-ghost tb-btn" id="abNext">${I('chevron-right', 'sm')}</button>
-      ${key !== today ? '<button class="btn btn-ghost tb-btn" id="abToday">Hari ini</button>' : ''}
-      <div class="chips"><span class="chip">${n('hadir')} Hadir</span><span class="chip">${n('izin')} Izin</span><span class="chip">${n('alpa')} Alpa</span><span class="chip">${n('belum')} Belum</span></div>
+      <div class="page-sub">Pantau kehadiran semua guru. Siswa berhalangan? Tekan <b>Izin</b>.</div></div></div>
+    <div class="ab-days" id="dayBar">${pills}<label class="ab-pill ab-cal" title="Pilih tanggal">${I('calendar')}<input type="date" id="abDate" value="${key}" aria-label="Pilih tanggal"/></label></div>
+    <div class="ab-guru">
+      <span class="ab-guru-ic">${I('user')}</span>
+      <select id="abGuru" aria-label="Pilih guru">
+        <option value="">Semua guru (${rows.length} jadwal)</option>
+        ${S.data.mitras.map(g => `<option value="${esc(g.id)}" ${gSel === g.id ? 'selected' : ''}>${esc(g.name)} (${cntG(g.id)} jadwal)</option>`).join('')}
+        ${cntG('none') || gSel === 'none' ? `<option value="none" ${gSel === 'none' ? 'selected' : ''}>Belum punya guru (${cntG('none')})</option>` : ''}
+      </select>
     </div>
-    ${rows.length ? `<div class="tbl-wrap"><table class="tbl tbl-static">
-      <thead><tr><th>Jam</th><th>Murid</th><th>Pelajaran & Guru</th><th>Status</th><th>Progres & PR</th><th></th></tr></thead>
-      <tbody>${rows.map(r => { const a = r.rec || {}, st = stOf(r); return `<tr>
-        <td><b>${esc(r.start)}</b>${r.end ? '<div class="t-meta">' + esc(r.end) + '</div>' : ''}</td>
-        <td><div class="t-name">${esc(r.name)}</div></td>
-        <td><div class="cl-line"><b>${esc(r.subj)}</b> · ${guruLabel(r.uid)}</div></td>
-        <td>${pill(st)}${a.reason ? '<div class="t-meta" style="white-space:normal;margin-top:4px">' + esc(a.reason) + '</div>' : ''}</td>
-        <td class="td-note">${a.progress ? '<div>' + esc(a.progress) + '</div>' : ''}${a.prSiswa ? '<div class="t-meta" style="white-space:normal">PR: ' + esc(a.prSiswa) + '</div>' : ''}${!a.progress && !a.prSiswa ? '<span class="t-meta">—</span>' : ''}</td>
-        <td class="td-act">${st === 'izin' ? `<button class="mini" data-unizin="${esc(r.id)}">Hapus Izin</button>` : (st === 'belum' && r.st ? `<button class="mini" data-izin="${esc(r.id)}">${I('hand', 'sm')} Izin</button>` : '')}</td>
-      </tr>`; }).join('')}</tbody></table></div>`
-    : `<div class="card"><div class="empty"><div class="empty-ic">${I('calendar')}</div><div class="empty-t">Tidak ada jadwal hari ${esc(day)}</div><div class="empty-d">Pilih tanggal lain.</div></div></div>`}`;
+    <div class="ab-stats">
+      <div class="ab-stat s-hadir"><div class="stat-label">Hadir</div><div class="stat-num">${n('hadir')}</div></div>
+      <div class="ab-stat s-izin"><div class="stat-label">Izin</div><div class="stat-num">${n('izin')}</div></div>
+      <div class="ab-stat s-alpa"><div class="stat-label">Alpa</div><div class="stat-num">${n('alpa')}</div></div>
+      <div class="ab-stat"><div class="stat-label">Belum</div><div class="stat-num">${n('belum')}</div></div>
+    </div>
+    <div class="ab-list">
+      <div class="ab-head"><div class="ab-title">${esc(day)} — ${rel}</div>
+        <div class="t-meta">${esc(new Date(key + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }))}${gName ? ' · ' + esc(gName) : ''}</div></div>
+      ${shown.length ? shown.map(item).join('')
+        : `<div class="empty"><div class="empty-ic">${I('calendar')}</div><div class="empty-t">Tidak ada jadwal ${gName ? esc(gName) + ' ' : ''}hari ${esc(day)}</div><div class="empty-d">Pilih tanggal${gSel ? ' atau guru' : ''} lain.</div></div>`}
+    </div>`;
   const go = k => { S.absDate = k === today ? '' : k; renderAdminAbsensi(m); };
-  $('abPrev').onclick = () => go(shift(key, -1));
-  $('abNext').onclick = () => go(shift(key, 1));
+  m.querySelectorAll('[data-date]').forEach(bt => bt.onclick = () => go(bt.dataset.date));
   $('abDate').onchange = e => { if (e.target.value) go(e.target.value); };
-  const t = $('abToday'); if (t) t.onclick = () => go(today);
-  m.querySelectorAll('[data-izin]').forEach(b => b.onclick = () => openIzin(rows.find(r => r.id === b.dataset.izin), key, m));
-  m.querySelectorAll('[data-unizin]').forEach(b => b.onclick = async () => {
-    try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'att', b.dataset.unizin)]]); toast('Izin dihapus'); renderAdminAbsensi(m); }
+  $('abDate').parentElement.onclick = (e) => { if (e.target.id !== 'abDate') { try { $('abDate').showPicker(); } catch (x) { $('abDate').focus(); } } };
+  $('abGuru').onchange = e => { S.absGuru = e.target.value; renderAdminAbsensi(m); };
+  setTimeout(() => { const bar = $('dayBar'), act = bar && bar.querySelector('.ab-pill.active'); if (bar && act) bar.scrollLeft = act.offsetLeft - bar.offsetWidth / 2 + act.offsetWidth / 2; }, 30);
+  m.querySelectorAll('[data-izin]').forEach(bt => bt.onclick = () => openIzin(rows.find(r => r.id === bt.dataset.izin), key, m));
+  m.querySelectorAll('[data-unizin]').forEach(bt => bt.onclick = async () => {
+    try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'att', bt.dataset.unizin)]]); toast('Izin dihapus'); renderAdminAbsensi(m); }
     catch (e) { toast('❌ ' + friendlyError(e)); }
   });
 }
