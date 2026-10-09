@@ -1452,26 +1452,27 @@ async function renderAdminAbsensi(m) {
       <div class="ab-av" style="${dim ? 'opacity:0.55' : ''}">${subjectIcon(r.subj)}${bd ? `<span class="ab-badge" style="background:${bd[0]}">${I(bd[1])}</span>` : ''}</div>
       <div class="ab-body">
         <div class="ab-top"><div class="ab-name">${esc(r.name)}</div><div class="ab-time">${esc(r.start)}${r.end ? '–' + esc(r.end) : ''}</div></div>
-        <div class="ab-sub"><b>${esc(r.subj)}</b> · ${guruLabel(r.uid)}</div>
+        <div class="ab-sub"><b>${esc(r.subj)}</b></div>
+        ${guruTag(r.uid)}
         <div class="ab-st">${pill(st)}${a.src === 'v1' ? '<span class="pill pill-grey">DARI LLK V1</span>' : ''}${a.reason ? `<span class="ab-reason">${esc(a.reason)}</span>` : ''}</div>
         ${a.progress ? `<div class="ab-note">${I('note', 'sm')}<span>${esc(a.progress)}</span></div>` : ''}
         ${a.prSiswa ? `<div class="ab-note" style="color:var(--plum,#6b4e9b)">${I('book', 'sm')}<span>PR: ${esc(a.prSiswa)}</span></div>` : ''}
         ${st === 'izin' ? `<div class="ab-act"><button class="mini" data-unizin="${esc(r.id)}">${I('x', 'sm')} Hapus Izin</button></div>` : (st === 'belum' && r.st ? `<div class="ab-act"><button class="mini" data-izin="${esc(r.id)}">${I('hand', 'sm')} Izin</button></div>` : '')}
+        ${st === 'hadir' || st === 'alpa' ? `<div class="ab-act"><button class="mini mini-blue" data-prog="${esc(r.id)}">${I('note', 'sm')} Progres${(r.st && r.st.phone) ? ' & Kirim' : ''}</button></div>` : ''}
       </div>
     </div>`;
   };
   m.innerHTML = `
     <div class="page-head"><div><div class="page-title">Absensi</div>
       <div class="page-sub">Pantau kehadiran semua guru. Siswa berhalangan? Tekan <b>Izin</b>.</div></div></div>
-    <div class="ab-days" id="dayBar">${pills}<label class="ab-pill ab-cal" title="Pilih tanggal">${I('calendar')}<input type="date" id="abDate" value="${key}" aria-label="Pilih tanggal"/></label></div>
-    <div class="ab-guru">
-      <span class="ab-guru-ic">${I('user')}</span>
-      <select id="abGuru" aria-label="Pilih guru">
-        <option value="">Semua guru (${rows.length} jadwal)</option>
-        ${S.data.mitras.map(g => `<option value="${esc(g.id)}" ${gSel === g.id ? 'selected' : ''}>${esc(g.name)} (${cntG(g.id)} jadwal)</option>`).join('')}
-        ${cntG('none') || gSel === 'none' ? `<option value="none" ${gSel === 'none' ? 'selected' : ''}>Belum punya guru (${cntG('none')})</option>` : ''}
-      </select>
+    <div class="ab-days" id="dayBar">${pills}<button class="ab-pill ab-cal${S.absCal ? ' active' : ''}" id="abCalBtn" aria-label="Buka Kalender">${I('calendar')}<span class="dp-d">Kalender</span></button></div>
+    <input type="date" id="abDate" value="${key}" class="sr-only" tabindex="-1" aria-hidden="true"/>
+    <div class="ab-gurus" id="abGuruBar">
+      <button class="ab-gp${!gSel ? ' active' : ''}" data-guru="">${I('users', 'sm')} Semua <span class="ab-gn">${rows.length}</span></button>
+      ${S.data.mitras.map(g => `<button class="ab-gp${gSel === g.id ? ' active' : ''}" data-guru="${esc(g.id)}" style="--gc:${esc(g.color || 'var(--red)')}"><span class="g-dot" style="background:${esc(g.color || 'var(--red)')}"></span>${esc(g.name)} <span class="ab-gn">${cntG(g.id)}</span></button>`).join('')}
+      ${cntG('none') || gSel === 'none' ? `<button class="ab-gp${gSel === 'none' ? ' active' : ''}" data-guru="none">${I('user-plus', 'sm')} Belum punya guru <span class="ab-gn">${cntG('none')}</span></button>` : ''}
     </div>
+    ${S.absCal ? `<div id="abCalWrap">${adminCalendar(key)}</div>` : ''}
     <div class="ab-stats">
       <div class="ab-stat s-hadir"><div class="stat-label">Hadir</div><div class="stat-num">${n('hadir')}</div></div>
       <div class="ab-stat s-izin"><div class="stat-label">Izin</div><div class="stat-num">${n('izin')}</div></div>
@@ -1487,14 +1488,78 @@ async function renderAdminAbsensi(m) {
   const go = k => { S.absDate = k === today ? '' : k; renderAdminAbsensi(m); };
   m.querySelectorAll('[data-date]').forEach(bt => bt.onclick = () => go(bt.dataset.date));
   $('abDate').onchange = e => { if (e.target.value) go(e.target.value); };
-  $('abDate').parentElement.onclick = (e) => { if (e.target.id !== 'abDate') { try { $('abDate').showPicker(); } catch (x) { $('abDate').focus(); } } };
-  $('abGuru').onchange = e => { S.absGuru = e.target.value; renderAdminAbsensi(m); };
+  $('abCalBtn').onclick = () => { S.absCal = !S.absCal; if (S.absCal) { const d = new Date(key + 'T00:00:00'); S.calY = d.getFullYear(); S.calM = d.getMonth(); } renderAdminAbsensi(m); };
+  m.querySelectorAll('[data-guru]').forEach(bt => bt.onclick = () => { S.absGuru = bt.dataset.guru; renderAdminAbsensi(m); });
+  m.querySelectorAll('[data-acal]').forEach(bt => bt.onclick = () => { const d = +bt.dataset.acal; S.calM += d; if (S.calM < 0) { S.calM = 11; S.calY--; } if (S.calM > 11) { S.calM = 0; S.calY++; } renderAdminAbsensi(m); });
+  m.querySelectorAll('[data-aday]').forEach(bt => bt.onclick = () => { S.absCal = false; go(bt.dataset.aday); });
+  m.querySelectorAll('[data-prog]').forEach(bt => bt.onclick = () => openProgres(rows.find(r => r.id === bt.dataset.prog), key));
+  if (S.absCal) fillAdminCalendarDots();
+  setTimeout(() => { const gb = $('abGuruBar'), ac = gb && gb.querySelector('.ab-gp.active'); if (gb && ac) gb.scrollLeft = ac.offsetLeft - gb.offsetWidth / 2 + ac.offsetWidth / 2; }, 30);
   setTimeout(() => { const bar = $('dayBar'), act = bar && bar.querySelector('.ab-pill.active'); if (bar && act) bar.scrollLeft = act.offsetLeft - bar.offsetWidth / 2 + act.offsetWidth / 2; }, 30);
   m.querySelectorAll('[data-izin]').forEach(bt => bt.onclick = () => openIzin(rows.find(r => r.id === bt.dataset.izin), key, m));
   m.querySelectorAll('[data-unizin]').forEach(bt => bt.onclick = async () => {
     try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'att', bt.dataset.unizin)]]); toast('Izin dihapus'); renderAdminAbsensi(m); }
     catch (e) { toast('❌ ' + friendlyError(e)); }
   });
+}
+// Nama guru di kartu absensi: besar & berbingkai warna guru
+function guruTag(uid) {
+  const g = mitraOf(uid);
+  if (!g) return `<div class="ab-gtag is-none">${I('user-plus', 'sm')} ${uid ? 'Guru sudah keluar' : 'Belum punya guru'}</div>`;
+  return `<div class="ab-gtag" style="--gc:${esc(g.color || 'var(--red)')}"><span class="g-dot" style="background:${esc(g.color || 'var(--red)')}"></span>${esc(g.name)}</div>`;
+}
+// Kalender bulanan ala V1 untuk Admin: titik = ada absensi tercatat
+function adminCalendar(key) {
+  const y = S.calY, m = S.calM, first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate(), today = localKey(new Date());
+  const MN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  let cells = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map(d => `<div class="acal-dow">${d}</div>`).join('');
+  for (let i = 0; i < first; i++) cells += '<div></div>';
+  for (let d = 1; d <= days; d++) {
+    const k = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    cells += `<button class="acal-day${k === key ? ' selected' : ''}${k === today ? ' today' : ''}" data-aday="${k}">${d}</button>`;
+  }
+  return `<div class="acal"><div class="acal-head"><button class="acal-nav" data-acal="-1" aria-label="Bulan sebelumnya">${I('chevron-left')}</button><div class="acal-title">${MN[m]} ${y}</div><button class="acal-nav" data-acal="1" aria-label="Bulan berikutnya">${I('chevron-right')}</button></div>
+    <div class="acal-grid">${cells}</div><div class="t-meta" style="text-align:center;margin-top:8px">Titik = ada absensi tercatat. Tap tanggal untuk melihatnya.</div></div>`;
+}
+async function fillAdminCalendarDots() {
+  const y = S.calY, m = S.calM, from = `${y}-${String(m + 1).padStart(2, '0')}-01`, to = `${y}-${String(m + 1).padStart(2, '0')}-31`;
+  try {
+    const snap = await getDocs(query(collection(db, 'orgs', S.org.id, 'att'), where('date', '>=', from), where('date', '<=', to)));
+    const has = new Set(snap.docs.map(d => d.data().date));
+    document.querySelectorAll('.acal-day[data-aday]').forEach(b => b.classList.toggle('has-data', has.has(b.dataset.aday)));
+  } catch (e) { console.warn('kalender:', e); }
+}
+// Progres pertemuan + kirim ke WA orang tua (format pesan sama dengan LLK V1)
+function greetingID() { const h = new Date().getHours(); return h < 11 ? 'Selamat pagi' : h < 15 ? 'Selamat siang' : h < 18 ? 'Selamat sore' : 'Selamat malam'; }
+function bulletLines(t) { const l = String(t || '').split('\n').map(x => x.trim()).filter(Boolean); return l.length > 1 ? l.map(x => '• ' + x).join('\n') : (l[0] || ''); }
+async function openProgres(r, key) {
+  if (!r || !r.rec) return;
+  const a = r.rec, st = r.st, prettyDate = new Date(key + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  let nth = 0;
+  try {
+    const snap = await getDocs(query(collection(db, 'orgs', S.org.id, 'att'), where('classId', '==', a.classId)));
+    nth = snap.docs.map(d => d.data()).filter(x => (x.status === 'hadir' || x.status === 'alpa') && x.date <= key).length;
+  } catch (e) { console.warn(e); }
+  const nama = r.name, ortu = st && st.parentName ? st.parentName : '';
+  const prog = a.status === 'hadir' ? (bulletLines(a.progress) || '-') : 'Tidak hadir (Alpa)' + (a.reason ? ' — ' + a.reason : '');
+  const pr = a.prSiswa ? (a.prSiswa.includes('\n') ? bulletLines(a.prSiswa) : a.prSiswa.trim()) : '-';
+  const block = v => v.startsWith('• ') ? '\n\n' + v + '\n' : ' ' + v;
+  const msg = `${greetingID()},\nKepada Yth. Bapak/Ibu ${ortu || 'orang tua ' + nama},\n\nBerikut kami sampaikan progres les ${nama}:\n🗓️ ${prettyDate}\n${nth ? '🔢 Pertemuan ke-' + nth + '\n' : ''}📝 Progress:${block(prog)}\n📚 PR:${block(pr)}\n\nTerima kasih atas perhatiannya.\n\n— ${S.org.fullName || S.org.name}`
+    .replace(/\n{3,}/g, '\n\n');
+  const g = mitraOf(a.mitraUid);
+  openModal(`
+    <div class="modal-t">${I('note')} Progres · ${esc(nama)}</div>
+    <div class="modal-sub">${esc(r.subj)} · ${esc(prettyDate)}${nth ? ' · pertemuan ke-' + nth : ''}<br>Dicatat oleh <b>${esc(g ? g.name : a.src === 'v1' ? 'LLK V1' : 'guru sebelumnya')}</b></div>
+    <div class="prog-box">
+      <div class="prog-l">${a.status === 'hadir' ? 'Progres' : 'Alpa'}</div><div class="prog-v">${esc(a.status === 'hadir' ? (a.progress || '-') : (a.reason || 'Tidak hadir tanpa keterangan'))}</div>
+      ${a.prSiswa ? `<div class="prog-l">PR siswa</div><div class="prog-v">${esc(a.prSiswa)}</div>` : ''}
+      ${a.prGuru ? `<div class="prog-l">PR guru (catatan guru)</div><div class="prog-v">${esc(a.prGuru)}</div>` : ''}
+    </div>
+    <div class="field"><label>Pesan WA ke orang tua (bisa diubah)</label><textarea id="pgMsg" rows="9">${esc(msg)}</textarea></div>
+    ${st && st.phone ? '' : '<div class="msg msg-info">No HP/WA ortu belum diisi — isi di menu Siswa supaya bisa dikirim langsung. Pesan tetap bisa disalin.</div>'}
+    <div class="btn-row"><button class="btn btn-ghost" id="pgCopy">${I('copy', 'sm')} Salin</button><button class="btn btn-primary btn-wa" id="pgSend" ${st && st.phone ? '' : 'disabled'}>${I('chat', 'sm')} Kirim ke WA Ortu</button></div>`);
+  $('pgCopy').onclick = async () => { try { await navigator.clipboard.writeText($('pgMsg').value); toast('✅ Pesan disalin'); } catch (e) { $('pgMsg').select(); document.execCommand('copy'); toast('✅ Pesan disalin'); } };
+  $('pgSend').onclick = () => { if (!st || !st.phone) return; window.open('https://wa.me/' + waNumber(st.phone) + '?text=' + encodeURIComponent($('pgMsg').value), '_blank'); };
 }
 function openIzin(r, key, m) {
   if (!r || !r.st) return;
@@ -1582,6 +1647,22 @@ async function renderKeuangan(m) {
       h: mine.filter(a => a.status === 'hadir').length, a: mine.filter(a => a.status === 'alpa').length, i: mine.filter(a => a.status === 'izin').length,
       sum: mine.filter(isPaidSession).reduce((n, x) => n + (x.honor || 0), 0) };
   }).filter(r => r.h + r.a + r.i > 0 || mitraOf(r.uid)).sort((a, b) => b.sum - a.sum || a.name.localeCompare(b.name));
+  // Proyeksi ala V1: jika semua siswa masuk di seluruh periode (yang sudah tercatat pakai catatannya,
+  // sisanya dianggap Hadir) → pendapatan kotor, gaji guru, pendapatan bersih
+  const attById = new Map(K.att.map(a => [a.id, a]));
+  let pjGross = 0, pjGaji = 0, pjSesi = 0;
+  const seenP = new Set();
+  for (let d = new Date(R.from + 'T00:00:00'); localKey(d) <= R.to; d.setDate(d.getDate() + 1)) {
+    const k = localKey(d), dn = dayOfKey(k);
+    classes.filter(x => x.st.active).forEach(x => (x.c.schedule || []).filter(y => y.day === dn).forEach(() => {
+      const id = x.c.id + '_' + k; if (seenP.has(id)) return; seenP.add(id);
+      const a = attById.get(id);
+      if (a && !isPaidSession(a)) return;
+      const g = mitraOf(x.c.mitraUid);
+      pjGross += rateOf(x.c); pjGaji += a ? (a.honor || 0) : (g ? (g.honor || 0) : 0); pjSesi++;
+    }));
+  }
+  attR.filter(a => isPaidSession(a) && !seenP.has(a.id)).forEach(a => { pjGross += rateByClass.get(a.classId) || 0; pjGaji += a.honor || 0; pjSesi++; });
   // Tagihan per kelas (murid aktif)
   const tRows = classes.filter(x => x.st.active).map(x => Object.assign({ st: x.st, c: x.c, sj: subjOf(x.c.subjectId) }, classBilling(x.c)))
     .sort((a, b) => a.credit - b.credit || a.st.name.localeCompare(b.st.name));
@@ -1593,6 +1674,15 @@ async function renderKeuangan(m) {
   m.innerHTML = `
     <div class="page-head"><div><div class="page-title">Keuangan</div><div class="page-sub">${esc(R.label)} · bayar di depan per paket <b>${cycle}x pertemuan</b> · <button class="link-btn" id="kfSet">Ubah paket</button></div></div></div>
     <div class="seg">${[['bulan', 'Bulan ini'], ['lalu', 'Bulan lalu'], ['30', '30 hari terakhir']].map(([k, l]) => `<button class="seg-b ${per === k ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div>
+    <div class="keu-proj" id="kProj">
+      <div class="kp-head">${I('sparkle', 'sm')} Proyeksi ${esc(R.label)} · jika semua siswa masuk</div>
+      <div class="kp-grid">
+        <div><div class="kp-l">Pendapatan kotor</div><div class="kp-n" id="kpGross">${esc(rupiah(pjGross))}</div><div class="kp-d">${pjSesi} pertemuan × tarif</div></div>
+        <div><div class="kp-l">Gaji guru</div><div class="kp-n" id="kpGaji">− ${esc(rupiah(pjGaji))}</div><div class="kp-d">honor per pertemuan</div></div>
+        <div><div class="kp-l">Pendapatan bersih</div><div class="kp-n kp-net" id="kpNet">${esc(rupiah(pjGross - pjGaji))}</div><div class="kp-d">kotor − gaji guru</div></div>
+      </div>
+      <div class="kp-foot">Pertemuan yang sudah tercatat memakai catatannya (Izin tidak dihitung); sisanya dianggap Hadir.</div>
+    </div>
     <div class="keu-cards">
       <div class="keu-card"><div class="kc-l">Pemasukan (uang masuk)</div><div class="kc-n" id="kKas">${esc(rupiah(kas))}</div><div class="kc-d">${payR.length} pembayaran · <span id="kTitip">${esc(rupiah(titip))}</span> masih titipan (sisa paket belum terpakai, saat ini)</div></div>
       <div class="keu-card"><div class="kc-l">Gaji guru</div><div class="kc-n" id="kGaji">${esc(rupiah(gaji))}</div><div class="kc-d">${sesiR.length} pertemuan Hadir + Alpa</div></div>

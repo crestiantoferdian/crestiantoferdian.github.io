@@ -34,7 +34,7 @@ const MONTH_SHORT_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 
 const MONTH_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
 // ── State ──
-const G = { user: null, org: null, member: null, sched: [], att: {}, tab: 'absensi', date: '', profile: null, trackPeriod: 'bulan', trackSearch: '', siswaSearch: '' };
+const G = { user: null, org: null, member: null, sched: [], att: {}, tab: 'absensi', date: '', profile: null, trackPeriod: 'bulan', trackSearch: '', siswaSearch: '', trackMode: 'siswa', trackSort: 'terbaru', trackStatus: '', trackProj: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), calSel: '' };
 
 // ── Util (sama dengan V1) ──
 const $ = (id) => document.getElementById(id);
@@ -185,6 +185,7 @@ function dayBarHtml() {
     pills += `<button class="day-pill date-pill${key === sel ? ' active' : ''}${key === today && key !== sel ? ' today' : ''}${key < today ? ' past' : ''}" data-date="${key}">`
       + `<span class="dp-d">${key === today ? 'Hari ini' : DAY_SHORT_JS[d.getDay()]}</span><span class="dp-n">${d.getDate()}${showMonth ? ' ' + MONTH_SHORT_ID[d.getMonth()] : ''}</span></button>`;
   }
+  pills += `<button class="day-pill cal-pill" id="calPill" aria-label="Buka Kalender">${I('calendar-day')}<span>Kalender</span></button>`;
   return '<div class="day-scroll" id="dayBar">' + pills + '</div>';
 }
 function centerDayBar() {
@@ -221,14 +222,19 @@ function renderAbsensi() {
       ${cards}
     </div>`;
   $('mainContent').querySelectorAll('[data-date]').forEach(b => b.onclick = () => { G.date = b.dataset.date === today ? '' : b.dataset.date; renderAbsensi(); });
-  $('mainContent').querySelectorAll('.s-item').forEach(el => el.onclick = () => {
+  const cb = $('calPill'); if (cb) cb.onclick = () => { G.trackMode = 'tanggal'; const d = new Date(key + 'T00:00:00'); G.calY = d.getFullYear(); G.calM = d.getMonth(); G.calSel = key; setTab('track'); };
+  bindSessionCards($('mainContent'), key);
+  centerDayBar();
+}
+// Kartu sesi (Absensi & detail Kalender): tap = buka tombol, nama = profil, tombol = catat
+function bindSessionCards(root, key) {
+  root.querySelectorAll('.s-item').forEach(el => el.onclick = () => {
     const was = el.classList.contains('expanded');
     document.querySelectorAll('.s-item.expanded').forEach(e => e.classList.remove('expanded'));
     el.classList.toggle('expanded', !was);
   });
-  $('mainContent').querySelectorAll('.s-name[data-stu]').forEach(el => el.onclick = (e) => { e.stopPropagation(); openProfile(el.dataset.stu); });
-  $('mainContent').querySelectorAll('[data-att]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openNote(b.dataset.sess, b.dataset.att, key); });
-  centerDayBar();
+  root.querySelectorAll('.s-name[data-stu]').forEach(el => el.onclick = (e) => { e.stopPropagation(); openProfile(el.dataset.stu); });
+  root.querySelectorAll('[data-att]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openNote(b.dataset.sess, b.dataset.att, key); });
 }
 function cardHtml(s, key, isToday, isPast) {
   const status = statusOf(s), r = s.rec || {};
@@ -422,24 +428,70 @@ function renderProfile() {
 // ══════════════════════════════════════════════════════════════════════
 // TRACK — markup sama dengan Track Record V1 (per siswa)
 // ══════════════════════════════════════════════════════════════════════
+// Track Record ala V1: kartu estimasi honor (+ proyeksi jika semua hadir), kotak Hadir/Izin/Alpa
+// yang bisa difilter, mode Per Siswa / Kalender, urutan, dan detail per tanggal.
+const isMine = a => a.mitraUid === G.user.uid;
+function honorProjection(r) {
+  // Sesi terjadwal yang belum tercatat, dari hari ini sampai akhir periode, dihitung Hadir × honor sekarang
+  if (!r.to) return 0;
+  const today = todayStr(); let n = 0;
+  for (let d = new Date((r.from && r.from > today ? r.from : today) + 'T00:00:00'); dk(d) < r.to; d.setDate(d.getDate() + 1)) {
+    const k = dk(d); n += sessionsOn(k).filter(s => !s.rec && !s.orphan).length;
+  }
+  return n * (G.member.honor || 0);
+}
+function trackTotals(recs) {
+  const t = st => recs.filter(a => a.status === st).length;
+  const honor = recs.filter(a => isMine(a) && (a.status === 'hadir' || a.status === 'alpa')).reduce((n, a) => n + (a.honor || 0), 0);
+  return { h: t('hadir'), i: t('izin'), a: t('alpa'), honor, sesi: recs.filter(a => isMine(a) && (a.status === 'hadir' || a.status === 'alpa')).length };
+}
+function hiddenMoney() { try { return localStorage.getItem('llk_v2_hide_honor') === '1'; } catch (e) { return false; } }
 function renderTrack() {
-  const r = periodRange(G.trackPeriod), q = G.trackSearch.toLowerCase();
+  const mode = G.trackMode || 'siswa';
+  const calR = { from: `${G.calY}-${pad(G.calM + 1)}-01`, to: dk(new Date(G.calY, G.calM + 1, 1)) };
+  const r = mode === 'tanggal' ? calR : periodRange(G.trackPeriod);
   const recs = Object.values(G.att).filter(a => inRange(a, r));
-  const tot = st => recs.filter(a => a.status === st).length;
-  const rows = myStudents().map(x => {
-    const mine = recs.filter(a => a.studentId === x.id);
-    return { x, h: mine.filter(a => a.status === 'hadir').length, i: mine.filter(a => a.status === 'izin').length, a: mine.filter(a => a.status === 'alpa').length, n: mine.length };
-  }).filter(o => (G.trackPeriod === 'semua' ? (o.x.active || o.n) : o.n) && (!q || o.x.name.toLowerCase().includes(q)))
-    .sort((a, b) => b.h - a.h || a.x.name.localeCompare(b.x.name));
-  $('mainContent').innerHTML = `<div class="page-title-area"><div class="page-title" style="margin:0">Track Record</div><div class="page-sub">Tap nama murid untuk lihat histori lengkap.</div></div>
-    <div class="stats-row">
-      <div class="stat-card s-hadir"><div class="stat-label">Hadir</div><div class="stat-num">${tot('hadir')}</div></div>
-      <div class="stat-card s-izin"><div class="stat-label">Izin</div><div class="stat-num">${tot('izin')}</div></div>
-      <div class="stat-card s-alpa"><div class="stat-label">Alpa</div><div class="stat-num">${tot('alpa')}</div></div>
-    </div>
-    <div class="track-wrap">
-      <div class="period-bar">${['hari', 'minggu', 'bulan', 'tahun', 'semua'].map(p => `<button class="period-btn ${G.trackPeriod === p ? 'active' : ''}" data-per="${p}">${p === 'hari' ? 'Hari Ini' : p.charAt(0).toUpperCase() + p.slice(1)}</button>`).join('')}</div>
-      <div class="track-controls"><div class="track-search">${I('search')}<input type="text" placeholder="Cari nama…" value="${esc(G.trackSearch)}" id="trackSearchInput"/></div></div>
+  const T = trackTotals(recs), proj = G.trackProj && mode === 'siswa' ? honorProjection(r) : 0;
+  const hide = hiddenMoney(), money = n => hide ? '••••••••' : 'Rp ' + n.toLocaleString('id-ID');
+  const label = mode === 'tanggal' ? 'Estimasi Honor · ' + MONTH_ID[G.calM] + ' ' + G.calY : 'Estimasi Honor · ' + G.trackPeriod.charAt(0).toUpperCase() + G.trackPeriod.slice(1);
+  const sf = G.trackStatus || '';
+  const box = (k, l, n, c) => `<div class="llk-statbox ${c}" data-sf="${k}" style="background:${sf === k ? `var(--${k}-bg)` : 'var(--card)'};border:${sf === k ? `2px solid var(--${k})` : '1px solid var(--border)'};cursor:pointer"><div class="n">${n}</div><div class="l">${l}</div></div>`;
+  const incomeBlock = `<div style="padding:22px 20px 0">
+      <div class="llk-income">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.8rem;font-weight:600;color:#e6dccf;margin-bottom:6px">${G.trackProj && mode === 'siswa' ? 'Proyeksi Honor · jika semua hadir' : label}</div>
+            <div id="honorAmount" style="font-family:var(--font-display);font-size:2rem;font-weight:600;line-height:1.1;letter-spacing:-0.01em;font-variant-numeric:lining-nums tabular-nums">${money(T.honor + proj)}</div>
+            <div style="font-size:0.78rem;color:#cbbfb1;margin-top:4px">${G.trackProj && mode === 'siswa' ? `${money(T.honor)} tercatat + ${money(proj)} sisa jadwal` : 'Hadir + Alpa × honor per pertemuan'}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex-shrink:0">
+            <div style="display:flex;gap:6px">
+              ${mode === 'siswa' && G.trackPeriod !== 'semua' ? `<button class="llk-income-btn" id="projBtn" title="Proyeksi jika semua hadir sampai akhir periode" aria-label="Proyeksi" style="background:${G.trackProj ? 'var(--red)' : 'rgba(255,255,255,0.14)'}">${I('sparkle')}</button>` : ''}
+              <button class="llk-income-btn" id="eyeBtn" aria-label="Sembunyikan / tampilkan nominal">${I(hide ? 'eye-off' : 'eye')}</button>
+            </div>
+            <div style="text-align:right"><div style="font-family:var(--font-display);font-size:1.5rem;font-weight:600;line-height:1">${T.sesi}</div><div style="font-size:0.72rem;color:#cbbfb1;margin-top:3px">sesi</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">${box('hadir', 'Hadir', T.h, 'h')}${box('izin', 'Izin', T.i, 'i')}${box('alpa', 'Alpa', T.a, 'a')}</div>
+    </div>`;
+  const modeBar = `<div class="track-mode-bar">
+      <button class="track-mode-btn ${mode === 'siswa' ? 'active' : ''}" data-mode="siswa">${I('user')} Per Siswa</button>
+      <button class="track-mode-btn ${mode === 'tanggal' ? 'active' : ''}" data-mode="tanggal">${I('calendar')} Kalender</button></div>`;
+  let body;
+  if (mode === 'tanggal') {
+    body = buildCalendar() + `<div id="dateDetailWrap">${G.calSel ? buildDateDetail(G.calSel) : ''}</div>`;
+  } else {
+    const q = G.trackSearch.toLowerCase(), sort = G.trackSort || 'terbaru';
+    const rows = myStudents().map(x => {
+      const mine = recs.filter(a => a.studentId === x.id);
+      const last = mine.filter(a => a.status === 'hadir' || a.status === 'alpa').reduce((m, a) => a.date + (a.start || '') > m ? a.date + (a.start || '') : m, '');
+      return { x, h: mine.filter(a => a.status === 'hadir').length, i: mine.filter(a => a.status === 'izin').length, a: mine.filter(a => a.status === 'alpa').length, n: mine.length, last };
+    }).filter(o => (G.trackPeriod === 'semua' ? (o.x.active || o.n) : o.n) && (!q || o.x.name.toLowerCase().includes(q)) && (!sf || o[sf[0]] > 0))
+      .sort((a, b) => sort === 'nama' ? a.x.name.localeCompare(b.x.name) : sort === 'izin' ? b.i - a.i : sort === 'alpa' ? b.a - a.a : sort === 'hadir' ? b.h - a.h : b.last.localeCompare(a.last) || a.x.name.localeCompare(b.x.name));
+    body = `<div class="period-bar">${['hari', 'minggu', 'bulan', 'tahun', 'semua'].map(p => `<button class="period-btn ${G.trackPeriod === p ? 'active' : ''}" data-per="${p}">${p === 'hari' ? 'Hari Ini' : p.charAt(0).toUpperCase() + p.slice(1)}</button>`).join('')}</div>
+      <div class="track-controls"><div class="track-search">${I('search')}<input type="text" placeholder="Cari nama…" value="${esc(G.trackSearch)}" id="trackSearchInput"/></div>
+        <select class="sort-select" id="trackSort" aria-label="Urutkan">${[['terbaru', 'Terbaru'], ['izin', 'Izin Terbanyak'], ['alpa', 'Alpa Terbanyak'], ['hadir', 'Hadir Terbanyak'], ['nama', 'Nama A–Z']].map(([v, l]) => `<option value="${v}" ${sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       <div id="trackCards">${rows.length ? rows.map(o => `<div class="track-card" data-stu="${esc(o.x.id)}">
         <div class="track-top">
           <div class="track-avatar ${isVokal(subjOfStu(o.x)) ? 'vocal' : ''}">${subjectIcon(subjOfStu(o.x))}</div>
@@ -450,14 +502,47 @@ function renderTrack() {
             <div class="track-num-col"><div class="track-num a">${o.a}</div><div class="track-num-label">Alpa</div></div>
           </div>
         </div></div>`).join('')
-      : `<div class="empty">${ill('notebook')}<div class="empty-t">Belum ada catatan kehadiran</div><div class="empty-d">Tandai kehadiran di tab Absensi, rekapnya muncul di sini.</div></div>`}</div>
-    </div>`;
-  $('mainContent').querySelectorAll('[data-per]').forEach(b => b.onclick = () => { G.trackPeriod = b.dataset.per; renderTrack(); });
-  $('mainContent').querySelectorAll('.track-card[data-stu]').forEach(el => el.onclick = () => openProfile(el.dataset.stu));
+      : `<div class="empty">${ill('notebook')}<div class="empty-t">Belum ada catatan kehadiran</div><div class="empty-d">${sf ? 'Tidak ada siswa dengan status ini di periode ini.' : 'Tandai kehadiran di tab Absensi, rekapnya muncul di sini.'}</div></div>`}</div>`;
+  }
+  $('mainContent').innerHTML = (mode === 'tanggal'
+    ? `<div class="page-title-area"><div class="page-title" style="margin:0">Track Record</div><div class="page-sub">Tap tanggal untuk lihat siapa hadir, izin, atau alpa.</div></div>${incomeBlock}`
+    : `${incomeBlock}<div class="page-title-area" style="padding-top:0"><div class="page-title" style="margin:0">Track Record</div><div class="page-sub">Tap nama murid untuk lihat histori lengkap.</div></div>`)
+    + `<div class="track-wrap">${modeBar}${body}</div>`;
+  const mc = $('mainContent');
+  mc.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { G.trackMode = b.dataset.mode; G.trackProj = false; renderTrack(); });
+  mc.querySelectorAll('[data-sf]').forEach(b => b.onclick = () => { G.trackStatus = G.trackStatus === b.dataset.sf ? '' : b.dataset.sf; if (G.trackMode === 'tanggal') G.trackMode = 'siswa'; renderTrack(); });
+  const pb = $('projBtn'); if (pb) pb.onclick = () => { G.trackProj = !G.trackProj; renderTrack(); };
+  $('eyeBtn').onclick = () => { try { localStorage.setItem('llk_v2_hide_honor', hiddenMoney() ? '0' : '1'); } catch (e) {} renderTrack(); };
+  mc.querySelectorAll('[data-per]').forEach(b => b.onclick = () => { G.trackPeriod = b.dataset.per; renderTrack(); });
+  mc.querySelectorAll('.track-card[data-stu]').forEach(el => el.onclick = () => openProfile(el.dataset.stu));
+  const so = $('trackSort'); if (so) so.onchange = () => { G.trackSort = so.value; renderTrack(); };
   const inp = $('trackSearchInput');
-  inp.oninput = () => { G.trackSearch = inp.value; renderTrack(); const n = $('trackSearchInput'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
+  if (inp) inp.oninput = () => { G.trackSearch = inp.value; renderTrack(); const n = $('trackSearchInput'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
+  mc.querySelectorAll('[data-cal]').forEach(b => b.onclick = () => { const d = +b.dataset.cal; G.calM += d; if (G.calM < 0) { G.calM = 11; G.calY--; } if (G.calM > 11) { G.calM = 0; G.calY++; } G.calSel = ''; renderTrack(); });
+  mc.querySelectorAll('[data-cday]').forEach(b => b.onclick = () => { G.calSel = b.dataset.cday; renderTrack(); setTimeout(() => { const w = $('dateDetailWrap'); if (w) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60); });
+  bindSessionCards(mc, G.calSel || todayStr());
 }
-
+// Kalender bulanan ala V1: titik = ada catatan absensi di tanggal itu
+function buildCalendar() {
+  const y = G.calY, m = G.calM, first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate(), today = todayStr();
+  const has = new Set(Object.values(G.att).map(a => a.date));
+  let cells = DAY_SHORT_JS.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  for (let i = 0; i < first; i++) cells += '<div class="cal-day empty"></div>';
+  for (let d = 1; d <= days; d++) {
+    const k = `${y}-${pad(m + 1)}-${pad(d)}`;
+    cells += `<button class="cal-day${has.has(k) ? ' has-data' : ''}${G.calSel === k ? ' selected' : ''}${k === today ? ' today-dot' : ''}" data-cday="${k}">${d}</button>`;
+  }
+  return `<div class="cal-wrap">
+    <div class="cal-header"><button class="cal-nav" aria-label="Bulan sebelumnya" data-cal="-1">${I('chevron-left')}</button><div class="cal-title">${MONTH_ID[m]} ${y}</div><button class="cal-nav" aria-label="Bulan berikutnya" data-cal="1">${I('chevron-right')}</button></div>
+    <div class="cal-grid">${cells}</div></div>`;
+}
+function buildDateDetail(key) {
+  const today = todayStr(), list = sessionsOn(key), c = st => list.filter(s => statusOf(s) === st).length;
+  return `<div class="date-detail">
+    <div class="date-detail-header" style="cursor:default"><div class="date-detail-title">${esc(fmtPretty(key))}</div>
+      <div class="date-detail-sub" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px">${list.length ? `<span style="color:var(--hadir);font-weight:700">${c('hadir')} Hadir</span><span style="color:var(--izin);font-weight:700">${c('izin')} Izin</span><span style="color:var(--alpa);font-weight:700">${c('alpa')} Alpa</span><span>${c('belum')} Belum</span>` : 'Tidak ada jadwal hari ' + esc(dayNameOf(key))}</div></div>
+    <div style="background:var(--card);overflow:hidden">${list.map(s => cardHtml(s, key, key === today, key < today)).join('')}</div></div>`;
+}
 // ══════════════════════════════════════════════════════════════════════
 // HONOR — dari absensi Hadir + Alpa (honor tercatat saat absen diisi)
 // ══════════════════════════════════════════════════════════════════════

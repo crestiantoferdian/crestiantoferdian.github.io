@@ -15,7 +15,7 @@ const wib=new Date(Date.now()+7*3600e3); const TODAY=DAYS[wib.getUTCDay()]; cons
       if(u.startsWith('http://localhost')||u.startsWith('http://127.0.0.1')) return r.continue();
       const m=u.match(/firebasejs\/10\.14\.1\/(firebase-[a-z]+\.js)$/); if(m) return r.fulfill({contentType:'text/javascript',body:fs.readFileSync(FB+m[1],'utf8')});
       return r.abort();});
-    await ctx.addInitScript(([u,theme])=>{ window.__LLK_TEST__={host:'127.0.0.1',port:8089,user:u}; window.open=()=>null; if(theme) localStorage.setItem('llk_theme',theme); },[user,theme]);
+    await ctx.addInitScript(([u,theme])=>{ window.__LLK_TEST__={host:'127.0.0.1',port:8089,user:u}; window.__wa=[]; window.open=(x)=>{window.__wa.push(x);return null;}; if(theme) localStorage.setItem('llk_theme',theme); },[user,theme]);
     const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); p.on('dialog',d=>d.accept());
     return p;
   }
@@ -80,12 +80,26 @@ const wib=new Date(Date.now()+7*3600e3); const TODAY=DAYS[wib.getUTCDay()]; cons
   await A.screenshot({path:OUT+'t3_admin_absensi.png'});
   // Kotak pilih guru di bawah kalender: hanya jadwal guru itu
   const nAll=await A.evaluate(()=>document.querySelectorAll('.ab-item').length);
-  const gOpt=await A.evaluate(()=>[...document.querySelectorAll('#abGuru option')].map(o=>o.value).filter(Boolean)[0]);
-  await A.selectOption('#abGuru',gOpt); await sleep(1200);
+  const gOpt=await A.evaluate(()=>[...document.querySelectorAll('#abGuruBar [data-guru]')].map(b=>b.dataset.guru).filter(v=>v&&v!=='none')[0]);
+  await A.click(`#abGuruBar [data-guru="${gOpt}"]`); await sleep(1200);
   const gNm=await A.evaluate(v=>window.__llk.S.data.mitras.find(m=>m.id===v).name,gOpt);
-  ok(await A.evaluate(nm=>{ const it=[...document.querySelectorAll('.ab-item')]; return it.length>0&&it.every(x=>x.querySelector('.ab-sub').textContent.includes(nm)); },gNm)&&nAll>=(await A.evaluate(()=>document.querySelectorAll('.ab-item').length)),'pilih guru '+gNm+' → hanya jadwal siswa '+gNm);
+  ok(await A.evaluate(nm=>{ const it=[...document.querySelectorAll('.ab-item')]; return it.length>0&&it.every(x=>x.querySelector('.ab-gtag').textContent.includes(nm)); },gNm)&&nAll>=(await A.evaluate(()=>document.querySelectorAll('.ab-item').length)),'pilih guru '+gNm+' (pilihan geser) → hanya jadwal siswa '+gNm);
+  ok(await A.evaluate(()=>{ const t=document.querySelector('.ab-gtag'); const cs=getComputedStyle(t); return parseFloat(cs.borderTopWidth)>=2&&parseFloat(cs.fontSize)>=14; }),'nama guru di kartu: besar & berbingkai warna');
   await A.screenshot({path:OUT+'t3_admin_absensi_guru.png'});
-  await A.selectOption('#abGuru',''); await sleep(1000);
+  await A.click('#abGuruBar [data-guru=""]'); await sleep(1000);
+  // Progres + Kirim WA ortu
+  await A.click('.ab-item:has-text("Ayu") [data-prog]'); await sleep(1500);
+  t=await A.evaluate(()=>document.querySelector('.modal').innerText);
+  ok(t.includes('Tiba-tiba 50%')&&t.includes('Latihan pernapasan')&&/Pertemuan ke-1/.test(await A.$eval('#pgMsg',e=>e.value)),'tombol Progres: progres, PR & pesan WA (pertemuan ke-1)');
+  if(!(await A.$eval('#pgSend',e=>e.disabled))){ await A.click('#pgSend'); const wa=await A.evaluate(()=>decodeURIComponent(window.__wa[window.__wa.length-1]||'')); ok(/wa\.me\/62/.test(wa)&&wa.includes('Tiba-tiba 50%'),'Kirim → WA ortu berisi progres'); }
+  await A.screenshot({path:OUT+'t3_admin_progres.png'});
+  await A.keyboard.press('Escape'); await A.evaluate(()=>{ const o=document.querySelector('.overlay.open, .overlay'); if(o) o.remove(); }); await sleep(300);
+  // Kalender ala V1
+  await A.click('#abCalBtn'); await sleep(1500);
+  ok(await A.evaluate(()=>document.querySelectorAll('.acal-day').length>=28&&document.querySelectorAll('.acal-day.has-data').length>=1),'Kalender: tanggal yang ada absensinya diberi titik');
+  await A.screenshot({path:OUT+'t3_admin_kalender.png'});
+  await A.click('.acal-day.today'); await sleep(1200);
+  ok(!(await A.$('.acal'))&&(await A.$$('.ab-item')).length===nAll,'tap tanggal di kalender → kembali ke daftar absensi tanggal itu');
   await M.reload(); await sleep(3000);
   await M.click('.s-item:has-text("Hosyana") .s-avatar'); await sleep(300);
   t=await M.evaluate(()=>document.querySelector('.s-item.expanded').innerText);
@@ -111,6 +125,18 @@ const wib=new Date(Date.now()+7*3600e3); const TODAY=DAYS[wib.getUTCDay()]; cons
   await M.click('.llk-theme-opt[data-theme="latte"]'); await sleep(300);
   ok(await M.evaluate(()=>!document.documentElement.getAttribute('data-theme')&&localStorage.getItem('llk_theme')==='latte'),'ganti tema dari Lainnya');
   await M.click('[data-tab=absensi]'); await sleep(400); await M.screenshot({path:OUT+'t3_mitra_absensi_latte.png'});
+  // Track & Kalender ala V1 di aplikasi Guru Mitra
+  await M.click('#calPill'); await sleep(600);
+  ok(M.url().includes('guru.html')&&await M.evaluate(()=>!!document.querySelector('.cal-grid')&&!!document.querySelector('.date-detail')),'Absensi → tombol Kalender membuka kalender bulanan + detail hari ini');
+  ok(await M.evaluate(()=>document.querySelectorAll('.cal-day.has-data').length>=1),'kalender: tanggal yang ada catatan diberi titik');
+  await M.screenshot({path:OUT+'t3_mitra_kalender.png',fullPage:true});
+  await M.click('[data-mode=siswa]'); await sleep(400);
+  t=await txt(M); ok(t.includes('Estimasi Honor')&&/Rp\s?[1-9]/.test(t),'Track: kartu estimasi honor seperti V1');
+  await M.click('#projBtn'); await sleep(400); ok((await txt(M)).includes('Proyeksi Honor'),'Track: tombol proyeksi jika semua hadir');
+  await M.click('[data-sf=alpa]'); await sleep(300); ok(await M.evaluate(()=>document.querySelectorAll('.track-card').length>=1),'Track: kotak Alpa bisa ditekan untuk menyaring');
+  ok(await M.evaluate(()=>!!document.getElementById('trackSort')),'Track: urutkan (Terbaru / Izin / Alpa / Hadir / Nama)');
+  await M.screenshot({path:OUT+'t3_mitra_track.png',fullPage:true});
+  await M.click('[data-tab=absensi]'); await sleep(400);
 
   const D=await dev({uid:'t3budi',email:'budi3@x.com'},{w:1366,h:820,theme:'happy'});
   await D.goto(URL+'guru.html'); await sleep(3000);
