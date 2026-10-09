@@ -1999,9 +1999,14 @@ async function afterAuth(user) {
   const codeParam = url.searchParams.get('kode');
   if (codeParam) { try { sessionStorage.setItem(CODE_KEY, codeParam); } catch (e) {} history.replaceState(null, '', url.pathname); }
   let pending = null; try { pending = sessionStorage.getItem(PENDING_KEY); sessionStorage.removeItem(PENDING_KEY); } catch (e) {}
+  // Peran sudah dipilih di halaman awal leslesanku.com (?mulai=lembaga|mitra)
+  const mulai = url.searchParams.get('mulai');
+  if (mulai) history.replaceState(null, '', url.pathname);
+  if (!pending && (mulai === 'lembaga' || mulai === 'mitra')) pending = mulai;
 
   if (!user) {
     if (codeParam) return renderJoinGate(codeParam);
+    if (pending === 'lembaga' || pending === 'mitra') return renderRoleGate(pending);
     return renderChooser();
   }
   const pilih = url.searchParams.get('pilih');
@@ -2018,6 +2023,20 @@ async function afterAuth(user) {
   if (pending === 'mitra' || savedCode) return startMitra(savedCode || '');
   if (pending === 'lembaga') return startLembaga();
   return renderChooser();
+}
+// Peran sudah dipilih di leslesanku.com tapi belum login: satu tombol login untuk peran itu
+function renderRoleGate(role) {
+  const lembaga = role === 'lembaga';
+  root().innerHTML = `
+  <div class="welcome">
+    <img class="welcome-brand" src="../logo-leslesanku.png" alt="LLK — Les LesanKu"/>
+    <h1>${lembaga ? 'Pemilik Lembaga Les' : 'Guru Mitra'}</h1>
+    <div class="sub">${lembaga ? 'Kelola guru, jadwal, murid & honor guru lembaga kamu.' : 'Gabung ke lembaga les dengan kode undangan dari Guru Admin.'}<br>Login dengan akun Google untuk melanjutkan.</div>
+    <button class="btn btn-primary" id="rgLogin">Login dengan Google</button>
+    <button class="btn btn-ghost" id="rgBack">Kembali ke pilihan</button>
+  </div>`;
+  $('rgLogin').onclick = () => (lembaga ? startLembaga() : startMitra());
+  $('rgBack').onclick = () => { location.href = '../'; };
 }
 // Dibuka dari link undangan tapi belum login
 function renderJoinGate(code) {
