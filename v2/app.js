@@ -2210,8 +2210,34 @@ async function bindSubCard() {
     const snap = await getDocs(collection(db, 'orgs', S.org.id, 'invoices'));
     const list = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((x, y) => tsMs(y.paidAt) - tsMs(x.paidAt));
     if (list.length && $('subInv')) $('subInv').innerHTML = `<div class="card-t" style="margin:6px 0">Riwayat pembayaran</div>` + list.map(x =>
-      `<div class="row" style="padding:6px 0;border-top:1px solid var(--border)"><div class="grow">${esc(x.label || '')}<br><span style="font-size:0.78rem">${esc(fmtMs(tsMs(x.paidAt)))} · ${esc(x.id)}</span></div><b style="color:var(--text)">${esc(rupiah(x.amount))}</b></div>`).join('');
+      `<div class="row" style="padding:6px 0;border-top:1px solid var(--border)"><div class="grow">${esc(x.label || '')}<br><span style="font-size:0.78rem">${esc(fmtMs(tsMs(x.paidAt)))} · ${esc(x.id)}</span></div><div style="text-align:right"><b style="color:var(--text)">${esc(rupiah(x.amount))}</b><br><button class="link-btn" data-inv="${esc(x.id)}">${I('receipt', 'sm')} Invoice</button></div></div>`).join('');
+    document.querySelectorAll('[data-inv]').forEach(b => b.onclick = () => openOrgInvoice(list.find(x => x.id === b.dataset.inv)));
   } catch (e) {}
+}
+// Invoice langganan lembaga — bisa dicetak / disimpan PDF (sama dengan email invoice)
+function openOrgInvoice(x) {
+  if (!x) return;
+  const paid = tsMs(x.paidAt), until = tsMs(x.activeUntil);
+  const html = `<!doctype html><html lang="id"><head><meta charset="utf-8"/><title>Invoice ${esc(x.id)}</title><meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <style>body{font-family:Arial,Helvetica,sans-serif;color:#2b2420;background:#f6f1e9;margin:0;padding:24px 12px}.box{max-width:560px;margin:0 auto;background:#fff;border:1px solid #e4d9c9;border-radius:14px;padding:24px}
+    h1{font-family:Georgia,serif;font-weight:600;color:#a8372a;font-size:22px;margin:14px 0 4px}table{width:100%;border-collapse:collapse;font-size:14px;margin-top:14px}td{padding:8px 0;border-bottom:1px solid #eee6da}td+td{text-align:right}
+    .tot td{font-weight:bold;font-size:16px;border-bottom:none}.lunas{color:#1f5a38;font-weight:bold}.foot{font-size:12px;color:#6f6459;margin-top:16px;line-height:1.6}
+    .bar{max-width:560px;margin:0 auto 12px;text-align:right}.bar button{background:#a8372a;color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:bold;font-size:15px}
+    @media print{body{background:#fff;padding:0}.bar{display:none}.box{border:0}}</style></head><body>
+    <div class="bar"><button onclick="window.print()">Cetak / Simpan PDF</button></div>
+    <div class="box"><img src="${location.origin}/logo-leslesanku.png" alt="LesLesanKu" style="width:170px;height:auto"/>
+      <h1>Invoice</h1><div style="color:#6f6459">No. ${esc(x.id)}</div>
+      <table><tr><td>Ditagihkan kepada</td><td>${esc(S.org.fullName || S.org.name)}<br><span style="color:#6f6459">${esc(S.user.email || '')}</span></td></tr>
+        <tr><td>Tanggal bayar</td><td>${esc(new Date(paid).toLocaleString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</td></tr>
+        <tr><td>Produk</td><td>${esc(x.label || 'LLK Lembaga')}</td></tr>
+        <tr><td>Slot Guru Mitra</td><td>${esc(String(x.seats || '-'))}</td></tr>
+        <tr><td>Aktif sampai</td><td>${esc(until ? fmtMs(until) : '-')}</td></tr>
+        <tr><td>Status</td><td class="lunas">LUNAS</td></tr>
+        <tr class="tot"><td>Total</td><td>${esc(rupiah(x.amount))}</td></tr></table>
+      <div class="foot">Dibayar melalui Midtrans. Terima kasih telah berlangganan LLK Lembaga — LesLesanKu (leslesanku.com).</div></div></body></html>`;
+  const w = window.open('', '_blank');
+  if (w && w.document) { w.document.write(html); w.document.close(); }
+  else { const b = new Blob([html], { type: 'text/html' }), u = URL.createObjectURL(b); location.href = u; }
 }
 // Jumlah slot terisi (undangan + guru, termasuk Guru Admin yang ikut mengajar)
 async function usedSlots() {

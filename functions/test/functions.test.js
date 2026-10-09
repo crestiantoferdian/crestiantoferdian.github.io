@@ -72,6 +72,7 @@ class HttpsError extends Error {
 const fakeFunctions = {
   auth: { user: () => ({ onCreate: (fn) => fn, onDelete: (fn) => fn }) },
   https: { onCall: (fn) => fn, onRequest: (fn) => fn, HttpsError },
+  firestore: { document: () => ({ onCreate: (fn) => fn }) },
 };
 const origLoad = Module._load;
 Module._load = function (req, ...rest) {
@@ -400,4 +401,66 @@ test('V2 cek status: order lembaga yang lunas di Midtrans diaktifkan', async () 
   assert.strictEqual(c.activated, 1);
   assert.ok(asked.startsWith('https://api.sandbox.midtrans.com/v2/'));
   assert.strictEqual(store.get('orgs/org1').plan, 'pro');
+});
+
+// ── Notifikasi: email (Resend) + Telegram ke pemilik, seperti Gitar Sakti ──
+function withNotifyEnv(fn) {
+  return async () => {
+    Object.assign(process.env, { RESEND_API_KEY: 're_test_rahasia', FROM_EMAIL: 'LesLesanKu <no-reply@leslesanku.com>', TELEGRAM_BOT_TOKEN: '123:RAHASIA', TELEGRAM_CHAT_ID: '999' });
+    try { await fn(); } finally { ['RESEND_API_KEY', 'FROM_EMAIL', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'].forEach((k) => delete process.env[k]); }
+  };
+}
+function captureFetch(midtrans) {
+  const sent = { email: [], tg: [] };
+  global.fetch = async (url, opts) => {
+    if (url.startsWith('https://api.resend.com')) { sent.email.push(JSON.parse(opts.body)); return { ok: true, json: async () => ({}) }; }
+    if (url.startsWith('https://api.telegram.org')) { sent.tg.push(JSON.parse(opts.body)); return { ok: true, json: async () => ({}) }; }
+    return midtrans(url, opts);
+  };
+  return sent;
+}
+
+test('notifikasi: pengguna baru → email selamat datang + Telegram ke pemilik', withNotifyEnv(async () => {
+  const sent = captureFetch(async () => ({ ok: true, json: async () => ({}) }));
+  await fns.onUserCreate({ uid: 'baru1', email: 'guru.baru@gmail.com', displayName: 'Sinta Dewi' });
+  assert.strictEqual(sent.email.length, 1);
+  assert.deepStrictEqual(sent.email[0].to, ['guru.baru@gmail.com']);
+  assert.match(sent.email[0].subject, /Selamat datang/);
+  assert.match(sent.email[0].html, /Terima kasih sudah bergabung, Sinta/);
+  assert.strictEqual(sent.tg.length, 1);
+  assert.strictEqual(sent.tg[0].chat_id, '999');
+  assert.match(sent.tg[0].text, /Pengguna baru[\s\S]*guru\.baru@gmail\.com/);
+}));
+
+test('notifikasi: lembaga baru → email ke pemilik lembaga + Telegram', withNotifyEnv(async () => {
+  const sent = captureFetch(async () => ({ ok: true, json: async () => ({}) }));
+  const prev = fakeAdmin.auth;
+  fakeAdmin.auth = () => ({ getUser: async () => ({ email: 'rani@gmail.com', displayName: 'Rani' }) });
+  try { await fns.onOrgCreate({ data: () => ({ name: 'Les Musik Rani', ownerUid: 'rani', createdAt: ts(Date.now()) }) }); } finally { fakeAdmin.auth = prev; }
+  assert.strictEqual(sent.email.length, 1);
+  assert.match(sent.email[0].subject, /Les Musik Rani/);
+  assert.match(sent.tg[0].text, /Lembaga baru[\s\S]*Les Musik Rani[\s\S]*rani@gmail\.com/);
+}));
+
+test('notifikasi: pembayaran LLK Lembaga lunas → invoice email + Telegram (sekali saja)', withNotifyEnv(async () => {
+  seedOrg();
+  fakeSnap();
+  const r = await fns.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 1, period: 'monthly' }, asRani);
+  const sent = captureFetch(async () => ({ ok: true, json: async () => ({ order_id: r.orderId, transaction_status: 'settlement', gross_amount: '300000.00' }) }));
+  await fns.checkMidtransPayment({}, asRani);
+  await fns.checkMidtransPayment({}, asRani); // dicek ulang: tidak boleh kirim dobel
+  assert.strictEqual(sent.email.length, 1);
+  assert.match(sent.email[0].subject, new RegExp('Invoice ' + r.orderId));
+  assert.match(sent.email[0].html, /LUNAS[\s\S]*Rp300\.000/);
+  assert.strictEqual(sent.tg.length, 1);
+  assert.match(sent.tg[0].text, /Pembayaran berhasil \(SANDBOX[\s\S]*LLK Lembaga[\s\S]*Rp300\.000[\s\S]*rani@gmail\.com/);
+}));
+
+test('notifikasi: belum diisi di .env → diam, pembayaran tetap aktif; token tidak bocor ke log', async () => {
+  const N = require('../notify.js');
+  global.fetch = async () => { throw new Error('tidak boleh memanggil internet'); };
+  assert.deepStrictEqual(await N.sendTelegram('x'), { skipped: 'not-configured' });
+  assert.deepStrictEqual(await N.sendEmail({ to: 'a@b.c', subject: 's', html: 'h' }), { skipped: 'not-configured' });
+  process.env.TELEGRAM_BOT_TOKEN = '123:RAHASIA';
+  try { assert.ok(!N.redact('gagal https://api.telegram.org/bot123:RAHASIA/x').includes('RAHASIA')); } finally { delete process.env.TELEGRAM_BOT_TOKEN; }
 });

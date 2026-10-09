@@ -1,9 +1,9 @@
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
 const { PLANS, resolvePlan, nextSubscription, trialKey } = require('./plans');
 const OP = require('./orgPlans');
+const N = require('./notify');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -37,77 +37,25 @@ function isPaidStatus(transaction_status, fraud_status) {
     transaction_status === 'settlement';
 }
 
-// Kredensial pengirim email invoice (Gmail + App Password, lihat README)
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
+// Email (Resend atau Gmail) & Telegram: lihat notify.js untuk isi functions/.env
 
 const TRIAL_DAYS = 31;
 
-function formatRupiah(n) {
-  return 'Rp' + Number(n).toLocaleString('id-ID');
-}
-function formatTanggalID(ms) {
-  return new Date(ms).toLocaleDateString('id-ID', {
-    day: 'numeric', month: 'long', year: 'numeric',
-  });
-}
-
-let _mailTransporter = null;
-function getMailTransporter() {
-  if (!SMTP_USER || !SMTP_PASS) return null;
-  if (!_mailTransporter) {
-    _mailTransporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-    });
-  }
-  return _mailTransporter;
-}
 
 /**
- * Kirim email invoice/struk pembayaran setelah langganan berhasil diaktifkan.
- * Dipanggil dari webhook Midtrans — kalau kredensial SMTP belum diisi di .env,
- * fungsi ini diam saja (tidak bikin webhook gagal), supaya fitur pembayaran
- * inti tetap jalan normal walau invoice belum di-setup.
+ * Kirim email invoice/struk pembayaran setelah langganan berhasil diaktifkan,
+ * plus chat Telegram ke pemilik. Kalau email/Telegram belum diisi di .env,
+ * fungsi ini diam saja (tidak bikin webhook gagal).
  */
-async function sendInvoiceEmail({ toEmail, orderId, plan, label, grossAmount, paidAtMs, subscriptionEndsMs }) {
-  const transporter = getMailTransporter();
-  if (!transporter || !toEmail) {
-    console.log('Lewati kirim invoice (SMTP belum di-setup atau email kosong):', orderId);
-    return;
-  }
+async function sendInvoiceEmail({ toEmail, orderId, plan, label, grossAmount, paidAtMs, subscriptionEndsMs, orgName, v2, env }) {
   const planLabel = label || (resolvePlan(plan) || {}).label || plan;
-  const html = `
-    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:12px">
-      <h2 style="color:#b31217;margin-bottom:4px">LesLesanKu</h2>
-      <p style="color:#666;margin-top:0">Invoice Pembayaran</p>
-      <hr style="border:none;border-top:1px solid #eee"/>
-      <table style="width:100%;font-size:14px;color:#333;margin-top:12px">
-        <tr><td style="padding:4px 0;color:#888">No. Invoice</td><td style="text-align:right">${orderId}</td></tr>
-        <tr><td style="padding:4px 0;color:#888">Tanggal Bayar</td><td style="text-align:right">${formatTanggalID(paidAtMs)}</td></tr>
-        <tr><td style="padding:4px 0;color:#888">Paket</td><td style="text-align:right">${planLabel}</td></tr>
-        <tr><td style="padding:4px 0;color:#888">Jumlah</td><td style="text-align:right;font-weight:bold">${formatRupiah(grossAmount)}</td></tr>
-        <tr><td style="padding:4px 0;color:#888">Status</td><td style="text-align:right;color:#1c9e4e;font-weight:bold">Lunas</td></tr>
-        <tr><td style="padding:4px 0;color:#888">Aktif Sampai</td><td style="text-align:right">${formatTanggalID(subscriptionEndsMs)}</td></tr>
-      </table>
-      <hr style="border:none;border-top:1px solid #eee;margin-top:16px"/>
-      <p style="font-size:12px;color:#999;margin-top:16px">
-        Terima kasih sudah berlangganan LesLesanKu. Email ini dibuat otomatis, mohon tidak membalas ke alamat ini.
-      </p>
-    </div>`;
-  try {
-    await transporter.sendMail({
-      from: '"LesLesanKu" <' + SMTP_USER + '>',
-      to: toEmail,
-      subject: `Invoice LesLesanKu — ${orderId}`,
-      html,
-    });
-    console.log('Invoice terkirim ke', toEmail, orderId);
-  } catch (err) {
-    // Kegagalan kirim email TIDAK menggagalkan proses aktivasi langganan —
-    // langganan tetap aktif walau emailnya gagal terkirim (misal SMTP down).
-    console.error('Gagal kirim email invoice:', err);
-  }
+  // Email invoice ke pembeli + chat Telegram ke pemilik (lihat notify.js). Keduanya tidak pernah
+  // menggagalkan aktivasi langganan.
+  const mail = N.invoiceEmail({ orderId, label: planLabel, amount: grossAmount, paidAtMs, activeUntilMs: subscriptionEndsMs, orgName, v2 });
+  await Promise.all([
+    N.sendEmail({ to: toEmail, subject: mail.subject, html: mail.html }),
+    N.sendTelegram(N.tgPaid({ v2, orderId, email: toEmail, label: planLabel, amount: grossAmount, orgName, activeUntilMs: subscriptionEndsMs, env })),
+  ]);
 }
 
 /**
@@ -142,6 +90,7 @@ exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
       tier: null,
       createdAt: now,
     });
+    await welcomeNotify(user, { trialDenied: true });
     return;
   }
   const trialEnds = admin.firestore.Timestamp.fromMillis(
@@ -156,6 +105,32 @@ exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
     tier: null,
     createdAt: now,
   });
+  await welcomeNotify(user, { trialEndsMs: trialEnds.toMillis() });
+});
+
+// Email "terima kasih sudah bergabung" ke pengguna baru + chat Telegram ke pemilik
+async function welcomeNotify(user, { trialEndsMs, trialDenied }) {
+  const mail = N.welcomeEmail({ name: user.displayName, trialDays: TRIAL_DAYS, trialEndsMs, trialDenied });
+  await Promise.all([
+    N.sendEmail({ to: user.email, subject: mail.subject, html: mail.html }),
+    N.sendTelegram(N.tgNewUser({ name: user.displayName, email: user.email, trialDenied })),
+  ]);
+}
+
+/**
+ * 1c) LLK V2: lembaga baru dibuat (oleh pemiliknya dari aplikasi) → email selamat datang
+ *     ke pemilik + chat Telegram ke pemilik LesLesanKu.
+ */
+exports.onOrgCreate = functions.firestore.document('orgs/{orgId}').onCreate(async (snap) => {
+  const o = snap.data() || {};
+  let email = null, name = null;
+  try { const u = await admin.auth().getUser(o.ownerUid); email = u.email; name = u.displayName; } catch (e) { console.warn('Pemilik lembaga tidak ditemukan:', o.ownerUid); }
+  const createdMs = o.createdAt && o.createdAt.toMillis ? o.createdAt.toMillis() : Date.now();
+  const mail = N.orgWelcomeEmail({ name, orgName: o.name || 'Lembaga', trialDays: OP.ORG_TRIAL_DAYS, trialEndsMs: createdMs + OP.ORG_TRIAL_DAYS * 864e5 });
+  await Promise.all([
+    N.sendEmail({ to: email, subject: mail.subject, html: mail.html }),
+    N.sendTelegram(N.tgNewOrg({ orgName: o.name || '-', name, email })),
+  ]);
 });
 
 /**
@@ -320,12 +295,12 @@ async function activateOrgOrder(orderId) {
       paidAt: admin.firestore.Timestamp.fromMillis(now), by: order.uid,
     });
     tx.update(orderRef, { status: 'paid', paidAt: admin.firestore.Timestamp.fromMillis(now) });
-    return { activated: true, order, paidAtMs: now, subscriptionEndsMs: next.activeUntilMs };
+    return { activated: true, order, paidAtMs: now, subscriptionEndsMs: next.activeUntilMs, orgName: o.name || '' };
   });
   if (result.activated) {
     await sendInvoiceEmail({
       toEmail: result.order.email, orderId, label: result.order.label, grossAmount: result.order.grossAmount,
-      paidAtMs: result.paidAtMs, subscriptionEndsMs: result.subscriptionEndsMs,
+      paidAtMs: result.paidAtMs, subscriptionEndsMs: result.subscriptionEndsMs, orgName: result.orgName, v2: true, env: midtransCfg(result.order).env,
     });
   }
   return result;
@@ -395,6 +370,7 @@ async function activateOrder(orderId) {
       grossAmount: order.grossAmount,
       paidAtMs: result.paidAtMs,
       subscriptionEndsMs: result.subscriptionEndsMs,
+      env: midtransCfg(order).env,
     });
   }
   return result;
