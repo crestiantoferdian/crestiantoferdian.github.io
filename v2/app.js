@@ -1764,12 +1764,20 @@ async function startPayment(req, btnId, msgId) {
   try { [r] = await Promise.all([callFn('createOrgTransaction', req), loadSnap()]); }
   catch (e) { btn.disabled = false; btn.innerHTML = label; msg(esc((e && e.message) || 'Gagal membuat pembayaran')); return; }
   const done = (kind) => { closeModal(); waitActivation(r.orderId, kind); };
-  window.snap.pay(r.token, {
+  const cb = {
     onSuccess: () => done('success'),
     onPending: () => done('pending'),
     onError: () => { btn.disabled = false; btn.innerHTML = label; msg('Pembayaran gagal. Coba lagi atau pilih metode lain.'); },
     onClose: () => { btn.disabled = false; btn.innerHTML = label; checkPayments(false); },
-  });
+  };
+  // Jendela Snap kadang "nyangkut" (snap.pay not allowed in this state) → tutup & coba lagi,
+  // kalau tetap ditolak buka halaman pembayaran Midtrans langsung.
+  try { window.snap.pay(r.token, cb); }
+  catch (e1) {
+    try { if (window.snap.hide) window.snap.hide(); } catch (e) {}
+    try { window.snap.pay(r.token, cb); }
+    catch (e2) { if (r.redirectUrl) location.href = r.redirectUrl; else { btn.disabled = false; btn.innerHTML = label; msg(esc(e2.message || 'Gagal membuka Midtrans')); } }
+  }
 }
 // Server mengaktifkan lewat notifikasi Midtrans; aplikasi ikut mengecek supaya cepat tampil
 async function waitActivation(orderId, kind) {
