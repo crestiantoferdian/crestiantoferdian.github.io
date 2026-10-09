@@ -10487,12 +10487,34 @@ function waitForSnapThenHideLoading(){
   setTimeout(function(){ observer.disconnect(); hideGlobalLoading(); },6000);
 }
 
+// snap.js bisa gagal termuat di sebagian HP (koneksi putus saat membuka aplikasi,
+// pemblokir iklan / Private DNS). Coba muat ulang sekali sebelum menyerah.
+function llkEnsureSnap(){
+  if(window.snap&&window.snap.pay) return Promise.resolve(true);
+  return new Promise(function(resolve){
+    const old=document.querySelector('script[src*="midtrans.com/snap/snap.js"]');
+    const sc=document.createElement('script');
+    sc.src=(old&&old.src)||'https://app.sandbox.midtrans.com/snap/snap.js';
+    sc.setAttribute('data-client-key',(old&&old.getAttribute('data-client-key'))||'');
+    sc.onload=function(){ resolve(!!(window.snap&&window.snap.pay)); };
+    sc.onerror=function(){ resolve(false); };
+    document.head.appendChild(sc);
+    setTimeout(function(){ resolve(!!(window.snap&&window.snap.pay)); },8000);
+  });
+}
 async function mulaiLangganan(plan){
   showGlobalLoading('Menyiapkan pembayaran…');
   setPaywallStatus('Menyiapkan pembayaran…');
   try{
     const fn=firebase.functions().httpsCallable('createMidtransTransaction');
     const result=await fn({ plan:plan });
+    if(!(await llkEnsureSnap())){
+      // Jendela Midtrans tidak bisa dimuat → buka halaman pembayaran Midtrans langsung.
+      // Setelah bayar, kembali ke aplikasi: langganan dicek otomatis saat paywall tampil
+      // (atau tekan "Cek status pembayaran").
+      if(result.data&&result.data.redirectUrl){ hideGlobalLoading(); setPaywallStatus('Membuka halaman pembayaran Midtrans…'); location.href=result.data.redirectUrl; return; }
+      throw new Error('jendela Midtrans tidak termuat (cek internet)');
+    }
     waitForSnapThenHideLoading(); // loading TETAP tampil sampai Snap benar-benar muncul
     window.snap.pay(result.data.token, {
       onSuccess:function(){
@@ -10512,8 +10534,9 @@ async function mulaiLangganan(plan){
   }catch(err){
     hideGlobalLoading();
     console.error('Gagal membuat transaksi:', err);
-    setPaywallStatus('⚠️ Gagal memulai pembayaran, coba lagi.');
-    toast('⚠️ Gagal memulai pembayaran, coba lagi.');
+    const why=(err&&(err.message||err.code))?' ('+String(err.message||err.code).slice(0,80)+')':'';
+    setPaywallStatus('⚠️ Gagal memulai pembayaran, coba lagi.'+why);
+    toast('⚠️ Gagal memulai pembayaran, coba lagi.'+why,6000);
   }
 }
 
