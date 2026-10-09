@@ -110,7 +110,13 @@ function paintHeader() {
   $('schoolSub').textContent = G.member.name + ' · Guru Mitra';
   const el = $('schoolLogo');
   if (G.org.logo) el.innerHTML = `<img src="${esc(G.org.logo)}" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" alt="logo">`;
-  else el.textContent = String(G.org.name || 'LLK').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+  else el.textContent = String(G.org.logoText || '').trim() || String(G.org.name || 'LLK').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+  // Warna lembaga (diatur Guru Admin di Lainnya → Profil & Tampilan)
+  const c = String(G.org.color || ''), st = document.documentElement.style;
+  if (/^#[0-9a-fA-F]{6}$/.test(c)) {
+    const n = parseInt(c.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, d = x => Math.round(x * 0.75).toString(16).padStart(2, '0');
+    st.setProperty('--red', c); st.setProperty('--red2', '#' + d(r) + d(g) + d(b)); st.setProperty('--red-glow', `rgba(${r},${g},${b},0.25)`);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════
