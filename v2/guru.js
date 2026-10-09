@@ -129,9 +129,11 @@ async function loadData() {
     getDocs(query(collection(db, 'orgs', o, 'att'), where('mitraUid', '==', u))),
     getDocs(query(collection(db, 'orgs', o, 'payouts'), where('mitraUid', '==', u))).catch(() => ({ docs: [] })),
   ]);
+  // Riwayat siswa yang dipindah ke saya (diisi guru sebelumnya) — hanya dibaca, honor tetap milik guru itu
+  const tc = await getDocs(query(collection(db, 'orgs', o, 'att'), where('teachUid', '==', u))).catch(() => ({ docs: [] }));
   G.payouts = po.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.paidDate.localeCompare(a.paidDate));
   G.sched = sc.docs.map(d => Object.assign({ id: d.id }, d.data()));
-  G.att = {}; at.docs.forEach(d => { G.att[d.id] = Object.assign({ id: d.id }, d.data()); });
+  G.att = {}; tc.docs.concat(at.docs).forEach(d => { G.att[d.id] = Object.assign({ id: d.id }, d.data()); });
 }
 // Sesi pada tanggal tertentu: dari jadwal kelas aktif + absensi yang sudah tercatat
 // (supaya riwayat tetap tampil walau kelasnya sudah dipindah/nonaktif).
@@ -243,6 +245,7 @@ function cardHtml(s, key, isToday, isPast) {
   // Tombol: Hadir & Alpa hanya di hari les itu. Izin/Off diisi lewat aplikasi Admin.
   let btns;
   if (isIzin || isOff) btns = `<div class="llk-lock">${I('lock', 'sm')} ${isIzin ? 'Izin' : 'Off'} diisi oleh Guru Admin</div>`;
+  else if (s.rec && s.rec.mitraUid !== G.user.uid) btns = `<div class="llk-lock">${I('lock', 'sm')} ${s.rec.src === 'v1' ? 'Riwayat dari LLK V1' : 'Dicatat oleh guru sebelumnya'}</div>`;
   else if (isToday) btns = `<button class="att-btn a-hadir ${isHadir ? 'on' : ''}" data-att="hadir" data-sess="${esc(s.id)}" aria-label="Hadir" title="Hadir">${I('check', 'bold')}</button>
       <button class="att-btn a-alpa ${isAlpa ? 'on' : ''}" data-att="alpa" data-sess="${esc(s.id)}" aria-label="Alpa" title="Alpa">${I('x', 'bold')}</button>`;
   else btns = `<div class="llk-lock">${I('lock', 'sm')} ${isPast ? 'Sudah lewat hari — untuk mengubah, minta tolong Guru Admin' : 'Bisa diisi pada hari les'}</div>`;
@@ -307,7 +310,7 @@ $('noteSaveBtn').onclick = async () => {
       classId: s.classId, studentId: s.studentId || '', studentName: s.name, subjectName: s.subject || '', mitraUid: G.user.uid,
       date: N.key, start: s.start || '', end: s.end || '', status: st,
       progress: st === 'hadir' ? progress : '', prSiswa: st === 'hadir' ? $('notePrSiswa').value.trim() : '', prGuru: st === 'hadir' ? $('notePrGuru').value.trim() : '',
-      reason: st === 'hadir' ? '' : $('noteReason').value.trim(), honor, by: G.user.uid, updatedAt: serverTimestamp()
+      reason: st === 'hadir' ? '' : $('noteReason').value.trim(), honor, by: G.user.uid, teachUid: G.user.uid, updatedAt: serverTimestamp()
     };
     await setDoc(doc(db, 'orgs', G.org.id, 'att', s.id), data);
     G.att[s.id] = Object.assign({ id: s.id }, data);
@@ -404,7 +407,7 @@ function renderProfile() {
       <div class="llk-section-label" style="margin-top:6px">${I('calendar')}Riwayat Pertemuan</div>
       ${recs.length ? recs.map(a => `<div class="hist-entry" style="margin-bottom:10px;border-left:3px solid ${stColor(a.status)}">
           <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;font-size:0.84rem;font-weight:700;color:var(--text);margin-bottom:4px">${esc(fmtPretty(a.date))}
-            <span style="display:inline-flex;align-items:center;gap:3px;color:${stColor(a.status)};font-size:0.78rem">${stLabel(a.status)}</span></div>
+            <span style="display:inline-flex;align-items:center;gap:3px;color:${stColor(a.status)};font-size:0.78rem">${stLabel(a.status)}</span>${a.src === 'v1' ? '<span style="font-size:0.74rem;font-weight:600;color:var(--muted)">· dari LLK V1</span>' : a.mitraUid && a.mitraUid !== G.user.uid && a.status !== 'izin' && a.status !== 'off' ? '<span style="font-size:0.74rem;font-weight:600;color:var(--muted)">· oleh guru sebelumnya</span>' : ''}</div>
           ${a.reason ? `<div class="llk-note is-reason">${I('info')}<span>${esc(a.reason)}</span></div>` : ''}
           ${a.progress ? `<div class="llk-note is-progress">${I('note')}<span>${esc(a.progress)}</span></div>` : ''}
           ${a.prSiswa ? `<div class="llk-note is-pr">${I('book')}<span>PR: ${esc(a.prSiswa)}</span></div>` : ''}
@@ -459,7 +462,7 @@ function renderTrack() {
 // HONOR — dari absensi Hadir + Alpa (honor tercatat saat absen diisi)
 // ══════════════════════════════════════════════════════════════════════
 function renderHonor() {
-  const paid = Object.values(G.att).filter(a => a.status === 'hadir' || a.status === 'alpa');
+  const paid = Object.values(G.att).filter(a => a.mitraUid === G.user.uid && (a.status === 'hadir' || a.status === 'alpa'));
   const months = new Map();
   paid.forEach(a => { const k = a.date.slice(0, 7); const m = months.get(k) || { n: 0, sum: 0 }; m.n++; m.sum += a.honor || 0; months.set(k, m); });
   const cur = todayStr().slice(0, 7), now = months.get(cur) || { n: 0, sum: 0 };

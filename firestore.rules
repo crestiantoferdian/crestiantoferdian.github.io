@@ -307,7 +307,8 @@ service cloud.firestore {
       // hanya di HARI YANG SAMA (WIB, dengan kelonggaran untuk WITA/WIT),
       // Hadir wajib ada progres, honor = honor dia saat itu. Izin/Off hanya Admin.
       match /att/{aid} {
-        function attKeys() { return ['classId', 'studentId', 'studentName', 'subjectName', 'mitraUid', 'date', 'start', 'end', 'status', 'progress', 'prSiswa', 'prGuru', 'reason', 'honor', 'by', 'updatedAt']; }
+        // mitraUid = guru yang mengisi (honor); teachUid = guru kelas saat ini (ikut melihat riwayat, diatur Admin)
+        function attKeys() { return ['classId', 'studentId', 'studentName', 'subjectName', 'mitraUid', 'date', 'start', 'end', 'status', 'progress', 'prSiswa', 'prGuru', 'reason', 'honor', 'by', 'teachUid', 'src', 'updatedAt']; }
         function dayStart(d) { return timestamp.date(int(d.split('-')[0]), int(d.split('-')[1]), int(d.split('-')[2])); }
         function sameDay(d) { return request.time >= dayStart(d) - duration.value(9, 'h') && request.time < dayStart(d) + duration.value(18, 'h'); }
         function validAtt(x) {
@@ -320,13 +321,15 @@ service cloud.firestore {
         function mitraWrite(x) {
           return isMember(orgId) && validAtt(x)
             && x.mitraUid == uid() && x.by == uid()
+            && x.get('teachUid', uid()) == uid()
+            && !('src' in x)
             && x.status in ['hadir', 'alpa']
             && get(/databases/$(database)/documents/orgs/$(orgId)/sched/$(x.classId)).data.mitraUid == uid()
             && x.honor == get(memberPath(orgId, uid())).data.honor
             && sameDay(x.date)
             && orgActive(orgId);
         }
-        allow read: if isAdmin(orgId) || (isMember(orgId) && resource.data.mitraUid == uid());
+        allow read: if isAdmin(orgId) || (isMember(orgId) && (resource.data.mitraUid == uid() || resource.data.get('teachUid', '') == uid()));
         allow create: if (isAdmin(orgId) && validAtt(request.resource.data) && request.resource.data.status in ['hadir', 'alpa', 'izin', 'off'])
           || mitraWrite(request.resource.data);
         allow update: if (isAdmin(orgId) && validAtt(request.resource.data) && request.resource.data.status in ['hadir', 'alpa', 'izin', 'off'])

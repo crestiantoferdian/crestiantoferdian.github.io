@@ -10,7 +10,8 @@
     "test:bulan": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-sim-bulan.test.cjs\"",
     "test:gaji": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-gaji.test.cjs\"",
     "test:langganan": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-langganan.test.cjs\"",
-    "test:lainnya": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-lainnya.test.cjs\""
+    "test:lainnya": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-lainnya.test.cjs\"",
+    "test:riwayat": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-riwayat.test.cjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.0",

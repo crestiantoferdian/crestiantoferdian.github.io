@@ -141,6 +141,18 @@ await t('Admin mengisi Izin', assertSucceeds(setDoc(aref(a2,todayWIB,'c9'),att({
 await t('Mitra tidak bisa menimpa Izin dari Admin', assertFails(setDoc(aref(mitra2,todayWIB,'c9'),att({classId:'c9'}))));
 await t('Admin bisa mengoreksi absensi 2 hari lalu', assertSucceeds(setDoc(aref(a2,yest),att({date:yest,progress:'dikoreksi',by:'admin2'}))));
 await t('Mitra menghapus tanda hari ini', assertSucceeds(deleteDoc(aref(mitra2))));
+console.log('\n[Riwayat: guru kelas sekarang (teachUid) & riwayat dari LLK V1 (src)]');
+const old1='2025-03-04';
+await t('Admin menyalin riwayat V1 (src v1, tanpa guru, honor 0)', assertSucceeds(setDoc(aref(a2,old1,'c9'),att({classId:'c9',date:old1,mitraUid:null,honor:0,by:'admin2',teachUid:'mitra2',src:'v1',progress:'Lagu 1 (V1)'}))));
+await t('Guru kelas sekarang membaca riwayat (teachUid)', assertSucceeds(getDocs(query(collection(mitra2,'orgs','org2','att'),where('teachUid','==','mitra2')))));
+await t('Guru lain tidak bisa membaca riwayat itu', assertFails(getDoc(aref(m3,old1,'c9'))));
+await t('Guru tidak bisa mengubah riwayat V1', assertFails(setDoc(aref(mitra2,old1,'c9'),att({classId:'c9',date:old1,progress:'ubah'}))));
+await t('Guru tidak bisa menandai absensinya sebagai riwayat V1 (lolos tagihan/honor)', assertFails(setDoc(aref(mitra2),att({src:'v1'}))));
+await t('Guru tidak bisa memberi teachUid orang lain', assertFails(setDoc(aref(mitra2),att({teachUid:'mitra3'}))));
+await t('Guru mengisi absensi dengan teachUid dirinya', assertSucceeds(setDoc(aref(mitra2),att({teachUid:'mitra2'}))));
+await t('Admin memperbarui teachUid saat kelas pindah guru', assertSucceeds(setDoc(aref(a2,old1,'c9'),att({classId:'c9',date:old1,mitraUid:null,honor:0,by:'admin2',teachUid:'mitra3',src:'v1',progress:'Lagu 1 (V1)'}))));
+await t('Field asing di absensi tetap ditolak', assertFails(setDoc(aref(a2,old1,'c9'),att({classId:'c9',date:old1,by:'admin2',foo:1}))));
+await deleteDoc(aref(a2)).catch(()=>{});
 
 await t('Admin bisa menghapus murid + jadwalnya', assertSucceeds((async()=>{ const b=writeBatch(a2); b.delete(doc(a2,'orgs','org2','students','s1')); b.delete(doc(a2,'orgs','org2','sched','c1')); await b.commit(); })()));
 
