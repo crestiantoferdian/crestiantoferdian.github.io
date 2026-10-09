@@ -1,7 +1,7 @@
 // v2 — cache dibersihkan & sekarang selalu diperbarui setiap kali online,
 // jadi versi offline tidak lagi "membeku" di versi lama.
-const CACHE = 'leslesanku-v2';
-const FILES = ['./'];
+const CACHE = 'leslesanku-v3';
+const FILES = ['./', './logo-llk.png'];
 
 self.addEventListener('install', e => {
   // FIX: caches.addAll() dibungkus .catch() supaya kalau gagal (network
