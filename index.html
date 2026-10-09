@@ -8,6 +8,7 @@
 // "Guru Lepas" di sana menyimpan llk_v2_choice='lepas' lalu kembali ke sini.
 // TIDAK diarahkan: aplikasi terpasang (PWA/Play Store), pengguna V1 yang sudah
 // punya data di browser ini, atau yang sudah pernah memilih Guru Lepas.
+// Alamat langsung: leslesanku.com/v1 → login V1, leslesanku.com/v2 → LLK Lembaga.
 // Aplikasi Play Store (TWA) dibuka dengan referrer android-app:// — diingat per sesi
 // (sessionStorage, tidak bocor ke Chrome biasa) supaya fitur yang belum siap bisa disembunyikan.
 window.llkIsPlayApp=function(){ try{ return sessionStorage.getItem('llk_play_app')==='1'; }catch(e){ return false; } };
@@ -18,7 +19,7 @@ window.llkIsPlayApp=function(){ try{ return sessionStorage.getItem('llk_play_app
   if(navigator.standalone||document.referrer.indexOf('android-app://')===0) return;
   if(localStorage.getItem('llk_v2_choice')==='lepas') return;
   for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i)||''; if(/^rms4?_/.test(k)) return; }
-  location.replace('v2/');
+  location.replace('v2/?dari=web');
 }catch(e){}})();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
