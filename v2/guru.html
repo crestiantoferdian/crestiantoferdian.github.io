@@ -30,6 +30,16 @@
 .mg-boot{min-height:60vh;display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight:600}
 .mg-sheet-row{display:flex;gap:8px;align-items:center}
 .mg-sheet-row input{flex:1;min-width:0}
+/* Materi, PR Guru, Kurikulum & Catatan ke Admin (V2) */
+.last-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin:0 0 14px}
+.kur-bar{height:6px;border-radius:3px;background:var(--paper-2);overflow:hidden;margin:4px 0 6px}
+.kur-bar span{display:block;height:100%;background:var(--hadir-solid)}
+.kur-item{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:8px 2px;border:none;border-bottom:1px solid var(--border2);background:none;font-family:inherit;font-size:0.92rem;color:var(--text);cursor:pointer}
+.nt-kinds{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.nt-kind input{position:absolute;opacity:0;pointer-events:none}
+.nt-kind span{display:flex;align-items:center;gap:6px;min-height:44px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:0.84rem;font-weight:600;cursor:pointer;background:var(--card)}
+.nt-kind input:checked+span{border-color:var(--red);background:var(--accent-soft);color:var(--red-text)}
+.bottom-nav .bnav{min-width:0}
 </style>
 </head>
 <body>
@@ -175,6 +185,7 @@
   <button class="bnav active" data-tab="absensi" id="tab-absensi"><span class="bicon"><svg class="ico" aria-hidden="true"><use href="#i-absensi"/></svg></span>Absensi<div class="bnav-dot"></div></button>
   <button class="bnav" data-tab="siswa" id="tab-siswa"><span class="bicon"><svg class="ico" aria-hidden="true"><use href="#i-cap"/></svg></span>Siswa<div class="bnav-dot"></div></button>
   <button class="bnav" data-tab="track" id="tab-track"><span class="bicon"><svg class="ico" aria-hidden="true"><use href="#i-track"/></svg></span>Track<div class="bnav-dot"></div></button>
+  <button class="bnav" data-tab="materi" id="tab-materi"><span class="bicon"><svg class="ico" aria-hidden="true"><use href="#i-book-open"/></svg></span>Materi<div class="bnav-dot"></div></button>
   <button class="bnav" data-tab="honor" id="tab-honor"><span class="bicon"><svg class="ico" aria-hidden="true"><use href="#i-wallet"/></svg></span>Honor<div class="bnav-dot"></div></button>
   <button class="bnav" data-tab="lainnya" id="tab-lainnya"><span class="bicon"><svg class="ico" aria-hidden="true"><use href="#i-grid"/></svg></span>Lainnya<div class="bnav-dot"></div></button>
 </div>

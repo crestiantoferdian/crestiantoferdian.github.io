@@ -154,6 +154,32 @@ await t('Admin memperbarui teachUid saat kelas pindah guru', assertSucceeds(setD
 await t('Field asing di absensi tetap ditolak', assertFails(setDoc(aref(a2,old1,'c9'),att({classId:'c9',date:old1,by:'admin2',foo:1}))));
 await deleteDoc(aref(a2)).catch(()=>{});
 
+console.log('\n[Materi, Kurikulum, PR Guru, Catatan ke Admin]');
+await t('Admin menambah materi (tautan)', assertSucceeds(setDoc(doc(a2,'orgs','org2','materi','m1'),{type:'link',name:'Buku Piano 1',url:'https://drive.google.com/x',by:'admin2'})));
+await t('Guru membaca materi lembaga', assertSucceeds(getDoc(doc(mitra2,'orgs','org2','materi','m1'))));
+await t('Guru tidak bisa mengubah materi', assertFails(setDoc(doc(mitra2,'orgs','org2','materi','m1'),{type:'link',name:'x',by:'mitra2'})));
+await t('Admin menyusun kurikulum', assertSucceeds(setDoc(doc(a2,'orgs','org2','kurikulum','sj1'),{subjectName:'Piano',items:[{id:'h1',type:'header',label:'Bab 1'},{id:'t1',type:'topic',label:'Tangga nada C'}],by:'admin2'})));
+await t('Guru membaca kurikulum', assertSucceeds(getDoc(doc(mitra2,'orgs','org2','kurikulum','sj1'))));
+await t('Guru tidak bisa mengubah kurikulum', assertFails(setDoc(doc(mitra2,'orgs','org2','kurikulum','sj1'),{subjectName:'Piano',items:[],by:'mitra2'})));
+await t('Guru kelas mencentang kurikulum siswanya', assertSucceeds(setDoc(doc(mitra2,'orgs','org2','kurprog','c9'),{checked:{t1:true},by:'mitra2'})));
+await t('Guru lain tidak bisa mencentang kurikulum kelas itu', assertFails(setDoc(doc(m3,'orgs','org2','kurprog','c9'),{checked:{t1:true},by:'mitra3'})));
+await t('Guru lain tidak bisa membaca centang kurikulum kelas itu', assertFails(getDoc(doc(m3,'orgs','org2','kurprog','c9'))));
+const task=(o={})=>({text:'Buat materi lagu Rere',done:false,mitraUid:'mitra2',by:'mitra2',...o});
+await t('Guru menulis PR Guru-nya sendiri', assertSucceeds(setDoc(doc(mitra2,'orgs','org2','tasks','k1'),task())));
+await t('Guru tidak bisa membuat tugas untuk guru lain', assertFails(setDoc(doc(mitra2,'orgs','org2','tasks','k2'),task({mitraUid:'mitra3'}))));
+await t('Guru lain tidak bisa membaca PR Guru itu', assertFails(getDoc(doc(m3,'orgs','org2','tasks','k1'))));
+await t('Admin memberi tugas ke guru', assertSucceeds(setDoc(doc(a2,'orgs','org2','tasks','k3'),task({by:'admin2',text:'Siapkan konser'}))));
+await t('Guru menandai tugas selesai', assertSucceeds(setDoc(doc(mitra2,'orgs','org2','tasks','k3'),task({text:'Siapkan konser',done:true}))));
+await t('Tugas tidak bisa dipindah ke guru lain', assertFails(setDoc(doc(mitra2,'orgs','org2','tasks','k3'),task({mitraUid:'mitra3',done:true}))));
+const note=(o={})=>({text:'Minta dibuatkan materi lagu Twinkle',kind:'materi',mitraUid:'mitra2',mitraName:'Budi',status:'baru',...o});
+await t('Guru mengirim catatan ke Admin', assertSucceeds(setDoc(doc(mitra2,'orgs','org2','notes','n1'),note())));
+await t('Catatan atas nama guru lain ditolak', assertFails(setDoc(doc(mitra2,'orgs','org2','notes','n2'),note({mitraUid:'mitra3'}))));
+await t('Guru tidak bisa membalas/menandai sendiri', assertFails(setDoc(doc(mitra2,'orgs','org2','notes','n3'),note({status:'selesai'}))));
+await t('Guru lain tidak bisa membaca catatan itu', assertFails(getDoc(doc(m3,'orgs','org2','notes','n1'))));
+await t('Admin membaca & membalas catatan', assertSucceeds(updateDoc(doc(a2,'orgs','org2','notes','n1'),{status:'selesai',reply:'Siap, besok saya kirim'})));
+await t('Admin tidak bisa mengubah isi catatan guru', assertFails(updateDoc(doc(a2,'orgs','org2','notes','n1'),{text:'diubah'})));
+await t('Guru tidak bisa menghapus catatan yang sudah ditanggapi', assertFails(deleteDoc(doc(mitra2,'orgs','org2','notes','n1'))));
+
 await t('Admin bisa menghapus murid + jadwalnya', assertSucceeds((async()=>{ const b=writeBatch(a2); b.delete(doc(a2,'orgs','org2','students','s1')); b.delete(doc(a2,'orgs','org2','sched','c1')); await b.commit(); })()));
 
 console.log('\n[Guru Admin juga mengajar (aplikasi Guru Mitra)]');

@@ -134,6 +134,17 @@ async function loadData() {
   G.payouts = po.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.paidDate.localeCompare(a.paidDate));
   G.sched = sc.docs.map(d => Object.assign({ id: d.id }, d.data()));
   G.att = {}; tc.docs.concat(at.docs).forEach(d => { G.att[d.id] = Object.assign({ id: d.id }, d.data()); });
+  // Materi, kurikulum (dibaca semua guru), PR Guru & catatan ke Admin milik sendiri
+  const all = sn => sn.docs.map(d => Object.assign({ id: d.id }, d.data()));
+  const [mt, ku, tk, nt] = await Promise.all([
+    getDocs(collection(db, 'orgs', o, 'materi')).catch(() => ({ docs: [] })),
+    getDocs(collection(db, 'orgs', o, 'kurikulum')).catch(() => ({ docs: [] })),
+    getDocs(query(collection(db, 'orgs', o, 'tasks'), where('mitraUid', '==', u))).catch(() => ({ docs: [] })),
+    getDocs(query(collection(db, 'orgs', o, 'notes'), where('mitraUid', '==', u))).catch(() => ({ docs: [] })),
+  ]);
+  G.materi = all(mt); G.kur = all(ku);
+  G.tasks = all(tk).sort((a, b) => (a.done - b.done) || tsMs(b.createdAt) - tsMs(a.createdAt));
+  G.notes = all(nt).sort((a, b) => tsMs(b.createdAt) - tsMs(a.createdAt));
 }
 // Sesi pada tanggal tertentu: dari jadwal kelas aktif + absensi yang sudah tercatat
 // (supaya riwayat tetap tampil walau kelasnya sudah dipindah/nonaktif).
@@ -163,10 +174,11 @@ function render() {
   if (G.tab === 'siswa') return renderSiswa();
   if (G.tab === 'track') return renderTrack();
   if (G.tab === 'honor') return renderHonor();
+  if (G.tab === 'materi') return renderMateri();
   if (G.tab === 'lainnya') return renderLainnya();
   return renderAbsensi();
 }
-document.querySelectorAll('.bottom-nav .bnav').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+document.querySelectorAll('.bottom-nav .bnav').forEach(b => b.onclick = () => { if (b.dataset.tab === 'materi') { G.matSec = ''; G.matFolder = ''; G.kurSubj = ''; } setTab(b.dataset.tab); });
 
 // ══════════════════════════════════════════════════════════════════════
 // ABSENSI — markup sama dengan renderAbsensi() V1
@@ -264,7 +276,7 @@ function cardHtml(s, key, isToday, isPast) {
       </div>
       ${infoRow}
       <div class="s-pills" style="margin-top:${dim ? 2 : 5}px"></div>
-      ${r.progress ? `<div class="s-note-preview">${I('note')}<span>${esc(r.progress)}</span></div>` : ''}
+      ${r.progress ? `<div class="s-note-preview">${I('note')}<span>${esc(r.progress)}</span></div>` : (status === 'belum' ? lastHint(s, key) : '')}
       ${r.prSiswa ? `<div class="s-note-preview" style="color:var(--plum)">${I('book')}<span>PR: ${esc(r.prSiswa)}</span></div>` : ''}
       ${r.prGuru ? `<div class="s-note-preview" style="color:var(--blue)">${I('tasks')}<span>PR Guru: ${esc(r.prGuru)}</span></div>` : ''}
       <div class="att-btns">${btns}</div>
@@ -272,6 +284,11 @@ function cardHtml(s, key, isToday, isPast) {
   </div>`;
 }
 
+// Belum diabsen: tampilkan materi pertemuan sebelumnya sebagai bekal mengajar
+function lastHint(s, key) {
+  const last = Object.values(G.att).filter(a => a.classId === s.classId && a.date < key && a.status === 'hadir' && a.progress).sort((a, b) => b.date.localeCompare(a.date))[0];
+  return last ? `<div class="s-note-preview" style="color:var(--muted)">${I('clock')}<span>Terakhir (${esc(last.date.split('-').reverse().slice(0, 2).join('/'))}): ${esc(last.progress)}</span></div>` : '';
+}
 // ── Modal Catat Kehadiran ──
 let N = null;
 function openNote(sessId, status, key) {
@@ -320,6 +337,7 @@ $('noteSaveBtn').onclick = async () => {
     };
     await setDoc(doc(db, 'orgs', G.org.id, 'att', s.id), data);
     G.att[s.id] = Object.assign({ id: s.id }, data);
+    await syncPrGuruTask(s, data).catch(e => console.warn('PR Guru:', e));
     G.member.honor = honor;
     const name = s.name; closeNote(); render();
     toast('✅ ' + name + ' — ' + st);
@@ -333,6 +351,150 @@ $('noteDelBtn').onclick = async () => {
     delete G.att[N.s.id]; const name = N.s.name; closeNote(); render(); toast('Tanda ' + name + ' dihapus');
   } catch (e) { $('noteMsg').innerHTML = '<div class="llk-callout danger" style="margin-bottom:12px">' + I('alert') + '<div>' + esc(friendlyError(e)) + '</div></div>'; }
 };
+
+// "PR Guru" di catatan kehadiran → otomatis jadi tugas di menu Materi → PR Guru (seperti V1)
+async function syncPrGuruTask(s, data) {
+  const id = 'att_' + s.id, ex = (G.tasks || []).find(t => t.id === id), ref = doc(db, 'orgs', G.org.id, 'tasks', id);
+  if (data.prGuru) {
+    const t = { text: data.prGuru.slice(0, 500), done: ex ? !!ex.done : false, mitraUid: G.user.uid, studentName: s.name, sessionDate: data.date, attId: s.id, by: G.user.uid, createdAt: ex && ex.createdAt ? ex.createdAt : serverTimestamp(), updatedAt: serverTimestamp() };
+    await setDoc(ref, t);
+    G.tasks = (G.tasks || []).filter(x => x.id !== id).concat(Object.assign({ id }, t, { createdAt: { toMillis: () => Date.now() } }));
+  } else if (ex && !ex.done) { await deleteDoc(ref); G.tasks = G.tasks.filter(x => x.id !== id); }
+}
+function tsMs(t) { return t && t.toMillis ? t.toMillis() : (t && t.seconds ? t.seconds * 1000 : 0); }
+
+// ══════════════════════════════════════════════════════════════════════
+// MATERI (seperti tab Materi V1): Materi lembaga, PR Guru, Kurikulum, Catatan ke Admin
+// ══════════════════════════════════════════════════════════════════════
+const NOTE_KIND = { materi: ['book', 'Minta materi'], konsumsi: ['gift', 'Konsumsi / perlengkapan'], pesan: ['mail', 'Pesan untuk siswa / ortu'], lain: ['note', 'Lainnya'] };
+function backHead(label, title, sub) {
+  return `<div class="page-title-area"><div class="hist-back" id="mtBack"><span>${I('chevron-left')}</span><div class="hist-back-label">${label}</div></div>
+    <div class="page-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div><div class="page-sub">${sub}</div></div>`;
+}
+function renderMateri() {
+  const sec = G.matSec;
+  if (sec === 'materi') return renderMateriLinks();
+  if (sec === 'pr') return renderPrGuru();
+  if (sec === 'kurikulum') return renderKurikulum();
+  if (sec === 'catatan') return renderCatatan();
+  const nPr = (G.tasks || []).filter(t => !t.done).length, nLink = (G.materi || []).filter(x => x.type === 'link').length;
+  const nKur = (G.kur || []).filter(k => (k.items || []).length).length, nRep = (G.notes || []).filter(n => n.reply && n.status !== 'baru').length;
+  const tile = (k, ic, bg, fg, t, d, badge) => `<button class="llk-tile" data-sec="${k}">${badge ? `<span class="llk-tile-badge">${badge}</span>` : ''}<span class="llk-glyph" style="background:${bg};color:${fg}">${I(ic)}</span><span class="llk-tile-t">${t}</span><span class="llk-tile-d">${d}</span></button>`;
+  $('mainContent').innerHTML = `<div class="page-title-area"><div class="page-title" style="margin:0">Materi</div><div class="page-sub">Materi les dari lembaga, PR guru, kurikulum & catatan ke Admin.</div></div>
+    <div style="padding:10px 20px 24px"><div class="llk-tiles llk-stagger">
+      ${tile('materi', 'link', 'var(--blue-bg)', 'var(--blue)', 'Materi', nLink + ' item')}
+      ${tile('pr', 'tasks', 'var(--accent-soft)', 'var(--red-text)', 'PR Guru', nPr ? nPr + ' belum selesai' : 'Semua beres', nPr)}
+      ${tile('kurikulum', 'book', 'var(--hadir-bg)', 'var(--hadir)', 'Kurikulum', nKur ? nKur + ' mata pelajaran' : 'Belum ada')}
+      ${tile('catatan', 'send', 'var(--izin-bg)', 'var(--izin)', 'Catatan ke Admin', (G.notes || []).length ? (G.notes.length + ' terkirim') : 'Minta materi, konsumsi, dll.')}
+    </div></div>`;
+  $('mainContent').querySelectorAll('[data-sec]').forEach(b => b.onclick = () => { G.matSec = b.dataset.sec; G.matFolder = ''; G.kurSubj = ''; renderMateri(); window.scrollTo(0, 0); });
+}
+function bindMtBack(fn) { $('mtBack').onclick = fn || (() => { G.matSec = ''; renderMateri(); }); }
+function renderMateriLinks() {
+  const fid = G.matFolder || '', folder = fid ? G.materi.find(x => x.id === fid) : null;
+  const items = G.materi.filter(x => (x.folderId || '') === fid).sort((a, b) => (a.type === 'folder' ? 0 : 1) - (b.type === 'folder' ? 0 : 1) || a.name.localeCompare(b.name));
+  $('mainContent').innerHTML = backHead(folder ? 'Materi' : 'Materi', folder ? esc(folder.name) : 'Materi Lembaga', folder ? 'Folder materi' : 'Disiapkan oleh Guru Admin. Tap untuk membuka.')
+    + `<div style="padding:10px 20px 24px">${items.length ? items.map(x => `<div class="llk-row" data-${x.type === 'folder' ? 'open' : 'url'}="${esc(x.type === 'folder' ? x.id : (x.url || ''))}" style="cursor:pointer;margin-bottom:8px">
+        <span class="llk-glyph" style="${x.type === 'folder' ? 'background:var(--izin-bg);color:var(--izin)' : 'background:var(--blue-bg);color:var(--blue)'}">${I(x.type === 'folder' ? 'folder' : 'link')}</span>
+        <div style="flex:1;min-width:0"><div style="font-weight:700">${esc(x.name)}</div><div style="font-size:0.8rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.type === 'folder' ? G.materi.filter(y => y.folderId === x.id).length + ' item' : esc(x.note || x.url || '')}</div></div>
+        <span class="menu-arrow">${I(x.type === 'folder' ? 'chevron-right' : 'external')}</span></div>`).join('')
+      : `<div class="empty">${ill('notebook')}<div class="empty-t">Belum ada materi</div><div class="empty-d">Guru Admin belum menambahkan materi. Butuh materi? Kirim Catatan ke Admin.</div></div>`}</div>`;
+  bindMtBack(fid ? () => { G.matFolder = ''; renderMateriLinks(); } : null);
+  $('mainContent').querySelectorAll('[data-open]').forEach(b => b.onclick = () => { G.matFolder = b.dataset.open; renderMateriLinks(); });
+  $('mainContent').querySelectorAll('[data-url]').forEach(b => b.onclick = () => { if (b.dataset.url) window.open(b.dataset.url, '_blank'); });
+}
+function renderPrGuru() {
+  const pend = G.tasks.filter(t => !t.done), done = G.tasks.filter(t => t.done);
+  const row = t => `<div class="llk-row" style="padding:8px 8px 8px 12px;margin-bottom:8px">
+      <button class="pr-chk" data-tdone="${esc(t.id)}" aria-label="${t.done ? 'Tandai belum selesai' : 'Tandai selesai'}" style="flex-shrink:0;width:44px;height:44px;margin:-6px -4px -6px -8px;border:none;background:none;display:flex;align-items:center;justify-content:center;cursor:pointer"><span class="llk-check${t.done ? ' on' : ''}">${t.done ? I('check', 'bold') : ''}</span></button>
+      <div style="flex:1;min-width:0;padding:4px 0"><span style="display:block;font-size:0.94rem;line-height:1.45;${t.done ? 'color:var(--muted);text-decoration:line-through' : 'color:var(--text)'};word-break:break-word">${esc(t.text)}</span>
+        ${t.attId ? `<span style="display:flex;align-items:center;gap:4px;font-size:0.76rem;color:var(--blue);font-weight:600;margin-top:3px">${I('clock', 'sm')} Ditulis saat sesi ${esc(t.studentName || '')}${t.sessionDate ? ' · ' + esc(t.sessionDate.split('-').reverse().join('/')) : ''}</span>` : t.by !== G.user.uid ? `<span style="display:flex;align-items:center;gap:4px;font-size:0.76rem;color:var(--izin);font-weight:600;margin-top:3px">${I('user', 'sm')} Dari Guru Admin</span>` : ''}</div>
+      ${t.by === G.user.uid ? `<button class="llk-icon-btn sm" data-tdel="${esc(t.id)}" style="border:none;background:none;color:var(--alpa)" aria-label="Hapus">${I('trash')}</button>` : ''}</div>`;
+  $('mainContent').innerHTML = backHead('Materi', 'PR Guru', 'Pengingat tugasmu. PR Guru di catatan kehadiran otomatis masuk ke sini.')
+    + `<div style="padding:10px 20px 24px">
+      <div style="display:flex;gap:8px;margin-bottom:14px"><input id="taskInput" type="text" maxlength="500" placeholder="cth: Buat materi lagu untuk Rere" style="flex:1;min-width:0;height:48px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:16px;padding:0 14px;border-radius:var(--r-md);outline:none"/>
+        <button id="taskAdd" class="llk-btn primary" aria-label="Tambah" style="width:48px;height:48px;padding:0">${I('plus', 'bold')}</button></div>
+      ${pend.length ? pend.map(row).join('') : `<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:0.86rem;color:var(--hadir);font-weight:600;padding:8px 0">${I('check-circle')} Semua PR sudah beres</div>`}
+      ${done.length ? `<div class="llk-section-label" style="margin-top:14px">${I('check')}Selesai · ${done.length}</div>` + done.slice(0, 50).map(row).join('') : ''}</div>`;
+  bindMtBack();
+  const ref = id => doc(db, 'orgs', G.org.id, 'tasks', id);
+  const add = async () => {
+    const v = $('taskInput').value.trim(); if (!v) { toast('❌ Tulis dulu tugasnya'); return; }
+    const id = doc(collection(db, 'orgs', G.org.id, 'tasks')).id, t = { text: v, done: false, mitraUid: G.user.uid, by: G.user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+    try { await setDoc(ref(id), t); G.tasks.unshift(Object.assign({ id }, t, { createdAt: { toMillis: () => Date.now() } })); renderPrGuru(); } catch (e) { toast('❌ ' + friendlyError(e)); }
+  };
+  $('taskAdd').onclick = add; $('taskInput').onkeydown = e => { if (e.key === 'Enter') add(); };
+  $('mainContent').querySelectorAll('[data-tdone]').forEach(b => b.onclick = async () => {
+    const t = G.tasks.find(x => x.id === b.dataset.tdone), d = Object.assign({}, t, { done: !t.done, by: G.user.uid, updatedAt: serverTimestamp() }); delete d.id;
+    if (!d.createdAt || !d.createdAt.seconds) delete d.createdAt;
+    try { await setDoc(ref(t.id), d); t.done = !t.done; t.by = G.user.uid; G.tasks.sort((a, c) => a.done - c.done); renderPrGuru(); } catch (e) { toast('❌ ' + friendlyError(e)); }
+  });
+  $('mainContent').querySelectorAll('[data-tdel]').forEach(b => b.onclick = async () => {
+    try { await deleteDoc(ref(b.dataset.tdel)); G.tasks = G.tasks.filter(x => x.id !== b.dataset.tdel); renderPrGuru(); toast('🗑 PR dihapus'); } catch (e) { toast('❌ ' + friendlyError(e)); }
+  });
+}
+function renderKurikulum() {
+  const k = G.kurSubj ? G.kur.find(x => x.id === G.kurSubj) : null;
+  if (k) {
+    const items = k.items || [];
+    $('mainContent').innerHTML = backHead('Kurikulum', esc(k.subjectName || 'Kurikulum'), items.filter(i => i.type !== 'header').length + ' topik · disusun Guru Admin')
+      + `<div style="padding:10px 20px 24px">${items.map(t => t.type === 'header'
+        ? `<div class="llk-section-label" style="margin-top:14px">${I('pin')}${esc(t.label)}</div>`
+        : `<div class="llk-row" style="margin-bottom:6px;font-weight:600">${esc(t.label)}</div>`).join('') || `<div class="empty">${ill('notebook')}<div class="empty-t">Belum ada topik</div></div>`}
+        <div class="llk-hint" style="margin-top:12px">Centang topik yang sudah dikuasai siswa di profil masing-masing siswa (tab Siswa → tap nama).</div></div>`;
+    bindMtBack(() => { G.kurSubj = ''; renderKurikulum(); });
+    return;
+  }
+  const list = G.kur.filter(x => (x.items || []).length);
+  $('mainContent').innerHTML = backHead('Materi', 'Kurikulum', 'Urutan topik per mata pelajaran dari lembaga.')
+    + `<div style="padding:10px 20px 24px">${list.length ? list.map(x => `<div class="llk-row" data-kur="${esc(x.id)}" style="cursor:pointer;margin-bottom:8px">
+        <span class="llk-glyph">${subjectIcon(x.subjectName)}</span><div style="flex:1;min-width:0"><div style="font-weight:700">${esc(x.subjectName)}</div><div style="font-size:0.8rem;color:var(--muted)">${(x.items || []).filter(i => i.type !== 'header').length} topik</div></div><span class="menu-arrow">${I('chevron-right')}</span></div>`).join('')
+      : `<div class="empty">${ill('notebook')}<div class="empty-t">Belum ada kurikulum</div><div class="empty-d">Guru Admin belum menyusun kurikulum.</div></div>`}</div>`;
+  bindMtBack();
+  $('mainContent').querySelectorAll('[data-kur]').forEach(b => b.onclick = () => { G.kurSubj = b.dataset.kur; renderKurikulum(); });
+}
+// ── Catatan ke Admin ──
+function renderCatatan() {
+  const stLbl = n => n.status === 'baru' ? '<span style="color:var(--alpa);font-weight:700">Belum dibaca</span>' : n.status === 'dibaca' ? '<span style="color:var(--izin);font-weight:700">Dibaca Admin</span>' : '<span style="color:var(--hadir);font-weight:700">Selesai</span>';
+  $('mainContent').innerHTML = backHead('Materi', 'Catatan ke Admin', 'Minta materi, konsumsi/perlengkapan, titip pesan untuk siswa, atau apa pun.')
+    + `<div style="padding:10px 20px 24px"><button class="llk-btn primary block" id="ntNew">${I('send')} Tulis Catatan</button>
+      <div class="llk-section-label" style="margin-top:18px">${I('inbox')}Terkirim · ${G.notes.length}</div>
+      ${G.notes.length ? G.notes.map(n => { const k = NOTE_KIND[n.kind] || NOTE_KIND.lain; return `<div class="hist-entry" style="margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:0.8rem;color:var(--muted)">${I(k[0], 'sm')} ${esc(k[1])}${n.studentName ? ' · ' + esc(n.studentName) : ''} · ${stLbl(n)}</div>
+        <div style="white-space:pre-wrap;margin-top:6px;font-size:0.94rem;line-height:1.5">${esc(n.text)}</div>
+        ${n.reply ? `<div class="llk-note is-progress" style="margin-top:8px">${I('chat')}<span><b>Admin:</b> ${esc(n.reply)}</span></div>` : ''}
+        ${n.status === 'baru' ? `<button class="llk-btn ghost sm" data-ndel="${esc(n.id)}" style="margin-top:8px;color:var(--alpa)">${I('trash')} Tarik catatan</button>` : ''}</div>`; }).join('')
+      : `<div class="empty">${ill('notebook')}<div class="empty-t">Belum ada catatan</div><div class="empty-d">Catatanmu langsung muncul di aplikasi Guru Admin.</div></div>`}</div>`;
+  bindMtBack();
+  $('ntNew').onclick = () => openNoteToAdmin(null);
+  $('mainContent').querySelectorAll('[data-ndel]').forEach(b => b.onclick = async () => {
+    try { await deleteDoc(doc(db, 'orgs', G.org.id, 'notes', b.dataset.ndel)); G.notes = G.notes.filter(x => x.id !== b.dataset.ndel); renderCatatan(); toast('Catatan ditarik'); } catch (e) { toast('❌ ' + friendlyError(e)); }
+  });
+}
+function openNoteToAdmin(stu) {
+  const studs = myStudents().filter(x => x.active);
+  const ov = document.createElement('div'); ov.className = 'overlay open'; ov.id = 'ntOverlay'; ov.style.zIndex = '10001';
+  ov.innerHTML = `<div class="modal"><div class="modal-title">${I('send')} Catatan ke Admin</div>
+    <div class="mfield"><label>Jenis</label><div class="nt-kinds">${Object.entries(NOTE_KIND).map(([k, v], i) => `<label class="nt-kind"><input type="radio" name="ntKind" value="${k}" ${(stu ? k === 'pesan' : i === 0) ? 'checked' : ''}/><span>${I(v[0], 'sm')} ${v[1]}</span></label>`).join('')}</div></div>
+    <div class="mfield"><label>Tentang siswa (opsional)</label><select id="ntStu"><option value="">— Tidak tentang siswa tertentu —</option>${studs.map(x => `<option value="${esc(x.id)}" ${stu && stu.id === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
+    <div class="mfield"><label>Isi catatan</label><textarea id="ntText" rows="4" maxlength="1000" placeholder="cth: Dompet Nazura ketinggalan di ruang les, tolong kabari ortunya ya"></textarea></div>
+    <div id="ntMsg"></div>
+    <div style="display:flex;gap:10px"><button class="mbtn mbtn-cancel" id="ntNo">Batal</button><button class="mbtn" id="ntGo" style="background:var(--red);color:#fff">${I('send')} Kirim</button></div></div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.onclick = e => { if (e.target === ov) close(); };
+  $('ntNo').onclick = close;
+  setTimeout(() => { const k = $('ntText'); if (k) k.focus(); }, 100);
+  $('ntGo').onclick = async () => {
+    const text = $('ntText').value.trim(); if (!text) { $('ntMsg').innerHTML = `<div class="llk-callout danger" style="margin-bottom:12px">${I('alert')}<div>Tulis dulu isi catatannya.</div></div>`; return; }
+    const sid = $('ntStu').value, sx = studs.find(x => x.id === sid);
+    const id = doc(collection(db, 'orgs', G.org.id, 'notes')).id;
+    const n = { text, kind: (ov.querySelector('[name=ntKind]:checked') || {}).value || 'lain', mitraUid: G.user.uid, mitraName: G.member.name || '', studentId: sid || '', studentName: sx ? sx.name : '', status: 'baru', createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+    $('ntGo').disabled = true;
+    try { await setDoc(doc(db, 'orgs', G.org.id, 'notes', id), n); G.notes.unshift(Object.assign({ id }, n, { createdAt: { toMillis: () => Date.now() } })); close(); toast('✅ Catatan terkirim ke Admin'); render(); }
+    catch (e) { $('ntGo').disabled = false; $('ntMsg').innerHTML = `<div class="llk-callout danger" style="margin-bottom:12px">${I('alert')}<div>${esc(friendlyError(e))}</div></div>`; }
+  };
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // SISWA (murid yang ditugaskan) & PROFIL
@@ -404,6 +566,9 @@ function renderProfile() {
           <div style="font-size:0.82rem;color:var(--muted);margin-top:1px">${esc(jadwalOfStu(x) || 'Tidak ada jadwal aktif')}</div></div>
       </div></div>
     <div style="padding:4px 20px 80px">
+      ${lastSessionCard(x)}
+      <div id="kurCards"></div>
+      ${x.active ? `<button class="llk-btn secondary block" id="pfNote" style="margin:0 0 16px">${I('send')} Catatan ke Admin tentang ${esc(x.name)}</button>` : ''}
       <div class="day-scroll" style="padding:0 0 4px">${periods.map(q => `<button class="day-pill ${p.period === q.k ? 'active' : ''}" data-per="${q.k}" style="padding:8px 14px;font-size:0.84rem">${q.l}</button>`).join('')}</div>
       <div class="stats-row" style="grid-template-columns:repeat(3,1fr);margin:12px 0">
         <div class="stat-card s-hadir"><div class="stat-label">Hadir</div><div class="stat-num">${c('hadir')}</div></div>
@@ -422,7 +587,45 @@ function renderProfile() {
       : `<div class="empty">${ill('notebook')}<div class="empty-t">Belum ada catatan</div><div class="empty-d">Tidak ada pertemuan tercatat di periode ini.</div></div>`}
     </div>`;
   $('pfBack').onclick = () => { const t = p.from; G.profile = null; setTab(t); };
+  const pn = $('pfNote'); if (pn) pn.onclick = () => openNoteToAdmin(x);
+  renderKurCards(x);
   $('mainContent').querySelectorAll('[data-per]').forEach(b => b.onclick = () => { p.period = b.dataset.per; renderProfile(); });
+}
+
+// Ringkasan pertemuan terakhir — supaya guru (termasuk guru baru) langsung tahu materi terakhir siswa
+function lastSessionCard(x) {
+  const last = Object.values(G.att).filter(a => a.studentId === x.id && a.status === 'hadir' && (a.progress || a.prSiswa)).sort((a, b) => (b.date + (b.start || '')).localeCompare(a.date + (a.start || '')))[0];
+  if (!last) return '';
+  const who = last.src === 'v1' ? 'dari LLK V1' : last.mitraUid === G.user.uid ? 'oleh kamu' : 'oleh guru sebelumnya';
+  return `<div class="last-card"><div class="llk-section-label" style="padding:0;margin:0 0 8px">${I('clock')}Pertemuan terakhir · ${esc(fmtPretty(last.date))} <span style="font-weight:500;color:var(--muted)">(${who})</span></div>
+    ${last.progress ? `<div class="llk-note is-progress">${I('note')}<span>${esc(last.progress)}</span></div>` : ''}
+    ${last.prSiswa ? `<div class="llk-note is-pr">${I('book')}<span>PR: ${esc(last.prSiswa)}</span></div>` : ''}</div>`;
+}
+// Kurikulum per kelas: topik dari Guru Admin, dicentang guru yang mengajar (orgs/{org}/kurprog/{classId})
+async function renderKurCards(x) {
+  const box = $('kurCards'); if (!box) return;
+  const cls = x.classes.filter(c => c.active && G.kur.some(k => k.id === c.subjectId && (k.items || []).length));
+  if (!cls.length) return;
+  G.kp = G.kp || {};
+  await Promise.all(cls.filter(c => !G.kp[c.id]).map(async c => {
+    try { const d = await getDoc(doc(db, 'orgs', G.org.id, 'kurprog', c.id)); G.kp[c.id] = d.exists() ? (d.data().checked || {}) : {}; } catch (e) { G.kp[c.id] = {}; }
+  }));
+  if (!$('kurCards')) return;
+  box.innerHTML = cls.map(c => {
+    const k = G.kur.find(y => y.id === c.subjectId), items = k.items || [], ch = G.kp[c.id] || {};
+    const topics = items.filter(t => t.type !== 'header'), done = topics.filter(t => ch[t.id]).length;
+    return `<div class="last-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+        <div class="llk-section-label" style="padding:0;margin:0">${I('book')}Kurikulum ${esc(k.subjectName)}</div><span style="font-size:0.8rem;font-weight:700;color:var(--hadir)">${done}/${topics.length}</span></div>
+      <div class="kur-bar"><span style="width:${topics.length ? Math.round(done / topics.length * 100) : 0}%"></span></div>
+      ${items.map(t => t.type === 'header' ? `<div style="font-weight:700;font-family:var(--font-display);margin:12px 0 2px;display:flex;align-items:center;gap:6px;color:var(--red-text)">${I('pin', 'sm')}${esc(t.label)}</div>`
+        : `<button class="kur-item" data-kc="${esc(c.id)}" data-kt="${esc(t.id)}"><span class="llk-check${ch[t.id] ? ' on' : ''}">${ch[t.id] ? I('check', 'bold') : ''}</span><span style="flex:1;text-align:left;${ch[t.id] ? 'color:var(--muted);text-decoration:line-through' : ''}">${esc(t.label)}</span></button>`).join('')}</div>`;
+  }).join('');
+  box.querySelectorAll('[data-kc]').forEach(b => b.onclick = async () => {
+    const cid = b.dataset.kc, tid = b.dataset.kt, ch = Object.assign({}, G.kp[cid] || {});
+    if (ch[tid]) delete ch[tid]; else ch[tid] = true;
+    try { await setDoc(doc(db, 'orgs', G.org.id, 'kurprog', cid), { checked: ch, by: G.user.uid, updatedAt: serverTimestamp() }); G.kp[cid] = ch; renderKurCards(x); }
+    catch (e) { toast('❌ ' + friendlyError(e)); }
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -628,6 +831,9 @@ function renderLainnya() {
       <div class="menu-card"><div class="menu-item" style="cursor:default">
         <div class="menu-icon red">${I('user')}</div>
         <div class="menu-text"><div class="menu-label">${esc(G.member.name)}</div><div class="menu-desc">${esc(G.user.email || '')} · Guru Mitra ${esc(G.org.name)}${G.isAdmin ? ' (juga Guru Admin)' : ''}</div></div></div></div>
+      <div class="menu-card"><div class="menu-item" id="mlNote" style="cursor:pointer">
+        <div class="menu-icon" style="background:var(--izin-bg);color:var(--izin)">${I('send')}</div>
+        <div class="menu-text"><div class="menu-label">Catatan ke Admin</div><div class="menu-desc">Minta materi, konsumsi, titip pesan untuk siswa, dll.${(G.notes || []).some(n => n.reply && n.status !== 'baru') ? ' · ada balasan' : ''}</div></div><span class="menu-arrow">${I('chevron-right')}</span></div></div>
       <div>
         <div class="llk-section-label">${I('card')}Rekening gaji & No WA</div>
         <div class="menu-card" style="padding:14px 16px">
@@ -688,6 +894,7 @@ function renderLainnya() {
       location.replace('./');
     } catch (e) { toast('❌ Gagal: ' + friendlyError(e), 4000); }
   });
+  const mn = $('mlNote'); if (mn) mn.onclick = () => { G.matSec = 'catatan'; setTab('materi'); };
 }
 function confirmWord(title, msg, word, yes, onYes) {
   $('cfTitle').textContent = title; $('cfMsg').textContent = msg;

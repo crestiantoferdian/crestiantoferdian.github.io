@@ -522,3 +522,41 @@ textarea#pgMsg{width:100%;font-size:0.88rem;line-height:1.5}
 .kp-d{font-size:0.7rem;color:#cbbfb1;margin-top:2px}
 .kp-foot{font-size:0.72rem;color:#cbbfb1;margin-top:10px;line-height:1.5}
 @media (max-width:520px){ .kp-grid{grid-template-columns:1fr} .kp-n{font-size:1.4rem} }
+/* ── Materi (Admin): ubin, catatan guru, materi, PR guru, kurikulum ── */
+.bnav{position:relative}
+.bnav-badge{position:absolute;top:4px;right:calc(50% - 24px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--danger);color:#fff;font-size:0.64rem;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1}
+.bnav-badge[hidden]{display:none}
+.mtiles{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media (min-width:900px){ .mtiles{grid-template-columns:repeat(4,1fr)} }
+.mtile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px;min-height:132px;font-family:inherit;color:var(--text);cursor:pointer}
+.mtile:active{transform:scale(0.98)}
+.mtile-ic{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center}
+.mtile-ic .ico{width:22px;height:22px}
+.mtile-t{font-weight:800;font-size:1rem;margin-top:4px}
+.mtile-d{font-size:0.78rem;color:var(--muted)}
+.mtile-badge{position:absolute;top:12px;right:12px;min-width:22px;height:22px;padding:0 7px;border-radius:11px;background:var(--danger);color:#fff;font-size:0.74rem;font-weight:800;display:flex;align-items:center;justify-content:center}
+.note-card.is-new{border-color:var(--danger);border-left-width:4px}
+.note-ic{width:38px;height:38px;border-radius:11px;background:var(--amber-bg);color:var(--amber);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.note-text{white-space:pre-wrap;font-size:0.95rem;line-height:1.55;margin-top:10px;padding:10px 12px;background:var(--card2);border-radius:12px}
+.note-reply{display:flex;gap:6px;align-items:flex-start;font-size:0.84rem;color:var(--blue);margin-top:8px;line-height:1.5}
+.note-reply .ico{flex:0 0 auto;margin-top:2px}
+.mat-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2);background:none;border-left:0;border-right:0;border-top:0;font-family:inherit;color:var(--text)}
+.mat-row:last-child{border-bottom:none}
+.mat-main{flex:1;min-width:0;text-align:left;background:none;border:none;font-family:inherit;color:var(--text);cursor:pointer;padding:4px 0}
+.mat-main .t-meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mat-ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:var(--blue-bg);color:var(--blue);overflow:hidden}
+.mat-ic.folder{background:var(--amber-bg);color:var(--amber)}
+.icon-btn.danger{color:var(--danger)}
+.task-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)}
+.task-row:last-child{border-bottom:none}
+.task-chk{width:28px;height:28px;border-radius:9px;border:2px solid var(--muted2);background:var(--card);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;cursor:pointer}
+.task-chk.on{background:var(--green);border-color:var(--green)}
+.task-t{font-size:0.94rem;line-height:1.45;word-break:break-word}
+.task-row.is-done .task-t{color:var(--muted);text-decoration:line-through}
+.task-row .g-dot{display:inline-block;margin-right:4px}
+.kur-row{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:8px 8px 8px 14px;margin-bottom:8px;min-height:56px}
+.kur-row.is-head{background:var(--card2);border-color:transparent;margin-top:14px}
+.kur-row.is-head .kur-l{font-family:var(--font-display);font-weight:700}
+.kur-l{font-weight:600;font-size:0.94rem;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.kur-pin{color:var(--red);display:flex}
+@media (max-width:420px){ .kur-row .icon-btn{width:36px;height:36px} }

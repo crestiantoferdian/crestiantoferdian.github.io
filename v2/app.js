@@ -449,6 +449,7 @@ const ADMIN_TABS = [
   { k: 'absensi', i: 'absensi', l: 'Absensi' },
   { k: 'murid', i: 'cap', l: 'Siswa' },
   { k: 'guru', i: 'users', l: 'Guru' },
+  { k: 'materi', i: 'book', l: 'Materi' },
   { k: 'keuangan', i: 'wallet', l: 'Keuangan' },
   { k: 'lainnya', i: 'grid', l: 'Lainnya' },
 ];
@@ -468,7 +469,7 @@ function renderShell() {
   applyOrgColor(S.org.color);
   root().innerHTML = `
   <div class="shell">
-    <nav class="bottom-nav">${tabs.map(t => `<button class="bnav ${t.k === S.tab ? 'active' : ''}" data-tab="${t.k}"><span class="bi">${I(t.i)}</span>${t.l}</button>`).join('')}</nav>
+    <nav class="bottom-nav">${tabs.map(t => `<button class="bnav ${t.k === S.tab ? 'active' : ''}" data-tab="${t.k}"><span class="bi">${I(t.i)}</span>${t.l}${t.k === 'materi' ? '<span class="bnav-badge" id="noteBadge" hidden></span>' : ''}</button>`).join('')}</nav>
     <div class="shell-main">
       <header class="app-header">
         <div class="h-logo">${logo}</div>
@@ -481,8 +482,9 @@ function renderShell() {
   </div>`;
   const sb = $('subBtn'); if (sb) sb.onclick = () => openSubscribe();
   tickTrial();
+  refreshNoteBadge();
   document.querySelectorAll('.bnav').forEach(b => b.onclick = () => {
-    S.tab = b.dataset.tab; S.data = null; renderShell(); // data selalu segar saat pindah menu (mis. guru baru bergabung)
+    S.tab = b.dataset.tab; S.data = null; if (S.tab === 'materi') { S.matSec = ''; S.matFolder = ''; S.kurSubj = ''; } renderShell(); // data selalu segar saat pindah menu (mis. guru baru bergabung)
   });
   renderTab();
 }
@@ -494,6 +496,7 @@ function renderTab() {
     if (S.tab === 'absensi') return renderAdminAbsensi(m);
     if (S.tab === 'lainnya') return renderAdminLainnya(m);
     if (S.tab === 'murid') return renderMurid(m);
+    if (S.tab === 'materi') return renderAdminMateri(m);
     if (S.tab === 'keuangan') return renderKeuangan(m);
     return placeholder(m, ['wallet', 'Keuangan', 'Segera hadir.']);
   }
@@ -1580,6 +1583,213 @@ function openIzin(r, key, m) {
       closeModal(); toast('✅ ' + r.name + ' izin'); renderAdminAbsensi(m);
     } catch (e) { $('izGo').disabled = false; toast('❌ ' + friendlyError(e), 4000); }
   };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ADMIN — MATERI (seperti tab Materi LLK V1) + CATATAN DARI GURU
+//   orgs/{org}/notes/{id}     catatan guru → Admin {text, kind, mitraUid, mitraName, studentName, status, reply}
+//   orgs/{org}/materi/{id}    {type:'link'|'folder', name, url, folderId, note}
+//   orgs/{org}/tasks/{id}     PR Guru {text, done, mitraUid, studentName, sessionDate, attId}
+//   orgs/{org}/kurikulum/{subjectId} {subjectName, items:[{id, type:'header'|'topic', label}]}
+//   orgs/{org}/kurprog/{classId} {checked:{topicId:true}} — dicentang guru di profil siswa
+// ══════════════════════════════════════════════════════════════════════
+const NOTE_KIND = { materi: ['book', 'Minta materi'], konsumsi: ['gift', 'Konsumsi / perlengkapan'], pesan: ['mail', 'Pesan untuk siswa / ortu'], lain: ['note', 'Lainnya'] };
+async function refreshNoteBadge() {
+  try {
+    const snap = await getDocs(query(collection(db, 'orgs', S.org.id, 'notes'), where('status', '==', 'baru')));
+    S.newNotes = snap.size;
+    const b = $('noteBadge'); if (b) { b.hidden = !snap.size; b.textContent = snap.size > 9 ? '9+' : snap.size; }
+  } catch (e) { console.warn('catatan:', e); }
+}
+const fmtWhen = t => { const ms = tsMs(t); return ms ? new Date(ms).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; };
+function matBack(m, title, sub) {
+  return `<button class="back-link" id="matBack">${I('chevron-left', 'sm')} Materi</button><div class="page-title">${title}</div><div class="page-sub">${sub}</div>`;
+}
+async function renderAdminMateri(m) {
+  m.innerHTML = '<div class="page-title">Materi</div><div class="page-sub">Memuat…</div>';
+  const o = S.org.id;
+  try {
+    await loadOrgData();
+    const [nt, mt, tk, ku] = await Promise.all([getDocs(collection(db, 'orgs', o, 'notes')), getDocs(collection(db, 'orgs', o, 'materi')), getDocs(collection(db, 'orgs', o, 'tasks')), getDocs(collection(db, 'orgs', o, 'kurikulum'))]);
+    const all = sn => sn.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    S.mat = { notes: all(nt).sort((a, b) => tsMs(b.createdAt) - tsMs(a.createdAt)), materi: all(mt), tasks: all(tk).sort((a, b) => (a.done - b.done) || tsMs(b.createdAt) - tsMs(a.createdAt)), kur: all(ku) };
+  } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
+  const sec = S.matSec;
+  if (sec === 'catatan') return renderNotesAdmin(m);
+  if (sec === 'materi') return renderMateriList(m);
+  if (sec === 'pr') return renderTasksAdmin(m);
+  if (sec === 'kurikulum') return S.kurSubj ? renderKurSubject(m) : renderKurList(m);
+  const M = S.mat, nNew = M.notes.filter(x => x.status === 'baru').length, nPr = M.tasks.filter(x => !x.done).length;
+  const nItems = M.materi.filter(x => x.type === 'link').length, nKur = M.kur.filter(k => (k.items || []).length).length;
+  const tile = (k, ic, bg, fg, t, d, badge) => `<button class="mtile" data-sec="${k}">${badge ? `<span class="mtile-badge">${badge}</span>` : ''}<span class="mtile-ic" style="background:${bg};color:${fg}">${I(ic)}</span><span class="mtile-t">${t}</span><span class="mtile-d">${d}</span></button>`;
+  m.innerHTML = `<div class="page-title">Materi</div><div class="page-sub">Pusat materi les, PR guru, kurikulum & catatan dari guru.</div>
+    <div class="mtiles">
+      ${tile('catatan', 'inbox', 'var(--amber-bg)', 'var(--amber)', 'Catatan Guru', nNew ? nNew + ' baru' : M.notes.length + ' catatan', nNew)}
+      ${tile('materi', 'link', 'var(--blue-bg)', 'var(--blue)', 'Materi', nItems + ' item')}
+      ${tile('pr', 'tasks', 'var(--red-bg)', 'var(--red)', 'PR Guru', nPr ? nPr + ' belum selesai' : 'Semua beres', nPr)}
+      ${tile('kurikulum', 'book', 'var(--green-bg)', 'var(--green)', 'Kurikulum', nKur ? nKur + ' mata pelajaran' : 'Belum ada')}
+    </div>`;
+  m.querySelectorAll('[data-sec]').forEach(b => b.onclick = () => { S.matSec = b.dataset.sec; S.matFolder = ''; S.kurSubj = ''; renderAdminMateri(m); });
+}
+function bindMatBack(m) { $('matBack').onclick = () => { if (S.matSec === 'kurikulum' && S.kurSubj) S.kurSubj = ''; else if (S.matSec === 'materi' && S.matFolder) S.matFolder = ''; else S.matSec = ''; renderAdminMateri(m); }; }
+
+// ── Catatan dari guru ──
+function renderNotesAdmin(m) {
+  const f = S.noteFilter || 'baru', list = S.mat.notes.filter(x => f === 'semua' || (f === 'baru' ? x.status === 'baru' : x.status !== 'baru'));
+  const stPill = st => st === 'baru' ? '<span class="pill pill-red">BARU</span>' : st === 'dibaca' ? '<span class="pill pill-amber">DIBACA</span>' : '<span class="pill pill-green">SELESAI</span>';
+  m.innerHTML = matBack(m, 'Catatan Guru', 'Permintaan & pesan dari Guru Mitra: minta materi, konsumsi, pesan untuk siswa, dll.')
+    + `<div class="seg">${[['baru', 'Baru'], ['lama', 'Sudah ditanggapi'], ['semua', 'Semua']].map(([k, l]) => `<button class="seg-b ${f === k ? 'on' : ''}" data-nf="${k}">${l}</button>`).join('')}</div>
+    ${list.length ? list.map(x => { const k = NOTE_KIND[x.kind] || NOTE_KIND.lain; return `<div class="card note-card${x.status === 'baru' ? ' is-new' : ''}">
+      <div class="row" style="align-items:flex-start"><span class="note-ic">${I(k[0])}</span>
+        <div class="grow" style="min-width:0"><div class="t-name">${esc(x.mitraName || 'Guru')} <span class="t-meta">· ${esc(k[1])}</span></div>
+          ${x.studentName ? `<div class="t-meta">Siswa: <b>${esc(x.studentName)}</b></div>` : ''}<div class="t-meta">${esc(fmtWhen(x.createdAt))}</div></div>${stPill(x.status)}</div>
+      <div class="note-text">${esc(x.text)}</div>
+      ${x.reply ? `<div class="note-reply">${I('chat', 'sm')} <span><b>Balasan Anda:</b> ${esc(x.reply)}</span></div>` : ''}
+      <div class="mini-btns">${x.status === 'baru' ? `<button class="mini" data-nread="${esc(x.id)}">${I('check', 'sm')} Tandai dibaca</button>` : ''}
+        ${x.status !== 'selesai' ? `<button class="mini mini-green" data-ndone="${esc(x.id)}">${I('check-circle', 'sm')} Selesai</button>` : ''}
+        <button class="mini" data-nreply="${esc(x.id)}">${I('chat', 'sm')} ${x.reply ? 'Ubah balasan' : 'Balas'}</button>
+        <button class="mini mini-red" data-ndel="${esc(x.id)}">${I('trash', 'sm')}</button></div>
+    </div>`; }).join('')
+    : `<div class="card"><div class="empty"><div class="empty-ic">${I('inbox')}</div><div class="empty-t">${f === 'baru' ? 'Tidak ada catatan baru' : 'Belum ada catatan'}</div><div class="empty-d">Guru Mitra mengirim catatan dari aplikasinya (menu Lainnya → Catatan ke Admin, atau dari profil siswa).</div></div></div>`}`;
+  bindMatBack(m);
+  m.querySelectorAll('[data-nf]').forEach(b => b.onclick = () => { S.noteFilter = b.dataset.nf; renderNotesAdmin(m); });
+  const upd = async (id, data, msg) => { try { await updateDoc(doc(db, 'orgs', S.org.id, 'notes', id), Object.assign(data, { updatedAt: serverTimestamp() })); toast(msg); refreshNoteBadge(); renderAdminMateri(m); } catch (e) { toast('❌ ' + friendlyError(e), 4000); } };
+  m.querySelectorAll('[data-nread]').forEach(b => b.onclick = () => upd(b.dataset.nread, { status: 'dibaca' }, 'Ditandai dibaca'));
+  m.querySelectorAll('[data-ndone]').forEach(b => b.onclick = () => upd(b.dataset.ndone, { status: 'selesai' }, '✅ Catatan selesai'));
+  m.querySelectorAll('[data-nreply]').forEach(b => b.onclick = () => {
+    const x = S.mat.notes.find(n => n.id === b.dataset.nreply);
+    openModal(`<div class="modal-t">${I('chat')} Balas ${esc(x.mitraName || 'guru')}</div><div class="modal-sub">“${esc(x.text)}”</div>
+      <div class="field"><label>Balasan (terlihat di aplikasi guru)</label><textarea id="nrText" rows="4" maxlength="1000">${esc(x.reply || '')}</textarea></div>
+      <div class="btn-row"><button class="btn btn-ghost" id="nrNo">Batal</button><button class="btn btn-primary" id="nrGo">${I('check', 'sm')} Kirim Balasan</button></div>`);
+    $('nrNo').onclick = closeModal;
+    $('nrGo').onclick = async () => { const r = $('nrText').value.trim(); closeModal(); await upd(x.id, { reply: r, status: x.status === 'baru' ? 'dibaca' : x.status }, '✅ Balasan terkirim'); };
+  });
+  m.querySelectorAll('[data-ndel]').forEach(b => b.onclick = () => confirmDanger({ title: 'Hapus catatan?', message: 'Catatan ini dihapus dari aplikasi Admin & guru.', confirmText: 'Hapus' }, async () => {
+    try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'notes', b.dataset.ndel)]]); toast('Catatan dihapus'); refreshNoteBadge(); renderAdminMateri(m); } catch (e) { toast('❌ ' + friendlyError(e)); }
+  }));
+}
+
+// ── Materi: folder & tautan ──
+function renderMateriList(m) {
+  const fid = S.matFolder || '', items = S.mat.materi.filter(x => (x.folderId || '') === fid).sort((a, b) => (a.type === 'folder' ? 0 : 1) - (b.type === 'folder' ? 0 : 1) || a.name.localeCompare(b.name));
+  const folder = fid ? S.mat.materi.find(x => x.id === fid) : null;
+  const count = id => S.mat.materi.filter(x => x.folderId === id).length;
+  m.innerHTML = matBack(m, folder ? esc(folder.name) : 'Materi', folder ? 'Folder materi' : 'Tautan materi les (Google Drive, YouTube, PDF, dll.) — terlihat oleh semua Guru Mitra.')
+    + `<div class="btn-row" style="margin:0 0 12px">${fid ? '' : `<button class="btn btn-ghost" id="mtFolder">${I('folder', 'sm')} Folder Baru</button>`}<button class="btn btn-primary" id="mtLink">${I('plus', 'sm')} Tambah Materi</button></div>
+    ${items.length ? `<div class="card" style="padding:4px 14px">${items.map(x => `<div class="mat-row">
+        <span class="mat-ic ${x.type}">${I(x.type === 'folder' ? 'folder' : 'link')}</span>
+        <button class="mat-main" ${x.type === 'folder' ? `data-open="${esc(x.id)}"` : `data-url="${esc(x.url || '')}"`}><div class="t-name">${esc(x.name)}</div><div class="t-meta">${x.type === 'folder' ? count(x.id) + ' item' : esc(x.note || x.url || '')}</div></button>
+        <button class="icon-btn" data-medit="${esc(x.id)}" aria-label="Ubah">${I('edit', 'sm')}</button>
+        <button class="icon-btn danger" data-mdel="${esc(x.id)}" aria-label="Hapus">${I('trash', 'sm')}</button></div>`).join('')}</div>`
+      : `<div class="card"><div class="empty"><div class="empty-ic">${I('link')}</div><div class="empty-t">Belum ada materi</div><div class="empty-d">Tambahkan tautan materi supaya semua guru memakai materi yang sama.</div></div></div>`}`;
+  bindMatBack(m);
+  const f = $('mtFolder'); if (f) f.onclick = () => materiForm(m, { type: 'folder' });
+  $('mtLink').onclick = () => materiForm(m, { type: 'link', folderId: fid });
+  m.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { S.matFolder = b.dataset.open; renderMateriList(m); });
+  m.querySelectorAll('[data-url]').forEach(b => b.onclick = () => { if (b.dataset.url) window.open(b.dataset.url, '_blank'); });
+  m.querySelectorAll('[data-medit]').forEach(b => b.onclick = () => materiForm(m, S.mat.materi.find(x => x.id === b.dataset.medit)));
+  m.querySelectorAll('[data-mdel]').forEach(b => b.onclick = () => {
+    const x = S.mat.materi.find(y => y.id === b.dataset.mdel), kids = S.mat.materi.filter(y => y.folderId === x.id);
+    confirmDanger({ title: 'Hapus ' + x.name + '?', message: x.type === 'folder' ? `Folder & ${kids.length} materi di dalamnya dihapus.` : 'Materi ini dihapus untuk semua guru.', confirmText: 'Hapus' }, async () => {
+      try { await commitOps([x, ...kids].map(y => ['del', doc(db, 'orgs', S.org.id, 'materi', y.id)])); toast('Dihapus'); renderAdminMateri(m); } catch (e) { toast('❌ ' + friendlyError(e)); }
+    });
+  });
+}
+function materiForm(m, x) {
+  const isF = x.type === 'folder';
+  openModal(`<div class="modal-t">${I(isF ? 'folder' : 'link')} ${x.id ? 'Ubah' : 'Tambah'} ${isF ? 'Folder' : 'Materi'}</div>
+    <div class="field"><label>Nama</label><input id="mfName" maxlength="80" value="${esc(x.name || '')}" placeholder="${isF ? 'cth: Piano Dasar' : 'cth: Buku Piano Bastien Level 1'}"/></div>
+    ${isF ? '' : `<div class="field"><label>Tautan (URL)</label><input id="mfUrl" maxlength="1000" value="${esc(x.url || '')}" placeholder="https://drive.google.com/…"/></div>
+    <div class="field"><label>Keterangan (opsional)</label><input id="mfNote" maxlength="500" value="${esc(x.note || '')}" placeholder="cth: halaman 1–20 untuk pemula"/></div>`}
+    <div id="mfMsg"></div><div class="btn-row"><button class="btn btn-ghost" id="mfNo">Batal</button><button class="btn btn-primary" id="mfGo">${I('check', 'sm')} Simpan</button></div>`);
+  $('mfNo').onclick = closeModal;
+  $('mfGo').onclick = async () => {
+    const name = $('mfName').value.trim(); let url = isF ? '' : $('mfUrl').value.trim();
+    if (!name) { $('mfMsg').innerHTML = '<div class="msg msg-err">Nama wajib diisi.</div>'; return; }
+    if (!isF && url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+    const data = { type: x.type, name, by: S.user.uid, updatedAt: serverTimestamp() };
+    if (!isF) { data.url = url; data.note = $('mfNote').value.trim(); data.folderId = x.folderId || ''; }
+    try { await commitOps([['set', doc(db, 'orgs', S.org.id, 'materi', x.id || newId()), data]]); closeModal(); toast('✅ Tersimpan'); renderAdminMateri(m); }
+    catch (e) { $('mfMsg').innerHTML = `<div class="msg msg-err">${esc(friendlyError(e))}</div>`; }
+  };
+}
+
+// ── PR Guru (semua guru) ──
+function renderTasksAdmin(m) {
+  const g = S.prGuru || '', tasks = S.mat.tasks.filter(t => !g || t.mitraUid === g);
+  const pend = tasks.filter(t => !t.done), done = tasks.filter(t => t.done);
+  const row = t => { const gg = mitraOf(t.mitraUid); return `<div class="task-row${t.done ? ' is-done' : ''}">
+      <button class="task-chk${t.done ? ' on' : ''}" data-tdone="${esc(t.id)}" aria-label="${t.done ? 'Tandai belum selesai' : 'Tandai selesai'}">${t.done ? I('check', 'sm') : ''}</button>
+      <div class="grow" style="min-width:0"><div class="task-t">${esc(t.text)}</div>
+        <div class="t-meta">${gg ? `<span class="g-dot" style="background:${esc(gg.color || 'var(--red)')}"></span>${esc(gg.name)}` : 'Guru sudah keluar'}${t.studentName ? ' · ' + esc(t.studentName) : ''}${t.sessionDate ? ' · sesi ' + esc(t.sessionDate.split('-').reverse().join('/')) : ''}${t.by === S.user.uid ? ' · dari Admin' : ''}</div></div>
+      <button class="icon-btn danger" data-tdel="${esc(t.id)}" aria-label="Hapus">${I('trash', 'sm')}</button></div>`; };
+  m.innerHTML = matBack(m, 'PR Guru', 'Tugas & pengingat tiap guru (ditulis guru sendiri, atau diberikan Admin).')
+    + `<div class="ab-gurus"><button class="ab-gp${!g ? ' active' : ''}" data-pg="">Semua guru <span class="ab-gn">${S.mat.tasks.filter(t => !t.done).length}</span></button>${S.data.mitras.map(x => `<button class="ab-gp${g === x.id ? ' active' : ''}" data-pg="${esc(x.id)}" style="--gc:${esc(x.color || 'var(--red)')}"><span class="g-dot" style="background:${esc(x.color || 'var(--red)')}"></span>${esc(x.name)} <span class="ab-gn">${S.mat.tasks.filter(t => !t.done && t.mitraUid === x.id).length}</span></button>`).join('')}</div>
+    <div class="btn-row" style="margin:0 0 12px"><button class="btn btn-primary" id="tkAdd" ${S.data.mitras.length ? '' : 'disabled'}>${I('plus', 'sm')} Beri Tugas ke Guru</button></div>
+    <div class="card" style="padding:4px 14px">${pend.length ? pend.map(row).join('') : `<div class="empty" style="padding:20px 8px"><div class="empty-ic">${I('check-circle')}</div><div class="empty-t">Semua PR beres</div></div>`}</div>
+    ${done.length ? `<div class="card-t" style="margin-top:14px">${done.length} selesai</div><div class="card" style="padding:4px 14px">${done.slice(0, 50).map(row).join('')}</div>` : ''}`;
+  bindMatBack(m);
+  m.querySelectorAll('[data-pg]').forEach(b => b.onclick = () => { S.prGuru = b.dataset.pg; renderTasksAdmin(m); });
+  const save = async (t, patch) => { const d = Object.assign({}, t, patch, { by: S.user.uid, updatedAt: serverTimestamp() }); delete d.id; try { await commitOps([['set', doc(db, 'orgs', S.org.id, 'tasks', t.id), d]]); renderAdminMateri(m); } catch (e) { toast('❌ ' + friendlyError(e)); } };
+  m.querySelectorAll('[data-tdone]').forEach(b => b.onclick = () => { const t = S.mat.tasks.find(x => x.id === b.dataset.tdone); save(t, { done: !t.done }); });
+  m.querySelectorAll('[data-tdel]').forEach(b => b.onclick = async () => { try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'tasks', b.dataset.tdel)]]); toast('PR dihapus'); renderAdminMateri(m); } catch (e) { toast('❌ ' + friendlyError(e)); } });
+  $('tkAdd').onclick = () => {
+    openModal(`<div class="modal-t">${I('tasks')} Beri Tugas ke Guru</div><div class="modal-sub">Muncul di "PR Guru" pada aplikasi guru tersebut.</div>
+      <div class="field"><label>Guru</label><select id="tkGuru">${S.data.mitras.map(x => `<option value="${esc(x.id)}" ${g === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
+      <div class="field"><label>Tugas</label><textarea id="tkText" rows="3" maxlength="500" placeholder="cth: Siapkan lagu untuk konser akhir bulan"></textarea></div>
+      <div class="btn-row"><button class="btn btn-ghost" id="tkNo">Batal</button><button class="btn btn-primary" id="tkGo">${I('check', 'sm')} Simpan</button></div>`);
+    $('tkNo').onclick = closeModal;
+    $('tkGo').onclick = async () => {
+      const text = $('tkText').value.trim(); if (!text) return toast('Tulis dulu tugasnya');
+      try { await commitOps([['set', doc(db, 'orgs', S.org.id, 'tasks', newId()), { text, done: false, mitraUid: $('tkGuru').value, by: S.user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }]]); closeModal(); toast('✅ Tugas diberikan'); renderAdminMateri(m); }
+      catch (e) { toast('❌ ' + friendlyError(e), 4000); }
+    };
+  };
+}
+
+// ── Kurikulum per mata pelajaran ──
+function renderKurList(m) {
+  const subj = S.data.subjects;
+  m.innerHTML = matBack(m, 'Kurikulum', 'Daftar topik per mata pelajaran. Guru mencentang topik yang sudah dikuasai siswa di profil siswa.')
+    + (subj.length ? `<div class="card" style="padding:4px 14px">${subj.map(x => { const k = S.mat.kur.find(y => y.id === x.id), n = k ? (k.items || []).filter(i => i.type !== 'header').length : 0; return `<button class="mat-row mat-main" data-kur="${esc(x.id)}" style="width:100%">
+        <span class="mat-ic" style="background:var(--green-bg);color:var(--green)">${subjectIcon(x.name)}</span>
+        <div class="grow" style="text-align:left"><div class="t-name">${esc(x.name)}</div><div class="t-meta">${n ? n + ' topik' : 'Belum ada topik'}</div></div><span class="menu-arrow">${I('chevron-right', 'sm')}</span></button>`; }).join('')}</div>`
+      : `<div class="card"><div class="empty"><div class="empty-ic">${I('book')}</div><div class="empty-t">Belum ada mata pelajaran</div><div class="empty-d">Tambahkan dulu di menu Siswa → Mata Pelajaran.</div></div></div>`);
+  bindMatBack(m);
+  m.querySelectorAll('[data-kur]').forEach(b => b.onclick = () => { S.kurSubj = b.dataset.kur; renderKurSubject(m); });
+}
+function renderKurSubject(m) {
+  const sj = subjOf(S.kurSubj), k = S.mat.kur.find(y => y.id === S.kurSubj), items = k ? (k.items || []).slice() : [];
+  const nT = items.filter(i => i.type !== 'header').length;
+  m.innerHTML = matBack(m, esc(sj ? sj.name : 'Kurikulum'), nT + ' topik · urutkan dengan tombol ▲▼')
+    + `<div class="btn-row" style="margin:0 0 12px"><button class="btn btn-ghost" id="kuHead">${I('pin', 'sm')} Tambah Bab</button><button class="btn btn-primary" id="kuTopic">${I('plus', 'sm')} Topik</button></div>
+    ${items.length ? items.map((t, i) => `<div class="kur-row${t.type === 'header' ? ' is-head' : ''}">
+        ${t.type === 'header' ? `<span class="kur-pin">${I('pin', 'sm')}</span>` : ''}<div class="grow kur-l">${esc(t.label)}</div>
+        <button class="icon-btn" data-kup="${i}" ${i ? '' : 'disabled'} aria-label="Naik">${I('chevron-up', 'sm')}</button>
+        <button class="icon-btn" data-kdn="${i}" ${i < items.length - 1 ? '' : 'disabled'} aria-label="Turun">${I('chevron-down', 'sm')}</button>
+        <button class="icon-btn" data-ked="${i}" aria-label="Ubah">${I('edit', 'sm')}</button>
+        <button class="icon-btn danger" data-kdl="${i}" aria-label="Hapus">${I('trash', 'sm')}</button></div>`).join('')
+      : `<div class="card"><div class="empty"><div class="empty-ic">${I('book')}</div><div class="empty-t">Belum ada topik</div><div class="empty-d">Tambah "Bab" sebagai judul kelompok (opsional), lalu topik-topik di bawahnya, misal: Tangga nada C, Akor dasar, dst.</div></div></div>`}`;
+  bindMatBack(m);
+  const save = async (list) => {
+    try { await commitOps([['set', doc(db, 'orgs', S.org.id, 'kurikulum', S.kurSubj), { subjectName: sj ? sj.name : '', items: list, by: S.user.uid, updatedAt: serverTimestamp() }]]); renderAdminMateri(m); }
+    catch (e) { toast('❌ ' + friendlyError(e), 4000); }
+  };
+  const ask = (title, val, cb) => {
+    openModal(`<div class="modal-t">${title}</div><div class="field"><input id="kuText" maxlength="120" value="${esc(val || '')}"/></div>
+      <div class="btn-row"><button class="btn btn-ghost" id="kuNo">Batal</button><button class="btn btn-primary" id="kuGo">${I('check', 'sm')} Simpan</button></div>`);
+    setTimeout(() => { const k = $('kuText'); if (k) k.focus(); }, 50);
+    $('kuNo').onclick = closeModal;
+    $('kuGo').onclick = () => { const v = $('kuText').value.trim(); if (!v) return; closeModal(); cb(v); };
+  };
+  const nid = () => 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  $('kuHead').onclick = () => ask('Tambah Bab', '', v => save(items.concat({ id: nid(), type: 'header', label: v })));
+  $('kuTopic').onclick = () => ask('Tambah Topik', '', v => save(items.concat({ id: nid(), type: 'topic', label: v })));
+  const mv = (i, d) => { const l = items.slice(); const [x] = l.splice(i, 1); l.splice(i + d, 0, x); save(l); };
+  m.querySelectorAll('[data-kup]').forEach(b => b.onclick = () => mv(+b.dataset.kup, -1));
+  m.querySelectorAll('[data-kdn]').forEach(b => b.onclick = () => mv(+b.dataset.kdn, 1));
+  m.querySelectorAll('[data-ked]').forEach(b => b.onclick = () => { const i = +b.dataset.ked; ask('Ubah ' + (items[i].type === 'header' ? 'Bab' : 'Topik'), items[i].label, v => { const l = items.slice(); l[i] = Object.assign({}, l[i], { label: v }); save(l); }); });
+  m.querySelectorAll('[data-kdl]').forEach(b => b.onclick = () => { const l = items.slice(); l.splice(+b.dataset.kdl, 1); save(l); });
 }
 
 // ══════════════════════════════════════════════════════════════════════
