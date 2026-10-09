@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <script>
-// Pengunjung yang membuka leslesanku.com di browser diarahkan ke halaman pilih peran
-// (v2/?dari=web: Guru Lepas · Pemilik Lembaga Les · Guru Mitra). "Guru Lepas" → ?v1=1.
-// TIDAK diarahkan: aplikasi terpasang (PWA/Play Store), tab yang sudah masuk V1
+// Pengunjung yang membuka leslesanku.com di browser melihat halaman pilih peran DI ALAMAT INI
+// (Guru Lepas · Pemilik Lembaga Les · Guru Mitra), lihat window.llkPicking di bawah.
+// TIDAK ditampilkan: aplikasi terpasang (PWA/Play Store), tab yang sudah masuk V1
 // (?v1=1, diingat per tab supaya login & muat ulang tidak terlempar), browser yang
 // pernah login V1 (llk_v1_login) atau sudah punya data murid V1 (rms4_s).
 // Alamat langsung: leslesanku.com/v1 → login V1, leslesanku.com/v2 → LLK Lembaga.
@@ -20,8 +20,47 @@ window.llkIsPlayApp=function(){ try{ return sessionStorage.getItem('llk_play_app
   if(sessionStorage.getItem('llk_v1_tab')==='1') return;
   if(localStorage.getItem('llk_v1_login')==='1') return;
   var st=localStorage.getItem('rms4_s'); if(st&&st!=='[]'&&st!=='null') return;
-  location.replace('v2/?dari=web');
+  window.llkPicking=true; // tampilkan halaman pilih peran di alamat ini juga (tanpa pindah ke v2/)
+  document.documentElement.className+=' llk-pick';
 }catch(e){}})();
+// Halaman "Selamat datang di LLK" (3 pilihan) langsung di leslesanku.com. Selama tampil,
+// isi V1 disembunyikan & V1 tidak memproses login (lihat onAuthStateChanged).
+// Guru Lepas → muat ulang alamat yang sama sebagai V1; Lembaga / Guru Mitra → v2/.
+if(window.llkPicking){
+  document.write('<style>html.llk-pick body>*:not(#llkPick){display:none!important}'+
+  'html.llk-pick,html.llk-pick body{background:#f4f4f6!important}'+
+  '#llkPick{font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;color:#2b2420;min-height:100vh;padding:48px 20px 32px;max-width:460px;margin:0 auto;display:flex;flex-direction:column;box-sizing:border-box}'+
+  '#llkPick h1{font-family:"Fraunces","Iowan Old Style",Georgia,serif;font-weight:600;font-size:1.7rem;text-align:center;letter-spacing:-0.01em;margin:0 0 4px}'+
+  '#llkPick .lp-brand{width:240px;max-width:80%;height:auto;display:block;margin:6px auto 14px}'+
+  '#llkPick .lp-sub{text-align:center;color:#6f6459;font-size:0.88rem;margin:6px 0 26px;line-height:1.5}'+
+  '#llkPick .lp-card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:#fffcf7;border:1px solid #e4d9c9;border-radius:18px;padding:16px;margin:0 0 12px;min-height:76px;font-family:inherit;color:#2b2420;cursor:pointer;transition:transform .12s,border-color .12s;box-sizing:border-box}'+
+  '#llkPick .lp-card:active{transform:scale(0.98)}#llkPick .lp-card:hover{border-color:#a8372a}'+
+  '#llkPick .lp-ic{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}'+
+  '#llkPick .lp-ic img{width:100%;height:100%;display:block}#llkPick .lp-ic svg{width:24px;height:24px}'+
+  '#llkPick .lp-t{font-weight:800;font-size:0.98rem}#llkPick .lp-d{color:#6f6459;font-size:0.78rem;margin-top:2px;line-height:1.4}'+
+  '#llkPick .lp-tag{display:inline-block;vertical-align:middle;font-size:0.68rem;font-weight:700;color:#51473f;background:#efe8dc;border-radius:999px;padding:2px 8px;margin-left:4px}'+
+  '#llkPick .lp-arrow{margin-left:auto;color:#7f7369;display:flex}#llkPick .lp-arrow svg{width:20px;height:20px}'+
+  '#llkPick .lp-foot{margin-top:auto;padding-top:24px;text-align:center;color:#6f6459;font-size:0.74rem;line-height:1.6}</style>');
+  document.addEventListener('DOMContentLoaded',function(){
+    var sv=function(d){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';};
+    var arrow='<div class="lp-arrow">'+sv('<path d="m9 6 6 6-6 6"/>')+'</div>';
+    var el=document.createElement('div'); el.id='llkPick';
+    el.innerHTML='<h1>Selamat datang di</h1>'+
+      '<img class="lp-brand" src="logo-leslesanku.png" alt="LLK — Les LesanKu"/>'+
+      '<div class="lp-sub">Pilih cara kamu memakai aplikasi ini</div>'+
+      '<button class="lp-card" id="lpLepas"><div class="lp-ic"><img src="icon-maskable-192.png" alt=""/></div><div><div class="lp-t">Guru Lepas <span class="lp-tag">LLK V1</span></div><div class="lp-d">Saya mengajar sendiri — atur murid, jadwal &amp; tagihan sendiri</div></div>'+arrow+'</button>'+
+      '<button class="lp-card" id="lpLembaga"><div class="lp-ic" style="background:rgba(168,55,42,0.10);color:#a8372a">'+sv('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>')+'</div><div><div class="lp-t">Pemilik Lembaga Les</div><div class="lp-d">Saya punya guru-guru — kelola jadwal, murid &amp; honor guru</div></div>'+arrow+'</button>'+
+      '<button class="lp-card" id="lpMitra"><div class="lp-ic" style="background:rgba(47,90,138,0.10);color:#2f5a8a">'+sv('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>')+'</div><div><div class="lp-t">Guru Mitra</div><div class="lp-d">Saya diundang lembaga — punya kode undangan</div></div>'+arrow+'</button>'+
+      '<div class="lp-foot">Pilihanmu disimpan — layar ini hanya muncul sekali</div>';
+    document.body.insertBefore(el,document.body.firstChild);
+    document.getElementById('lpLepas').onclick=function(){
+      try{ sessionStorage.setItem('llk_v1_tab','1'); localStorage.setItem('llk_v2_choice','lepas'); }catch(e){}
+      location.reload();
+    };
+    document.getElementById('lpLembaga').onclick=function(){ location.href='v2/?mulai=lembaga'; };
+    document.getElementById('lpMitra').onclick=function(){ location.href='v2/?mulai=mitra'; };
+  });
+}
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <meta name="color-scheme" content="light only"/>
@@ -10014,6 +10053,7 @@ function initFirebase(){
 
   fbAuth.onAuthStateChanged(function(user){
     _authResolved=true;
+    if(window.llkPicking) return; // halaman pilih peran sedang tampil: V1 belum dipakai di sini
     currentUser=user;
     _cloudReadyToPush=false; // reset tiap kali status login berubah — harus tarik/putuskan dulu sebelum boleh kirim
     if(user){
