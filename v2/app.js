@@ -460,6 +460,7 @@ function enterShell() {
   if (!isAdmin()) { location.replace(MITRA_URL); return; }
   S.tab = isAdmin() ? 'guru' : 'jadwal';
   renderShell();
+  syncAttTeach();
 }
 function renderShell() {
   const tabs = ADMIN_TABS;
@@ -849,6 +850,25 @@ function schedDoc(st, c) {
     schedule: (c.schedule || []).map(x => ({ day: x.day, start: x.start || '', end: x.end || '' })), active: !!st.active, updatedAt: serverTimestamp() };
 }
 // Simpan beberapa operasi dalam beberapa batch (batas Firestore 500 per batch)
+// Riwayat absensi (progres, PR) ikut terlihat oleh guru yang SEKARANG mengajar kelas itu.
+// att.mitraUid = guru yang mengisi (untuk honor, tidak berubah); att.teachUid = guru kelas saat ini.
+// Dijalankan setelah siswa dipindah ke guru lain, dan sekali saat aplikasi Admin dibuka
+// (memperbaiki riwayat lama yang belum punya teachUid).
+async function syncAttTeach() {
+  try {
+    const d = await loadOrgData(), cur = new Map();
+    d.students.forEach(st => (st.classes || []).forEach(c => cur.set(c.id, c.mitraUid || null)));
+    const snap = await getDocs(collection(db, 'orgs', S.org.id, 'att'));
+    const ops = [];
+    snap.docs.forEach(x => {
+      const a = x.data(); if (!cur.has(a.classId)) return;
+      const want = cur.get(a.classId);
+      if ((a.teachUid === undefined ? a.mitraUid : a.teachUid) === want && a.teachUid !== undefined) return;
+      ops.push(['set', x.ref, Object.assign({}, a, { teachUid: want })]);
+    });
+    if (ops.length) await commitOps(ops);
+  } catch (e) { console.warn('syncAttTeach:', e); }
+}
 async function commitOps(ops) {
   for (let i = 0; i < ops.length; i += 400) {
     const b = writeBatch(db);
@@ -1017,7 +1037,7 @@ async function bulkAssign(list, guru) {
     await commitOps(ops);
     const g = mitraOf(uid);
     toast('✅ ' + list.length + ' siswa ditugaskan ke ' + (g ? g.name : 'belum ditentukan'));
-    S.sel.clear(); await loadOrgData(true); rerenderMurid();
+    S.sel.clear(); await loadOrgData(true); rerenderMurid(); syncAttTeach();
   } catch (e) { console.error(e); $('bkGo').disabled = false; toast('❌ Gagal: ' + friendlyError(e), 4000); }
 }
 
@@ -1124,7 +1144,7 @@ async function saveStudent() {
   try {
     await commitOps(ops);
     closeModal(); toast('✅ ' + F.name + (isNew ? ' ditambahkan' : ' disimpan'));
-    await loadOrgData(true); rerenderMurid();
+    await loadOrgData(true); rerenderMurid(); if (!isNew) syncAttTeach();
   } catch (e) { console.error(e); if (isNew) F.id = null; btn.disabled = false; err('Gagal menyimpan: ' + friendlyError(e)); }
 }
 function deleteStudent(st) {
@@ -1232,6 +1252,59 @@ function openSubjectForm(sj, usedN) {
 function readV1Students() {
   try { const a = JSON.parse(localStorage.getItem('rms4_s') || '[]'); return Array.isArray(a) ? a.filter(x => x && x.name) : []; } catch (e) { return []; }
 }
+// Riwayat absensi & progres V1: attendance[tgl][nama] = status, attNotes[tgl_nama] = {progress, prSiswa, prGuru, reason},
+// attMeta[tgl_nama] = {time, time2}. Sesi tambahan memakai kunci nama_extra_N.
+function readV1Hist() {
+  const j = k => { try { const v = JSON.parse(localStorage.getItem(k) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } };
+  return { att: j('rms4_a'), notes: j('rms4_n'), meta: j('rms4_meta') };
+}
+function v1HistFor(H, x) {
+  const name = x.name, out = [], esc2 = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), extraRe = new RegExp('^' + esc2 + '_extra_');
+  const S1 = ['hadir', 'izin', 'alpa', 'off'];
+  Object.keys(H.att).filter(dk => /^\d{4}-\d{2}-\d{2}$/.test(dk)).sort().forEach(dk => {
+    const day = H.att[dk] || {};
+    // Satu catatan per kelas per tanggal (aturan V2): sesi reguler dulu, kalau kosong pakai sesi tambahan
+    let key = S1.includes(day[name]) ? name : Object.keys(day).find(k => extraRe.test(k) && S1.includes(day[k]));
+    if (!key) return;
+    const st = day[key], n = H.notes[dk + '_' + key] || {}, mt = H.meta[dk + '_' + key] || {};
+    const txt = v => String(v || '').trim().slice(0, 2000);
+    out.push({ date: dk, status: st, progress: st === 'hadir' ? (txt(n.progress) || 'Hadir (tanpa catatan · LLK V1)') : '',
+      prSiswa: st === 'hadir' ? txt(n.prSiswa) : '', prGuru: st === 'hadir' ? txt(n.prGuru) : '', reason: st === 'hadir' ? '' : txt(n.reason),
+      start: String(mt.time || x.time || ''), end: String(mt.time2 || x.time2 || '') });
+  });
+  return out;
+}
+// Salin riwayat V1 ke absensi lembaga (src:'v1' — tidak dihitung tagihan & honor guru).
+// Catatan yang sudah ditulis di V2 untuk kelas & tanggal yang sama tidak ditimpa.
+async function importV1History(pairs) {
+  const H = readV1Hist(), o = S.org.id;
+  const snap = await getDocs(collection(db, 'orgs', o, 'att'));
+  const own = new Set(snap.docs.filter(d => d.data().src !== 'v1').map(d => d.id));
+  const ops = [];
+  pairs.forEach(({ x, st, c }) => {
+    const sj = subjOf(c.subjectId);
+    v1HistFor(H, x).forEach(h => {
+      const id = c.id + '_' + h.date; if (own.has(id)) return;
+      ops.push(['set', doc(db, 'orgs', o, 'att', id), { classId: c.id, studentId: st.id, studentName: st.name, subjectName: sj ? sj.name : '', mitraUid: null,
+        date: h.date, start: h.start, end: h.end, status: h.status, progress: h.progress, prSiswa: h.prSiswa, prGuru: h.prGuru, reason: h.reason,
+        honor: 0, by: S.user.uid, teachUid: c.mitraUid || null, src: 'v1', updatedAt: serverTimestamp() }]);
+    });
+  });
+  if (ops.length) await commitOps(ops);
+  return ops.length;
+}
+// Pasangan siswa V1 ↔ siswa lembaga yang sudah ada (nama sama), kelas = pelajaran yang cocok / kelas pertama
+function v1ExistingPairs(v1) {
+  const out = [];
+  v1.forEach(x => {
+    const st = S.data.students.find(s => s.name.trim().toLowerCase() === String(x.name).trim().toLowerCase());
+    if (!st || !(st.classes || []).length) return;
+    const ins = String(x.instrument || '').trim().toLowerCase();
+    const c = st.classes.find(k => { const sj = subjOf(k.subjectId); return sj && sj.name.trim().toLowerCase() === ins; }) || st.classes[0];
+    out.push({ x, st, c });
+  });
+  return out;
+}
 function v1Schedule(x) {
   return [[x.day, x.time, x.time2], [x.day2, x.time2a, x.time2b], [x.day3, x.time3a, x.time3b], [x.day4, x.time4a, x.time4b]]
     .filter(([dd]) => dd && DAYS.includes(dd)).map(([day, start, end]) => ({ day, start: start || '', end: end || '' }));
@@ -1246,11 +1319,15 @@ function openImportV1() {
     $('ivNo').onclick = closeModal; return;
   }
   const have = new Set(S.data.students.map(x => x.name.trim().toLowerCase()));
+  const exPairs = v1ExistingPairs(v1), H0 = readV1Hist(), exHist = exPairs.reduce((n, p) => n + v1HistFor(H0, p.x).length, 0);
   const rows = v1.map((x, i) => { const sched = v1Schedule(x).filter(y => y.start); return { i, x, sched, dup: have.has(String(x.name).trim().toLowerCase()), noSched: !sched.length }; })
     .sort((a, b) => (!!a.x.inactive - !!b.x.inactive) || a.x.name.localeCompare(b.x.name));
   const ov = openModal(`
     <div class="modal-t">${I('download')} Impor dari LLK V1</div>
-    <div class="modal-sub">Menyalin murid, jadwal & tarif dari LLK V1 di browser ini ke lembaga. <b>Data LLK V1 tidak diubah.</b> Riwayat absensi tidak ikut disalin.</div>
+    <div class="modal-sub">Menyalin murid, jadwal & tarif dari LLK V1 di browser ini ke lembaga. <b>Data LLK V1 tidak diubah.</b></div>
+    <label class="chk" style="margin:0 0 10px"><input type="checkbox" id="ivHist" checked/> Salin juga <b>riwayat absensi & progres</b> dari V1</label>
+    ${exPairs.length ? `<div class="callout" style="margin-bottom:10px">${I('info')}<div><b>${exPairs.length} siswa sudah ada di lembaga.</b> Salin riwayat absensi & progres V1 mereka (${exHist} catatan)? Catatan yang sudah ditulis di V2 tidak ditimpa.
+      <div style="margin-top:8px"><button class="btn btn-ghost tb-btn" id="ivHistOnly" ${exHist ? '' : 'disabled'}>${I('download', 'sm')} Salin Riwayat Progres</button></div></div></div>` : ''}
     <div class="toolbar" style="margin-bottom:8px">
       <label class="chk"><input type="checkbox" id="ivAll"/> Pilih semua murid aktif</label>
       <div class="field" style="margin:0;min-width:220px"><select id="ivGuru"><option value="">Guru: belum ditentukan</option>${S.data.mitras.map(g => `<option value="${esc(g.id)}">Guru: ${esc(g.name)}</option>`).join('')}</select></div>
@@ -1273,7 +1350,13 @@ function openImportV1() {
   boxes().forEach(b => b.onchange = plan);
   $('ivAll').onchange = (e) => { boxes().forEach(b => { const x = v1[+b.dataset.i]; if (!b.disabled && !x.inactive) b.checked = e.target.checked; }); plan(); };
   $('ivNo').onclick = closeModal;
-  $('ivGo').onclick = async () => { $('ivGo').disabled = true; $('ivGo').textContent = 'Mengimpor…'; await runImportV1(picked(), $('ivGuru').value || null); };
+  $('ivGo').onclick = async () => { $('ivGo').disabled = true; $('ivGo').textContent = 'Mengimpor…'; await runImportV1(picked(), $('ivGuru').value || null, $('ivHist').checked); };
+  const ho = $('ivHistOnly');
+  if (ho) ho.onclick = async () => {
+    ho.disabled = true; ho.textContent = 'Menyalin…';
+    try { const n = await importV1History(exPairs); closeModal(); toast('✅ ' + n + ' catatan riwayat V1 disalin', 4500); syncAttTeach(); }
+    catch (e) { console.error(e); ho.disabled = false; ho.textContent = 'Salin Riwayat Progres'; toast('❌ Gagal menyalin riwayat: ' + friendlyError(e), 5000); }
+  };
   plan();
 }
 // Instrumen V1 → pelajaran lembaga (cocokkan nama; kalau belum ada, buat baru dgn tarif terbanyak)
@@ -1292,12 +1375,13 @@ function importSubjectPlan(list) {
     return { key, id: doc(collection(db, 'orgs', S.org.id, 'subjects')).id, name: v.name, rate, isNew: true };
   });
 }
-async function runImportV1(list, mitraUid) {
+async function runImportV1(list, mitraUid, withHist) {
   const o = S.org.id, plan = importSubjectPlan(list), ops = [];
   plan.filter(x => x.isNew).forEach(x => ops.push(['set', doc(db, 'orgs', o, 'subjects', x.id), { name: x.name, rate: x.rate, active: true, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }]));
   // supaya schedDoc() bisa menemukan nama pelajaran baru
   plan.filter(x => x.isNew).forEach(x => S.data.subjects.push({ id: x.id, name: x.name, rate: x.rate, active: true }));
-  let n = 0, skipped = 0;
+  let n = 0, skipped = 0, nh = 0;
+  const pairs = [];
   list.forEach(x => {
     const sched = v1Schedule(x).filter(y => y.start);
     if (!sched.length) { skipped++; return; }
@@ -1306,11 +1390,13 @@ async function runImportV1(list, mitraUid) {
     const c = { id: newId(), subjectId: sp.id, mitraUid: mitraUid || null, rate: (x.rate || 40000) === sp.rate ? null : (x.rate || 40000), schedule: sched.sort(byDayTime) };
     ops.push(['set', doc(db, 'orgs', o, 'students', id), { name: String(x.name).trim().slice(0, 80), parentName: '', phone: String(x.phone || '').slice(0, 20), note: String(x.notes || '').slice(0, 200), active, classes: [c], source: 'v1', createdAt: serverTimestamp(), updatedAt: serverTimestamp() }]);
     ops.push(['set', doc(db, 'orgs', o, 'sched', c.id), schedDoc({ id, name: String(x.name).trim().slice(0, 80), active }, c)]);
+    pairs.push({ x, st: { id, name: String(x.name).trim().slice(0, 80) }, c });
     n++;
   });
   try {
     await commitOps(ops);
-    closeModal(); toast('✅ ' + n + ' murid diimpor' + (skipped ? ' · ' + skipped + ' dilewati (tanpa jadwal rutin)' : ''), 4500);
+    if (withHist) nh = await importV1History(pairs);
+    closeModal(); toast('✅ ' + n + ' murid diimpor' + (nh ? ' · ' + nh + ' catatan riwayat' : '') + (skipped ? ' · ' + skipped + ' dilewati (tanpa jadwal rutin)' : ''), 4500);
   } catch (e) { console.error(e); toast('❌ Gagal mengimpor: ' + friendlyError(e), 5000); }
   await loadOrgData(true); rerenderMurid();
 }
@@ -1367,7 +1453,7 @@ async function renderAdminAbsensi(m) {
       <div class="ab-body">
         <div class="ab-top"><div class="ab-name">${esc(r.name)}</div><div class="ab-time">${esc(r.start)}${r.end ? '–' + esc(r.end) : ''}</div></div>
         <div class="ab-sub"><b>${esc(r.subj)}</b> · ${guruLabel(r.uid)}</div>
-        <div class="ab-st">${pill(st)}${a.reason ? `<span class="ab-reason">${esc(a.reason)}</span>` : ''}</div>
+        <div class="ab-st">${pill(st)}${a.src === 'v1' ? '<span class="pill pill-grey">DARI LLK V1</span>' : ''}${a.reason ? `<span class="ab-reason">${esc(a.reason)}</span>` : ''}</div>
         ${a.progress ? `<div class="ab-note">${I('note', 'sm')}<span>${esc(a.progress)}</span></div>` : ''}
         ${a.prSiswa ? `<div class="ab-note" style="color:var(--plum,#6b4e9b)">${I('book', 'sm')}<span>PR: ${esc(a.prSiswa)}</span></div>` : ''}
         ${st === 'izin' ? `<div class="ab-act"><button class="mini" data-unizin="${esc(r.id)}">${I('x', 'sm')} Hapus Izin</button></div>` : (st === 'belum' && r.st ? `<div class="ab-act"><button class="mini" data-izin="${esc(r.id)}">${I('hand', 'sm')} Izin</button></div>` : '')}
@@ -1425,7 +1511,7 @@ function openIzin(r, key, m) {
       await commitOps([['set', doc(db, 'orgs', S.org.id, 'att', r.id), {
         classId: r.c.id, studentId: r.st.id, studentName: r.st.name, subjectName: sj ? sj.name : '', mitraUid: r.uid || null,
         date: key, start: r.start || '', end: r.end || '', status: 'izin', progress: '', prSiswa: '', prGuru: '',
-        reason: $('izReason').value.trim(), honor: 0, by: S.user.uid, updatedAt: serverTimestamp() }]]);
+        reason: $('izReason').value.trim(), honor: 0, by: S.user.uid, teachUid: r.uid || null, updatedAt: serverTimestamp() }]]);
       closeModal(); toast('✅ ' + r.name + ' izin'); renderAdminAbsensi(m);
     } catch (e) { $('izGo').disabled = false; toast('❌ ' + friendlyError(e), 4000); }
   };
@@ -1459,7 +1545,7 @@ async function loadKeu() {
     getDoc(doc(db, 'orgs', o, 'settings', 'payinfo')).catch(() => null),
   ]);
   S.keu = {
-    att: att.docs.map(d => Object.assign({ id: d.id }, d.data())),
+    att: att.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(a => a.src !== 'v1'), // riwayat V1 tidak dihitung tagihan
     pay: pay.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.date.localeCompare(a.date)),
     cycle: (set && set.exists() && set.data().cycle) || 4,
     payInfo: (pinfo && pinfo.exists() && pinfo.data()) || {},
