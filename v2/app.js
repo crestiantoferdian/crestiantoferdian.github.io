@@ -588,7 +588,7 @@ function showGuruAppInfo() {
   openModal(`
     <div class="modal-t">${I('check-circle')} Kamu terdaftar sebagai guru</div>
     <div class="modal-sub">Sekarang beri murid untukmu di menu <b>Murid</b>. Untuk mengabsen, pasang <b>aplikasi Guru Mitra</b> di HP-mu:</div>
-    <div class="msg msg-info" style="line-height:1.7">1. Buka link ini di Chrome HP:<br><b style="word-break:break-all">${esc(link)}</b><br>2. Ketuk menu ⋮ → <b>Tambahkan ke layar utama</b> / <b>Instal aplikasi</b><br>3. Di HP-mu akan ada 2 aplikasi: <b>LLK Admin</b> & <b>LLK Guru</b></div>
+    <div class="msg msg-info" style="line-height:1.7">1. Buka link ini di Chrome HP:<br><b style="word-break:break-all">${esc(link)}</b><br>2. Ketuk menu ⋮ → <b>Tambahkan ke layar utama</b> / <b>Instal aplikasi</b><br>3. Di HP-mu akan ada 2 aplikasi: <b>LLK Admin</b> & <b>LLK Guru Mitra</b></div>
     <button class="btn btn-ghost" id="gaCopy">${I('copy')} Salin Link</button>
     <button class="btn btn-ghost" id="gaOpen">${I('external')} Buka Aplikasi Guru sekarang</button>
     <button class="btn btn-ghost" id="gaClose">Tutup</button>`);

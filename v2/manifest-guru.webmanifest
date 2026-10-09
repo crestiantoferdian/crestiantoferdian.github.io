@@ -1,7 +1,7 @@
 {
   "id": "/v2/guru",
-  "name": "LLK Guru",
-  "short_name": "LLK Guru",
+  "name": "LLK Guru Mitra",
+  "short_name": "LLK Guru Mitra",
   "description": "Absensi & progres murid untuk guru lembaga",
   "start_url": "guru.html",
   "scope": "guru",
