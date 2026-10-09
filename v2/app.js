@@ -191,8 +191,8 @@ function renderChooser() {
   const inOrg = S.org && S.member;
   root().innerHTML = `
   <div class="welcome">
-    <img class="welcome-logo" src="../logo-llk.png" alt="Logo LLK"/>
-    <h1>Selamat datang di LesLesanKu</h1>
+    <h1 class="welcome-h">Selamat datang di</h1>
+    <img class="welcome-brand" src="../logo-leslesanku.png" alt="LLK — Les LesanKu"/>
     <div class="sub">Pilih cara kamu memakai aplikasi ini</div>
     ${inOrg ? `
     <button class="role-card" id="rcBack" style="border-color:var(--green)">
@@ -1867,7 +1867,7 @@ async function afterAuth(user) {
 function renderJoinGate(code) {
   root().innerHTML = `
   <div class="welcome">
-    <img class="welcome-logo" src="../logo-llk.png" alt="Logo LLK"/>
+    <img class="welcome-brand" src="../logo-leslesanku.png" alt="LLK — Les LesanKu"/>
     <h1>Undangan Guru Mitra</h1>
     <div class="sub">Kamu diundang bergabung ke sebuah lembaga les.<br>Login dengan akun Google untuk melanjutkan.</div>
     <div class="code-box" style="margin-bottom:18px">${esc(normalizeCode(code) || code)}</div>
