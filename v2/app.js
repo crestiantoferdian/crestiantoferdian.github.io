@@ -46,6 +46,37 @@ if (TEST) connectFirestoreEmulator(db, TEST.host, TEST.port, { mockUserToken: { 
 const fns = getFunctions(app, 'us-central1');
 const callFn = (name, data) => (TEST && window.__llkServer ? window.__llkServer(name, data) : httpsCallable(fns, name)(data).then(r => r.data));
 
+// ── Tema tampilan (per perangkat, sama dengan V1 & aplikasi Guru) & warna lembaga ──
+const THEMES = [
+  { id: 'latte', name: 'Caffe Latte', desc: 'Hangat & tenang', bg: '#f6f1e9', card: '#fffcf7', ink: '#2b2420' },
+  { id: 'happy', name: 'Happy Time', desc: 'Klasik LLK', bg: '#f5f5f7', card: '#ffffff', ink: '#1d1d1f' },
+  { id: 'dark', name: 'Dark Mode', desc: 'Malam hari', bg: '#15120f', card: '#1e1a16', ink: '#f3ebe1' },
+];
+function curTheme() { try { return localStorage.getItem('llk_theme') || 'latte'; } catch (e) { return 'latte'; } }
+function applyTheme(id) {
+  const r = document.documentElement;
+  if (!THEMES.some(t => t.id === id)) id = 'latte';
+  if (id === 'latte') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', id);
+  if (id === 'happy' && !document.getElementById('llkHappyFont')) { const l = document.createElement('link'); l.id = 'llkHappyFont'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap'; document.head.appendChild(l); }
+  try { localStorage.setItem('llk_theme', id); } catch (e) {}
+}
+applyTheme(curTheme());
+const ORG_COLORS = ['#a8372a', '#c0392b', '#d35400', '#b7791f', '#2a7349', '#16a085', '#2f5a8a', '#2563eb', '#6b4e9b', '#be185d', '#4b5563', '#1d1d1f'];
+const validHex = c => /^#[0-9a-fA-F]{6}$/.test(String(c || ''));
+function hexRgba(h, a) { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+function darkHex(h, f) { const n = parseInt(h.slice(1), 16); const c = x => Math.round(x * (1 - f)).toString(16).padStart(2, '0'); return '#' + c(n >> 16) + c((n >> 8) & 255) + c(n & 255); }
+// Warna lembaga menggantikan merah LLK di tombol, menu aktif & logo
+function applyOrgColor(hex) {
+  const r = document.documentElement.style;
+  if (!validHex(hex)) { ['--red', '--red2', '--red-bg'].forEach(k => r.removeProperty(k)); return; }
+  r.setProperty('--red', hex); r.setProperty('--red2', darkHex(hex, 0.25)); r.setProperty('--red-bg', hexRgba(hex, 0.12));
+}
+function orgLogoHtml(o) {
+  o = o || {};
+  if (o.logo) return `<img src="${esc(o.logo)}" alt=""/>`;
+  return esc(String(o.logoText || '').trim() || initials(o.name));
+}
+
 // ── State ──
 const S = { sel: new Set(), absDate: '', user: null, profile: null, org: null, member: null, tab: null, guru: null, data: null, muridView: 'daftar', filt: { q: '', guru: '', subj: '', status: 'aktif' }, schedGuru: '' };
 
@@ -392,14 +423,15 @@ function enterShell() {
 }
 function renderShell() {
   const tabs = ADMIN_TABS;
-  const logo = S.org.logo ? `<img src="${esc(S.org.logo)}" alt=""/>` : esc(initials(S.org.name));
+  const logo = orgLogoHtml(S.org);
+  applyOrgColor(S.org.color);
   root().innerHTML = `
   <div class="shell">
     <nav class="bottom-nav">${tabs.map(t => `<button class="bnav ${t.k === S.tab ? 'active' : ''}" data-tab="${t.k}"><span class="bi">${I(t.i)}</span>${t.l}</button>`).join('')}</nav>
     <div class="shell-main">
       <header class="app-header">
         <div class="h-logo">${logo}</div>
-        <div style="min-width:0"><div class="h-name">${esc(S.org.name)}</div><div class="h-sub">${esc(S.member.name)}</div></div>
+        <div style="min-width:0"><div class="h-name">${esc(S.org.name)}</div><div class="h-sub">${esc(S.org.fullName || S.member.name)}</div></div>
         <div class="h-badge">${isAdmin() ? 'GURU ADMIN' : 'GURU MITRA'}</div>
       </header>
       ${subBanner()}
@@ -1301,15 +1333,17 @@ function keuRange(p) {
 async function loadKeu() {
   await loadOrgData(true);
   const o = S.org.id;
-  const [att, pay, set] = await Promise.all([
+  const [att, pay, set, pinfo] = await Promise.all([
     getDocs(collection(db, 'orgs', o, 'att')),
     getDocs(collection(db, 'orgs', o, 'payments')),
     getDoc(doc(db, 'orgs', o, 'settings', 'billing')).catch(() => null),
+    getDoc(doc(db, 'orgs', o, 'settings', 'payinfo')).catch(() => null),
   ]);
   S.keu = {
     att: att.docs.map(d => Object.assign({ id: d.id }, d.data())),
     pay: pay.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.date.localeCompare(a.date)),
     cycle: (set && set.exists() && set.data().cycle) || 4,
+    payInfo: (pinfo && pinfo.exists() && pinfo.data()) || {},
   };
 }
 const isPaidSession = a => a.status === 'hadir' || a.status === 'alpa';
@@ -1455,7 +1489,8 @@ function tagihWA(r) {
     + `Pembayaran les *${sj}* untuk *${r.st.name}* (${cycle}x pertemuan berikutnya): *${rupiah(cycle * r.rate)}*`
     + (r.owed ? `\nDitambah ${r.owed}x pertemuan yang sudah berjalan: ${rupiah(r.owed * r.rate)}\n*Total: ${rupiah(r.due)}*` : '')
     + (r.credit === 1 ? `\n(Sisa 1x pertemuan yang sudah dibayar.)` : '')
-    + `\n\nTerima kasih.\n— ${S.org.name}`;
+    + payInfoText(S.keu.payInfo)
+    + `\n\nTerima kasih.\n— ${S.org.fullName || S.org.name}`;
   window.open('https://wa.me/' + waNumber(r.st.phone) + '?text=' + encodeURIComponent(text), '_blank');
 }
 
@@ -1817,35 +1852,136 @@ async function checkPayments(manual) {
 // ══════════════════════════════════════════════════════════════════════
 // ADMIN — LAINNYA
 // ══════════════════════════════════════════════════════════════════════
+function payInfoText(p) {
+  p = p || {};
+  if (!p.number && !p.note) return '';
+  return `\n\nPembayaran bisa ditransfer ke:\n${[p.bank, p.number].filter(Boolean).join(' ')}${p.holder ? ' a.n. ' + p.holder : ''}${p.note ? '\n' + p.note : ''}`;
+}
+function backBar(m, title, sub) {
+  return `<button class="back-link" id="olBack">${I('chevron-left', 'sm')} Lainnya</button>
+    <div class="page-title">${title}</div><div class="page-sub">${sub}</div>`;
+}
+function bindBack(m) { $('olBack').onclick = () => renderAdminLainnya(m); }
 function renderAdminLainnya(m) {
-  const logo = S.org.logo ? `<img src="${esc(S.org.logo)}" alt=""/>` : I('image');
+  const i = orgInfo();
+  const plan = !i.active ? '<span class="pill pill-red">LANGGANAN HABIS</span>' : i.paid ? '<span class="pill pill-green">LEMBAGA AKTIF</span>' : '<span class="pill pill-amber">UJI COBA · ' + i.daysLeft + ' HARI</span>';
+  const photo = S.user.photoURL ? `<img src="${esc(S.user.photoURL)}" alt=""/>` : esc(initials(S.member.name));
+  const mi = (id, ic, l, d, color) => `<button class="menu-item" id="${id}"><div class="menu-ic"${color ? ` style="color:${color}"` : ''}>${I(ic)}</div><div><div class="menu-l"${color ? ` style="color:${color}"` : ''}>${l}</div><div class="menu-d">${d}</div></div>${color ? '' : `<span class="menu-arrow">${I('chevron-right', 'sm')}</span>`}</button>`;
   m.innerHTML = `
     <div class="page-title">Lainnya</div><div class="page-sub">Pengaturan lembaga & akun</div>
-    <div class="card">
-      <div class="card-t">Profil Lembaga</div>
-      <div class="field"><label>Nama lembaga</label><input id="olName" maxlength="80" value="${esc(S.org.name)}"/></div>
-      <div class="field"><label>Logo</label><div class="logo-pick"><div class="logo-box" id="olLogoBox">${logo}</div>
-        <button class="btn btn-ghost" style="width:auto;padding:10px 16px" id="olLogoBtn">Ganti Logo</button>
-        <input type="file" id="olLogo" accept="image/*" style="display:none"/></div></div>
-      <button class="btn btn-primary" id="olSave">${I('check')} Simpan</button>
+    <div class="card acct">
+      <div class="acct-av">${photo}</div>
+      <div class="grow" style="min-width:0"><div class="t-name">${esc(S.member.name)}</div><div class="t-meta">${esc(S.user.email || '')}</div>
+        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><span class="pill pill-grey">GURU ADMIN</span>${plan}</div></div>
     </div>
     ${subCard()}
     <div class="card" style="padding:4px 14px">
-      <button class="menu-item" id="olMode"><div class="menu-ic">${I('repeat')}</div><div><div class="menu-l">Ganti Mode</div><div class="menu-d">Pindah ke Guru Lepas (data pribadi terpisah)</div></div></button>
-      <button class="menu-item" id="olOut"><div class="menu-ic" style="color:var(--danger)">${I('logout')}</div><div><div class="menu-l" style="color:var(--danger)">Keluar (Logout)</div><div class="menu-d">${esc(S.user.email)}</div></div></button>
-    </div>`;
-  let newLogo;
-  $('olLogoBtn').onclick = () => $('olLogo').click();
-  $('olLogo').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { newLogo = await compressImage(f); $('olLogoBox').innerHTML = `<img src="${newLogo}" alt=""/>`; } catch (err) { toast('❌ ' + err.message); } };
-  $('olSave').onclick = async () => {
-    const name = $('olName').value.trim(); if (!name) { toast('Nama lembaga wajib diisi'); return; }
-    const upd = { name, updatedAt: serverTimestamp() }; if (newLogo !== undefined) upd.logo = newLogo;
-    try { await updateDoc(doc(db, 'orgs', S.org.id), upd); Object.assign(S.org, upd); toast('✅ Tersimpan'); renderShell(); }
-    catch (e) { toast('❌ ' + friendlyError(e)); }
-  };
+      ${mi('olProfil', 'palette', 'Profil & Tampilan Lembaga', 'Nama singkat & panjang, logo, warna, tema tampilan')}
+      ${mi('olPay', 'card', 'Info Pembayaran Lembaga', 'Rekening lembaga — ikut tercantum di pesan tagihan WA')}
+      ${mi('olBackup', 'download', 'Backup Data Lembaga', 'Unduh semua data lembaga (murid, jadwal, absensi, keuangan, gaji)')}
+    </div>
+    <div class="card" style="padding:4px 14px">
+      ${mi('olMode', 'repeat', 'Ganti Mode', 'Pindah ke Guru Lepas (LLK V1) atau pilihan lain')}
+      ${mi('olOut', 'logout', 'Keluar (Logout)', esc(S.user.email || ''), 'var(--danger)')}
+    </div>
+    <div class="t-meta" style="text-align:center;margin:10px 0 4px">LesLesanKu · LLK Lembaga (V2)</div>`;
+  $('olProfil').onclick = () => renderProfilLembaga(m);
+  $('olPay').onclick = () => renderPayInfo(m);
+  $('olBackup').onclick = backupLembaga;
   $('olMode').onclick = renderChooser;
   $('olOut').onclick = logout;
   bindSubCard();
+}
+function renderProfilLembaga(m) {
+  const o = S.org, F = { color: validHex(o.color) ? o.color : '#a8372a', logo: o.logo || null };
+  m.innerHTML = `${backBar(m, 'Profil & Tampilan', 'Tampil di aplikasi Admin, aplikasi Guru Mitra & pesan WA')}
+    <div class="card-t">Pratinjau header</div>
+    <div class="hdr-prev" id="ppHdr"><div class="hp-logo" id="ppLogo"></div><div style="min-width:0"><div class="hp-n" id="ppName"></div><div class="hp-s" id="ppSub"></div></div></div>
+    <div class="card">
+      <div class="field"><label>Nama singkat lembaga</label><input id="plName" maxlength="30" value="${esc(o.name)}" placeholder="cth: FMS"/></div>
+      <div class="field"><label>Nama panjang lembaga</label><input id="plFull" maxlength="60" value="${esc(o.fullName || '')}" placeholder="cth: Ferdian Music School"/>
+        <div class="hint">Tampil di bawah nama singkat & di akhir pesan tagihan WA.</div></div>
+      <div class="field"><label>Logo</label>
+        <div class="logo-pick"><div class="logo-box" id="plLogoBox"></div>
+          <button class="btn btn-ghost" style="width:auto;padding:10px 16px" id="plLogoBtn">${I('image', 'sm')} Pilih Foto</button>
+          <button class="btn btn-ghost" style="width:auto;padding:10px 16px;color:var(--danger)" id="plLogoDel">${I('trash', 'sm')} Hapus</button>
+          <input type="file" id="plLogo" accept="image/*" style="display:none"/></div>
+        <div class="hint" style="margin-top:8px">Tanpa foto? Pakai teks singkat (maks. 4 huruf):</div>
+        <input id="plLogoText" maxlength="4" value="${esc(o.logoText || '')}" placeholder="${esc(initials(o.name))}" style="margin-top:6px"/></div>
+      <div class="field"><label>Warna lembaga</label>
+        <div class="swatches" id="plSw">${ORG_COLORS.map(c => `<button class="sw" data-c="${c}" style="background:${c}" aria-label="Warna ${c}"></button>`).join('')}</div>
+        <input id="plHex" maxlength="7" value="${esc(F.color)}" style="font-family:monospace;text-transform:uppercase"/></div>
+      <button class="btn btn-primary" id="plSave">${I('check')} Simpan Profil Lembaga</button>
+    </div>
+    <div class="card">
+      <div class="card-t">Tema tampilan <span class="t-meta" style="font-weight:500">— untuk HP/laptop ini</span></div>
+      <div class="theme-grid">${THEMES.map(t => `<button class="theme-opt${t.id === curTheme() ? ' on' : ''}" data-th="${t.id}"><span class="tp" style="background:${t.bg}"><i style="top:9px;background:${t.card}"></i><i style="top:21px;right:30px;background:${t.ink};opacity:.55"></i></span>${t.name}<div class="t-meta" style="font-weight:500;font-size:0.7rem">${t.desc}</div></button>`).join('')}</div>
+    </div>`;
+  bindBack(m);
+  const paint = () => {
+    const name = $('plName').value.trim() || 'Lembaga', full = $('plFull').value.trim(), txt = $('plLogoText').value.trim();
+    $('ppHdr').style.background = F.color; $('ppHdr').style.color = '#fff';
+    $('ppName').textContent = name; $('ppSub').textContent = full || S.member.name;
+    const lg = F.logo ? `<img src="${esc(F.logo)}" alt=""/>` : esc(txt || initials(name));
+    $('ppLogo').innerHTML = lg; $('plLogoBox').innerHTML = F.logo ? `<img src="${esc(F.logo)}" alt=""/>` : I('image');
+    $('plLogoDel').style.display = F.logo ? '' : 'none';
+    document.querySelectorAll('#plSw .sw').forEach(b => b.classList.toggle('on', b.dataset.c.toLowerCase() === F.color.toLowerCase()));
+  };
+  ['plName', 'plFull', 'plLogoText'].forEach(id => $(id).oninput = paint);
+  document.querySelectorAll('#plSw .sw').forEach(b => b.onclick = () => { F.color = b.dataset.c; $('plHex').value = F.color; paint(); });
+  $('plHex').oninput = () => { const v = $('plHex').value.trim(); if (validHex(v)) { F.color = v; paint(); } };
+  $('plLogoBtn').onclick = () => $('plLogo').click();
+  $('plLogo').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { F.logo = await compressImage(f); paint(); } catch (err) { toast('❌ ' + err.message); } };
+  $('plLogoDel').onclick = () => { F.logo = null; paint(); };
+  document.querySelectorAll('[data-th]').forEach(b => b.onclick = () => {
+    applyTheme(b.dataset.th);
+    document.querySelectorAll('[data-th]').forEach(x => x.classList.toggle('on', x === b));
+    toast('Tema ' + THEMES.find(t => t.id === b.dataset.th).name);
+  });
+  $('plSave').onclick = async () => {
+    const name = $('plName').value.trim();
+    if (!name) { toast('Nama singkat lembaga wajib diisi'); return; }
+    const upd = { name, fullName: $('plFull').value.trim(), logo: F.logo || null, logoText: $('plLogoText').value.trim(), color: F.color, updatedAt: serverTimestamp() };
+    $('plSave').disabled = true;
+    try { await updateDoc(doc(db, 'orgs', S.org.id), upd); Object.assign(S.org, upd); toast('✅ Profil lembaga disimpan'); renderShell(); }
+    catch (e) { $('plSave').disabled = false; toast('❌ ' + friendlyError(e)); }
+  };
+  paint();
+}
+async function renderPayInfo(m) {
+  let p = {};
+  try { const d = await getDoc(doc(db, 'orgs', S.org.id, 'settings', 'payinfo')); if (d.exists()) p = d.data(); } catch (e) {}
+  m.innerHTML = `${backBar(m, 'Info Pembayaran', 'Rekening lembaga untuk pembayaran les dari orang tua murid')}
+    <div class="card">
+      <div class="field"><label>Bank / e-wallet</label><input id="piBank" maxlength="40" value="${esc(p.bank || '')}" placeholder="cth: BCA"/></div>
+      <div class="field"><label>Nomor rekening</label><input id="piNum" maxlength="40" inputmode="numeric" value="${esc(p.number || '')}"/></div>
+      <div class="field"><label>Atas nama</label><input id="piHolder" maxlength="80" value="${esc(p.holder || '')}"/></div>
+      <div class="field"><label>Catatan (opsional)</label><input id="piNote" maxlength="120" value="${esc(p.note || '')}" placeholder="cth: Mohon kirim bukti transfer ke WA ini"/></div>
+      <div class="msg msg-info" id="piPrev" style="white-space:pre-line"></div>
+      <button class="btn btn-primary" id="piSave">${I('check')} Simpan</button>
+    </div>`;
+  bindBack(m);
+  const val = () => ({ bank: $('piBank').value.trim(), number: $('piNum').value.trim(), holder: $('piHolder').value.trim(), note: $('piNote').value.trim() });
+  const paint = () => { const t = payInfoText(val()).trim(); $('piPrev').textContent = t ? 'Contoh di pesan tagihan:\n' + t : 'Kosong = pesan tagihan tanpa info rekening.'; };
+  ['piBank', 'piNum', 'piHolder', 'piNote'].forEach(id => $(id).oninput = paint); paint();
+  $('piSave').onclick = async () => {
+    try { await commitOps([['set', doc(db, 'orgs', S.org.id, 'settings', 'payinfo'), val()]]); if (S.keu) S.keu.payInfo = val(); toast('✅ Info pembayaran disimpan'); renderAdminLainnya(m); }
+    catch (e) { toast('❌ ' + friendlyError(e)); }
+  };
+}
+// Unduh semua data lembaga (JSON) — cadangan pribadi Admin
+async function backupLembaga() {
+  toast('Menyiapkan backup…', 6000);
+  const o = S.org.id, cols = ['members', 'subjects', 'students', 'sched', 'att', 'payments', 'payouts', 'settings', 'invoices'];
+  try {
+    const out = { app: 'LesLesanKu V2', exportedAt: new Date().toISOString(), org: Object.assign({ id: o }, S.org) };
+    const snaps = await Promise.all(cols.map(c => getDocs(collection(db, 'orgs', o, c)).catch(() => null)));
+    cols.forEach((c, k) => { out[c] = snaps[k] ? snaps[k].docs.map(d => Object.assign({ id: d.id }, d.data())) : []; });
+    const json = JSON.stringify(out, (k, v) => (v && typeof v.toDate === 'function' ? v.toDate().toISOString() : v), 2);
+    const name = 'LLK-Lembaga_' + String(S.org.name || 'lembaga').replace(/[^a-zA-Z0-9]+/g, '_') + '_' + localKey(new Date()) + '.json';
+    dlBlob(new Blob([json], { type: 'application/json' }), name);
+    toast('✅ Backup diunduh: ' + name + ' (' + out.students.length + ' murid)', 6000);
+  } catch (e) { toast('❌ Gagal backup: ' + friendlyError(e)); }
 }
 
 // ══════════════════════════════════════════════════════════════════════

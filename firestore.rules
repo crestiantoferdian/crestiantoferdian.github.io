@@ -136,10 +136,13 @@ service cloud.firestore {
         && request.resource.data.plan == 'trial'
         && request.resource.data.createdAt == request.time
         && existsAfter(memberPath(orgId, uid()));
-      // Admin hanya boleh mengubah nama & logo. Kursi/paket diatur server (pembayaran).
+      // Admin hanya boleh mengubah profil & tampilan lembaga. Kursi/paket diatur server (pembayaran).
       allow update: if isAdmin(orgId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'logo', 'updatedAt'])
-        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'fullName', 'logo', 'logoText', 'color', 'updatedAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+        && (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() <= 80))
+        && (!('logoText' in request.resource.data) || (request.resource.data.logoText is string && request.resource.data.logoText.size() <= 4))
+        && (!('color' in request.resource.data) || (request.resource.data.color is string && request.resource.data.color.matches('^#[0-9a-fA-F]{6}$')));
       allow delete: if false;
 
       // ── Riwayat pembayaran langganan lembaga (hanya ditulis server/Cloud Function) ──

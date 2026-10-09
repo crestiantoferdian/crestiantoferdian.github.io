@@ -62,6 +62,7 @@ const TOMORROW=plus(TODAY,1);
     for(let i=30;i>=0;i--){ const dk=plus(TODAY,-i), dow=new Date(dk+'T00:00:00Z').getUTCDay();
       for(const [g,uid,days,stu,j] of [['Pak Dimas','gDimas',[1,3,5],'Cahaya',0],['Bu Sari','gSari',[2,4,6],'Elang',0],['Bu Sari','gSari',[2,4,6],'Fajar',1],['Bu Sari','gSari',[2,4,6],'Gita Permatasari',2]]){
         if(!days.includes(dow)) continue;
+        if(g==='Pak Dimas'&&i>18) continue; // Pak Dimas ±8 pertemuan (< 11) → slip awal JPG, berapa pun hari ini
         const st=((i+j)%7===3)?'izin':((i+j)%11===5)?'alpa':'hadir';
         await setDoc(doc(f,'orgs',ORG,'att','k'+uid+j+'_'+dk),{classId:'k'+uid+j,studentId:'s'+uid+j,studentName:stu,subjectName:'Piano',mitraUid:uid,date:dk,start:(15+j)+':00',end:(16+j)+':00',status:st,progress:st==='hadir'?'Lagu ke-'+(30-i):'',prSiswa:'',prGuru:'',reason:'',honor:st==='izin'?0:40000,by:uid,updatedAt:serverTimestamp()});
         if(st!=='izin'){ if(i>0){ E[g].sum+=40000; E[g].n++; } else { E[g].today=(E[g].today||0)+40000; E[g].todayN=(E[g].todayN||0)+1; } }
@@ -99,7 +100,7 @@ const TOMORROW=plus(TODAY,1);
   ok(await A.evaluate(()=>!!document.querySelector('#poProofBox img')),'foto bukti transfer tampil');
   await A.fill('#poNote','transfer BCA'); await A.click('#poGo'); await sleep(2500);
   ok((await txt(A)).includes('Gaji Pak Dimas tercatat'),'gaji tercatat → slip honor siap');
-  ok(await A.evaluate(()=>document.querySelector('.seg-b.on').dataset.fmt==='jpg'&&document.getElementById('slSend').innerText.includes('JPG')),'9 pertemuan → format awal Gambar JPG (bisa dipilih)');
+  ok(await A.evaluate(()=>document.querySelector('.seg-b.on').dataset.fmt==='jpg'&&document.getElementById('slSend').innerText.includes('JPG')),E['Pak Dimas'].n+' pertemuan → format awal Gambar JPG (bisa dipilih)');
   await A.click('#slSend'); await sleep(1200);
   const wa=await A.evaluate(()=>decodeURIComponent(window.__wa[window.__wa.length-1]||''));
   ok(wa.startsWith('https://wa.me/6281298765432?text=')&&wa.includes(rp(E['Pak Dimas'].sum))&&wa.includes('Terima kasih atas dedikasi'),'WA Pak Dimas terbuka dengan pesan honor + ucapan terima kasih');

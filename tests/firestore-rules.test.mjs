@@ -37,6 +37,9 @@ await t('Tidak bisa membuat lembaga dengan kursi 50', assertFails(createOrg(othe
 await t('Orang luar tidak bisa membaca lembaga', assertFails(getDoc(doc(other,'orgs','org1'))));
 await t('Admin tidak bisa menambah kursi sendiri', assertFails(updateDoc(doc(admin,'orgs','org1'),{seats:99})));
 await t('Admin bisa ganti nama lembaga', assertSucceeds(updateDoc(doc(admin,'orgs','org1'),{name:'Les Ceria Baru'})));
+await t('Admin mengisi nama panjang, logo teks & warna lembaga', assertSucceeds(updateDoc(doc(admin,'orgs','org1'),{fullName:'Les Musik Ceria Indonesia',logoText:'LMC',color:'#2f5a8a'})));
+await t('Warna lembaga harus kode warna', assertFails(updateDoc(doc(admin,'orgs','org1'),{color:'merah'})));
+await t('Logo teks maksimal 4 huruf', assertFails(updateDoc(doc(admin,'orgs','org1'),{logoText:'PANJANG'})));
 await t('Lembaga baru: uji coba 2 slot (bukan 5)', assertFails(createOrg(other,'other1','orgY',{seats:5})));
 await t('Tanggal dibuat tidak bisa dimundurkan/dimajukan (uji coba abadi)', assertFails(createOrg(other,'other1','orgY',{createdAt:Timestamp.fromMillis(Date.now()+400*864e5)})));
 await t('Admin tidak bisa memperpanjang langganan sendiri', assertFails(updateDoc(doc(admin,'orgs','org1'),{activeUntil:Timestamp.fromMillis(Date.now()+999*864e5),plan:'pro'})));
