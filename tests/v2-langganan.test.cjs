@@ -159,6 +159,12 @@ const FAKE_SNAP=`window.snap={pay:function(token,cb){ window.__llkPaid(token).th
   await A.screenshot({path:OUT+'langganan_lainnya.png',fullPage:true});
   const inv=await admin(async f=>(await getDocs(collection(f,'orgs',ORG,'invoices'))).size);
   ok(inv===3,'riwayat pembayaran: 3 kali bayar');
+  await A.waitForSelector('[data-inv]',{timeout:8000}).catch(()=>{});
+  await A.evaluate(()=>{ window.__inv=''; window.open=()=>({document:{write:h=>{window.__inv+=h;},close(){}}}); });
+  await A.click('[data-inv]');
+  const invHtml=await A.evaluate(()=>window.__inv);
+  ok(/Invoice/.test(invHtml)&&/LUNAS/.test(invHtml)&&/Cetak \/ Simpan PDF/.test(invHtml)&&/Rp/.test(invHtml),'tombol Invoice di riwayat pembayaran: invoice LUNAS bisa dicetak / disimpan PDF');
+  fs.writeFileSync(OUT+'langganan_invoice.html',invHtml);
 
   const errs=[A,...Object.values(G)].flatMap(p=>p.errs); ok(errs.length===0,'tidak ada error JavaScript'+(errs.length?': '+errs.join(' | '):''));
   console.log(`\nHASIL: ${pass} lulus, ${fail} gagal`); await b.close(); await env.cleanup(); process.exit(fail?1:0);
