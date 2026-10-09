@@ -3,22 +3,23 @@
 <head>
 <meta charset="UTF-8"/>
 <script>
-// Pengunjung BARU yang membuka leslesanku.com di browser diarahkan dulu ke halaman
-// pilih peran (v2/: Guru Lepas · Pemilik Lembaga Les · Guru Mitra). Memilih
-// "Guru Lepas" di sana menyimpan llk_v2_choice='lepas' lalu kembali ke sini.
-// TIDAK diarahkan: aplikasi terpasang (PWA/Play Store), pengguna V1 yang sudah
-// punya data di browser ini, atau yang sudah pernah memilih Guru Lepas.
+// Pengunjung yang membuka leslesanku.com di browser diarahkan ke halaman pilih peran
+// (v2/?dari=web: Guru Lepas · Pemilik Lembaga Les · Guru Mitra). "Guru Lepas" → ?v1=1.
+// TIDAK diarahkan: aplikasi terpasang (PWA/Play Store), tab yang sudah masuk V1
+// (?v1=1, diingat per tab supaya login & muat ulang tidak terlempar), browser yang
+// pernah login V1 (llk_v1_login) atau sudah punya data murid V1 (rms4_s).
 // Alamat langsung: leslesanku.com/v1 → login V1, leslesanku.com/v2 → LLK Lembaga.
 // Aplikasi Play Store (TWA) dibuka dengan referrer android-app:// — diingat per sesi
 // (sessionStorage, tidak bocor ke Chrome biasa) supaya fitur yang belum siap bisa disembunyikan.
 window.llkIsPlayApp=function(){ try{ return sessionStorage.getItem('llk_play_app')==='1'; }catch(e){ return false; } };
 (function(){try{
   if(document.referrer.indexOf('android-app://')===0) sessionStorage.setItem('llk_play_app','1');
-  if(/[?&]v1=1/.test(location.search)){ localStorage.setItem('llk_v2_choice','lepas'); return; }
+  if(/[?&]v1=1/.test(location.search)){ sessionStorage.setItem('llk_v1_tab','1'); localStorage.setItem('llk_v2_choice','lepas'); return; }
   if(window.matchMedia&&matchMedia('(display-mode: standalone)').matches) return;
   if(navigator.standalone||document.referrer.indexOf('android-app://')===0) return;
-  if(localStorage.getItem('llk_v2_choice')==='lepas') return;
-  for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i)||''; if(/^rms4?_/.test(k)) return; }
+  if(sessionStorage.getItem('llk_v1_tab')==='1') return;
+  if(localStorage.getItem('llk_v1_login')==='1') return;
+  var st=localStorage.getItem('rms4_s'); if(st&&st!=='[]'&&st!=='null') return;
   location.replace('v2/?dari=web');
 }catch(e){}})();
 </script>
@@ -10016,6 +10017,7 @@ function initFirebase(){
     currentUser=user;
     _cloudReadyToPush=false; // reset tiap kali status login berubah — harus tarik/putuskan dulu sebelum boleh kirim
     if(user){
+      try{ localStorage.setItem('llk_v1_login','1'); }catch(e){} // browser ini memakai V1 → leslesanku.com langsung ke V1
       hideLoginGate();
       pullFromCloud();
       listenSubscriptionStatus(user.uid);
