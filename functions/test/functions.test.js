@@ -11,7 +11,7 @@ process.env.MIDTRANS_SERVER_KEY = 'SB-TEST-KEY';
 // ── Firestore tiruan ────────────────────────────────────────────────
 const store = new Map(); // 'koleksi/id' -> data
 const ts = (ms) => ({ toMillis: () => ms, _ms: ms });
-let fakeNow = Date.UTC(2026, 9, 1);
+let fakeNow = Date.now(); // waktu sekarang (bukan tanggal tetap) supaya batas "7 hari terakhir" tidak kedaluwarsa
 function docRef(path) {
   return {
     path,
