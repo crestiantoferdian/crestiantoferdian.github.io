@@ -75,9 +75,17 @@ const wib=new Date(Date.now()+7*3600e3); const TODAY=DAYS[wib.getUTCDay()]; cons
   await A.click('[data-tab=absensi]'); await sleep(1500);
   t=await txt(A);
   ok(t.includes('Tiba-tiba 50%')&&t.includes('HADIR')&&t.includes('ALPA')&&t.includes('Budi'),'Admin melihat absensi & progres dari Guru Mitra');
-  await A.click('tr:has-text("Hosyana") [data-izin]'); await sleep(300); await A.fill('#izReason','Sakit'); await A.click('#izGo'); await sleep(1500);
+  await A.click('.ab-item:has-text("Hosyana") [data-izin]'); await sleep(300); await A.fill('#izReason','Sakit'); await A.click('#izGo'); await sleep(1500);
   ok((await txt(A)).includes('IZIN')&&(await txt(A)).includes('Sakit'),'Admin mengisi Izin Hosyana');
   await A.screenshot({path:OUT+'t3_admin_absensi.png'});
+  // Kotak pilih guru di bawah kalender: hanya jadwal guru itu
+  const nAll=await A.evaluate(()=>document.querySelectorAll('.ab-item').length);
+  const gOpt=await A.evaluate(()=>[...document.querySelectorAll('#abGuru option')].map(o=>o.value).filter(Boolean)[0]);
+  await A.selectOption('#abGuru',gOpt); await sleep(1200);
+  const gNm=await A.evaluate(v=>window.__llk.S.data.mitras.find(m=>m.id===v).name,gOpt);
+  ok(await A.evaluate(nm=>{ const it=[...document.querySelectorAll('.ab-item')]; return it.length>0&&it.every(x=>x.querySelector('.ab-sub').textContent.includes(nm)); },gNm)&&nAll>=(await A.evaluate(()=>document.querySelectorAll('.ab-item').length)),'pilih guru '+gNm+' → hanya jadwal siswa '+gNm);
+  await A.screenshot({path:OUT+'t3_admin_absensi_guru.png'});
+  await A.selectOption('#abGuru',''); await sleep(1000);
   await M.reload(); await sleep(3000);
   await M.click('.s-item:has-text("Hosyana") .s-avatar'); await sleep(300);
   t=await M.evaluate(()=>document.querySelector('.s-item.expanded').innerText);

@@ -424,3 +424,56 @@ input:focus-visible+.chk-box{outline:2px solid var(--blue);outline-offset:2px}
 #fChips .chip.on{background:var(--red);border-color:var(--red);color:#fff}
 .chip-n{background:var(--paper-2);color:var(--text2);border-radius:999px;padding:1px 8px;font-size:0.74rem;font-weight:800}
 #fChips .chip.on .chip-n{background:rgba(255,255,255,0.25);color:#fff}
+/* ── Absensi Guru Admin ala LLK V1 (strip tanggal, pilih guru, statistik, kartu siswa) ── */
+.ab-days{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;margin:0 -16px 10px;padding:4px 16px 6px}
+.ab-days::-webkit-scrollbar{display:none}
+.ab-pill{position:relative;flex:0 0 auto;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:58px;padding:7px 12px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text2);line-height:1.15;font-family:inherit;cursor:pointer;scroll-snap-align:center}
+.ab-pill .dp-d{font-size:0.72rem;font-weight:600;opacity:0.8;white-space:nowrap}
+.ab-pill .dp-n{font-family:var(--font-display);font-size:1.1rem;font-weight:600;font-variant-numeric:lining-nums tabular-nums;white-space:nowrap}
+.ab-pill.past:not(.active){background:var(--card2)}
+.ab-pill.active{background:var(--text);border-color:var(--text);color:var(--card)}
+.ab-pill.today{border-color:var(--red);color:var(--red)}
+.ab-pill.today::after{content:'';position:absolute;top:5px;right:6px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+.ab-cal{border-style:dashed;color:var(--blue);min-width:52px}
+.ab-cal .ico{width:20px;height:20px}
+.ab-cal input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0}
+.ab-guru{position:relative;display:flex;align-items:center;margin:0 0 12px}
+.ab-guru-ic{position:absolute;left:14px;color:var(--muted);display:flex;pointer-events:none}
+.ab-guru-ic .ico{width:18px;height:18px}
+.ab-guru select{width:100%;min-height:48px;padding:0 14px 0 42px;border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--text);font-weight:700;font-size:0.92rem}
+.ab-stats{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border:1px solid var(--border);border-radius:18px;overflow:hidden;margin-bottom:14px}
+.ab-stat{padding:12px 4px 11px;text-align:center;border-left:1px solid var(--border2)}
+.ab-stat:first-child{border-left:none}
+.ab-stat .stat-label{display:flex;align-items:center;justify-content:center;gap:5px;font-size:0.7rem;font-weight:600;color:var(--muted);margin-bottom:3px}
+.ab-stat .stat-label::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--muted2)}
+.ab-stat .stat-num{font-family:var(--font-display);font-size:1.7rem;font-weight:600;line-height:1.05;font-variant-numeric:lining-nums tabular-nums;color:var(--text)}
+.ab-stat.s-hadir .stat-num{color:var(--green)} .ab-stat.s-hadir .stat-label::before{background:var(--green)}
+.ab-stat.s-izin .stat-num{color:var(--amber)} .ab-stat.s-izin .stat-label::before{background:var(--amber)}
+.ab-stat.s-alpa .stat-num{color:var(--danger)} .ab-stat.s-alpa .stat-label::before{background:var(--danger)}
+.ab-list{background:var(--card);border:1px solid var(--border);border-radius:18px;overflow:hidden}
+.ab-head{padding:14px 16px 12px 18px;border-bottom:1px solid var(--border2)}
+.ab-title{font-size:0.95rem;font-weight:700;letter-spacing:-0.01em}
+.ab-item{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border2);border-left:3px solid transparent}
+.ab-item:last-child{border-bottom:none}
+.ab-item.status-hadir{border-left:4px solid var(--green);background:rgba(42,115,73,0.07)}
+.ab-item.status-izin{border-left:4px solid var(--amber);background:rgba(166,85,16,0.08)}
+.ab-item.status-alpa{border-left:4px solid var(--danger);background:rgba(176,38,63,0.06)}
+.ab-item.status-off{border-left:4px solid #4f5d6e;background:rgba(79,93,110,0.07)}
+.ab-av{position:relative;width:46px;height:46px;border-radius:14px;background:var(--paper-2);color:var(--text2);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.ab-av .ico{width:24px;height:24px;stroke-width:1.6}
+.ab-badge{position:absolute;bottom:-3px;right:-3px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;border:2px solid var(--card)}
+.ab-badge .ico{width:10px;height:10px;stroke-width:3}
+.ab-body{flex:1;min-width:0}
+.ab-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.ab-name{font-size:1.02rem;font-weight:700;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ab-time{flex:0 0 auto;font-weight:700;font-variant-numeric:tabular-nums}
+.ab-sub{font-size:0.8rem;color:var(--muted);margin-top:2px}
+.ab-sub b{color:var(--text2);font-weight:600}
+.ab-st{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
+.ab-reason{font-size:0.78rem;color:var(--text2)}
+.ab-note{display:flex;align-items:center;gap:5px;font-size:0.78rem;color:var(--blue);margin-top:5px;min-width:0}
+.ab-note span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ab-note .ico{width:14px;height:14px;flex:0 0 auto}
+.ab-act{margin-top:10px;display:flex;gap:6px}
+.ab-act .mini{width:auto;flex:none;padding:0 14px}
+.ab-list .empty{padding:28px 16px}
