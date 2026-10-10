@@ -10144,6 +10144,9 @@ const LLK_TIERS=[
   {id:'up', name:'Pro Up', limit:40, monthly:{plan:'up_monthly',price:75000}, yearly:{plan:'up_yearly',price:700000}},
   {id:'unlimited', name:'Pro Unlimited', limit:Infinity, monthly:{plan:'unlimited_monthly',price:100000}, yearly:{plan:'unlimited_yearly',price:1000000}}
 ];
+// Naik paket saat langganan berbayar masih aktif → diskon 50%. HARUS sama dengan UPGRADE_DISCOUNT di functions/plans.js
+// (harga sebenarnya tetap dihitung server; ini hanya untuk tampilan).
+const LLK_UPGRADE_DISCOUNT=0.5;
 let _currentTier=null;      // 'basic'|'up'|'unlimited'|null (null = belum diketahui → tidak dibatasi)
 let _subTrialDenied=false;  // server menolak trial karena email ini sudah pernah trial
 function tierInfo(id){ return LLK_TIERS.find(function(t){ return t.id===id; })||null; }
@@ -10449,13 +10452,19 @@ function planCardsHtml(opts){
   const n=activeStudentCount();
   const tiers=LLK_TIERS.filter(function(t,i){ return i>minIdx; });
   const fit=tiers.find(function(t){ return t.limit>n; })||tiers[tiers.length-1];
-  return '<div class="llk-plan-row">'+tiers.map(function(t){
+  // opts.upgrade: pelanggan berbayar aktif naik paket → harga coret + harga diskon
+  const priceTxt=function(p){
+    if(!opts.upgrade) return formatRpPlan(p);
+    return '<s style="opacity:0.55;font-weight:600">'+formatRpPlan(p)+'</s> '+formatRpPlan(Math.round(p*(1-LLK_UPGRADE_DISCOUNT)));
+  };
+  return (opts.upgrade?'<div style="max-width:360px;margin:0 auto 16px;padding:10px 14px;border-radius:var(--r-md);background:linear-gradient(135deg,#a8372a,#d4566a);color:#fff;font-weight:800;font-size:0.92rem;box-shadow:var(--shadow-md)">'+llkI('sparkle','sm')+' Diskon '+Math.round(LLK_UPGRADE_DISCOUNT*100)+'% khusus naik paket</div>':'')
+    +'<div class="llk-plan-row">'+tiers.map(function(t){
     const isFit=fit&&fit.id===t.id;
     const limitText=t.limit===Infinity?'Murid aktif <b>tanpa batas</b>':'Maks. <b>'+t.limit+' murid aktif</b>';
-    let btns='<button onclick="pickPlan(\''+t.monthly.plan+'\')" class="llk-plan-btn llk-pro-btn'+(isFit?' dark':'')+'" style="width:100%;min-height:50px;padding:12px;background:'+(isFit?'var(--text)':'var(--card)')+';color:'+(isFit?'#fffcf7':'var(--text)')+';border:'+(isFit?'none':'1.5px solid var(--text)')+';border-radius:var(--r-md);font-size:0.94rem;font-weight:700;cursor:pointer">Bulanan — '+formatRpPlan(t.monthly.price)+'</button>';
+    let btns='<button onclick="pickPlan(\''+t.monthly.plan+'\')" class="llk-plan-btn llk-pro-btn'+(isFit?' dark':'')+'" style="width:100%;min-height:50px;padding:12px;background:'+(isFit?'var(--text)':'var(--card)')+';color:'+(isFit?'#fffcf7':'var(--text)')+';border:'+(isFit?'none':'1.5px solid var(--text)')+';border-radius:var(--r-md);font-size:0.94rem;font-weight:700;cursor:pointer">Bulanan — '+priceTxt(t.monthly.price)+'</button>';
     if(t.yearly){
       const hemat=t.monthly.price*12-t.yearly.price;
-      btns+='<button onclick="pickPlan(\''+t.yearly.plan+'\')" class="llk-plan-btn" style="width:100%;margin-top:8px;min-height:50px;padding:10px 12px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:0.92rem;font-weight:700;cursor:pointer">Tahunan — '+formatRpPlan(t.yearly.price)+(hemat>0?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">hemat '+formatRpPlan(hemat)+'</span>':'')+'</button>';
+      btns+='<button onclick="pickPlan(\''+t.yearly.plan+'\')" class="llk-plan-btn" style="width:100%;margin-top:8px;min-height:50px;padding:10px 12px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:0.92rem;font-weight:700;cursor:pointer">Tahunan — '+priceTxt(t.yearly.price)+(opts.upgrade?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">diskon naik paket '+Math.round(LLK_UPGRADE_DISCOUNT*100)+'%</span>':hemat>0?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">hemat '+formatRpPlan(hemat)+'</span>':'')+'</button>';
     }
     return '<div style="border:'+(isFit?'2px solid var(--text)':'1px solid var(--border)')+';border-radius:var(--r-lg);padding:20px;max-width:360px;margin:0 auto 16px;text-align:left;position:relative;background:var(--card);'+(isFit?'box-shadow:var(--shadow-md)':'')+'">'
       +(isFit?'<div style="position:absolute;top:-11px;right:16px;background:var(--ink);color:var(--on-ink);font-size:0.68rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.04em">COCOK UNTUKMU</div>':'')
@@ -10498,7 +10507,8 @@ function showUpgradeOffer(fromLimit){
     ? '<div class="llk-dialog-ic warn">'+llkI('lock')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:8px">Batas Murid '+escapeHtml(t.name)+' Tercapai</div>'
       +'<div style="font-size:0.9rem;color:var(--text2);max-width:360px;margin:0 auto 22px;line-height:1.6">Paket '+escapeHtml(t.name)+' maksimal <b>'+t.limit+' murid aktif</b>, dan kamu sudah punya <b>'+n+'</b>. Naik paket untuk menambah murid — atau nonaktifkan murid yang sudah berhenti les (riwayatnya tetap tersimpan).</div>'
     : '<div class="llk-dialog-ic">'+llkI('arrow-up')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:22px">Naik Paket</div>';
-  el.innerHTML=head+planCardsHtml({minTier:isTransfer?null:_currentTier})
+  const upgrade=!isTransfer&&_subPaidActive&&!(_subBadgeInfo&&_subBadgeInfo.isTester);
+  el.innerHTML=head+planCardsHtml({minTier:isTransfer?null:_currentTier, upgrade:upgrade})
     +'<div style="font-size:0.8rem;color:var(--muted);max-width:340px;margin:4px auto 18px;line-height:1.55">Paket baru berlaku mulai hari ini. Sisa masa aktif paket lama tidak dibawa ke paket baru.</div>'
     +'<button onclick="cekStatusPembayaran(false)" class="llk-btn secondary sm" style="margin:0 auto 6px;display:flex">'+llkI('refresh','sm')+' Sudah bayar? Cek status pembayaran</button>'
     +'<button onclick="closeUpgradeOffer()" style="background:none;border:none;color:var(--text2);font-size:0.9rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:12px">Nanti saja</button>';

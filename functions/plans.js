@@ -48,6 +48,25 @@ function nextSubscription(current, planKey, nowMs) {
   return { tier: plan.tier, plan: planKey, subscriptionEndsMs: base + DURATION_MS[plan.period] };
 }
 
+// Naik paket (pelanggan BERBAYAR yang masih aktif pindah ke tingkat lebih tinggi) → diskon 50%.
+// HARUS sama dengan LLK_UPGRADE_DISCOUNT di index.html.
+const UPGRADE_DISCOUNT = 0.5;
+const TIER_RANK = { basic: 0, up: 1, unlimited: 2 };
+
+/**
+ * Harga yang ditagih untuk `planKey`, dihitung dari langganan sekarang (dokumen subscriptions).
+ * Trial, tester, dan langganan yang sudah habis tidak mendapat diskon naik paket.
+ */
+function priceFor(current, planKey, nowMs) {
+  const plan = resolvePlan(planKey);
+  if (!plan) throw new Error('Plan tidak dikenal: ' + planKey);
+  const curEnds = current && current.subscriptionEndsMs ? current.subscriptionEndsMs : 0;
+  const paidActive = !!current && current.status === 'active' && !current.isTester && curEnds > nowMs;
+  const curTier = paidActive ? current.tier || 'unlimited' : null;
+  const upgrade = !!curTier && TIER_RANK[plan.tier] > TIER_RANK[curTier];
+  return { price: upgrade ? Math.round(plan.price * (1 - UPGRADE_DISCOUNT)) : plan.price, fullPrice: plan.price, upgrade };
+}
+
 // Kunci dokumen trialUsage: hash email (bukan email mentah) supaya koleksi
 // ini tidak menyimpan alamat email pengguna yang sudah menghapus akunnya.
 function trialKey(email) {
@@ -56,4 +75,4 @@ function trialKey(email) {
   return crypto.createHash('sha256').update(norm).digest('hex');
 }
 
-module.exports = { DAY_MS, DURATION_MS, TIER_LIMITS, PLANS, LEGACY_PLANS, resolvePlan, nextSubscription, trialKey };
+module.exports = { DAY_MS, DURATION_MS, TIER_LIMITS, PLANS, LEGACY_PLANS, UPGRADE_DISCOUNT, resolvePlan, nextSubscription, priceFor, trialKey };

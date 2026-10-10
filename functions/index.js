@@ -1,7 +1,7 @@
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
-const { PLANS, resolvePlan, nextSubscription, trialKey } = require('./plans');
+const { PLANS, resolvePlan, nextSubscription, priceFor, trialKey } = require('./plans');
 const OP = require('./orgPlans');
 const N = require('./notify');
 
@@ -166,13 +166,21 @@ exports.createMidtransTransaction = functions.https.onCall(async (data, context)
   }
 
   const orderId = `LLK-${uid.slice(0, 8)}-${Date.now()}`;
-  const grossAmount = PLANS[plan].price;
+  // Harga dihitung di server: pelanggan berbayar yang naik paket mendapat diskon 50%
+  const subSnap = await db.collection('subscriptions').doc(uid).get();
+  const cur = subSnap.exists ? subSnap.data() : null;
+  const pr = priceFor(cur && {
+    status: cur.status, tier: cur.tier, isTester: cur.isTester === true,
+    subscriptionEndsMs: cur.subscriptionEndsAt ? cur.subscriptionEndsAt.toMillis() : 0,
+  }, plan, Date.now());
+  const grossAmount = pr.price;
   const email = context.auth.token.email || null; // disimpan supaya webhook nanti tahu ke mana kirim invoice
 
   await db.collection('orders').doc(orderId).set({
     uid,
     plan,
     grossAmount,
+    ...(pr.upgrade ? { fullPrice: pr.fullPrice, discount: 'upgrade50', label: PLANS[plan].label + ' · diskon naik paket 50%' } : {}),
     email,
     status: 'pending',
     createdAt: admin.firestore.Timestamp.now(),
@@ -367,6 +375,7 @@ async function activateOrder(orderId) {
       toEmail,
       orderId,
       plan: order.plan,
+      label: order.label,
       grossAmount: order.grossAmount,
       paidAtMs: result.paidAtMs,
       subscriptionEndsMs: result.subscriptionEndsMs,
