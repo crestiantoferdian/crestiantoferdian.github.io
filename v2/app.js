@@ -1509,6 +1509,8 @@ async function renderAdminAbsensi(m) {
   const DSH = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'], MSH = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   const inStrip = key >= shift(today, -7) && key <= shift(today, 7);
   const kd = new Date(key + 'T00:00:00');
+  // Seperti LLK V1: tombol Kalender di kedua ujung strip (+ tombol kalender di pojok kanan atas)
+  const calPill = id => `<button class="ab-pill ab-cal${S.absCal || !inStrip ? ' active' : ''}" id="${id}" data-abcal aria-label="Buka Kalender">${I('calendar')}<span class="dp-d">${inStrip ? 'Kalender' : kd.getDate() + ' ' + MSH[kd.getMonth()]}</span></button>`;
   let pills = '';
   for (let i = -7; i <= 7; i++) {
     const k = shift(today, i), d = new Date(k + 'T00:00:00'), showMonth = i === -7 || d.getDate() === 1;
@@ -1543,9 +1545,10 @@ async function renderAdminAbsensi(m) {
     </div>`;
   };
   m.innerHTML = `
-    <div class="page-head"><div><div class="page-title">Absensi</div>
-      <div class="page-sub">Pantau kehadiran semua guru. Siswa berhalangan? Tekan <b>Izin</b>.</div></div></div>
-    <div class="ab-days" id="dayBar">${pills}<button class="ab-pill ab-cal${S.absCal || !inStrip ? ' active' : ''}" id="abCalBtn" aria-label="Buka Kalender">${I('calendar')}<span class="dp-d">${inStrip ? 'Kalender' : kd.getDate() + ' ' + MSH[kd.getMonth()]}</span></button></div>
+    <div class="page-head"><div class="grow"><div class="page-title">Absensi</div>
+      <div class="page-sub">Pantau kehadiran semua guru. Siswa berhalangan? Tekan <b>Izin</b>.</div></div>
+      <button class="icon-btn ab-cal-top${S.absCal ? ' on' : ''}" id="abCalTop" data-abcal aria-label="Buka kalender" title="Kalender">${I('calendar')}</button></div>
+    <div class="ab-days" id="dayBar">${calPill('abCalBtnL')}${pills}${calPill('abCalBtn')}</div>
     <input type="date" id="abDate" value="${key}" class="sr-only" tabindex="-1" aria-hidden="true"/>
     <div class="ab-gurus" id="abGuruBar">
       <button class="ab-gp${!gSel ? ' active' : ''}" data-guru="">${I('users', 'sm')} Semua <span class="ab-gn">${rows.length}</span></button>
@@ -1568,7 +1571,7 @@ async function renderAdminAbsensi(m) {
   const go = k => { S.absDate = k === today ? '' : k; renderAdminAbsensi(m); };
   m.querySelectorAll('[data-date]').forEach(bt => bt.onclick = () => go(bt.dataset.date));
   $('abDate').onchange = e => { if (e.target.value) go(e.target.value); };
-  $('abCalBtn').onclick = () => { S.absCal = !S.absCal; if (S.absCal) { const d = new Date(key + 'T00:00:00'); S.calY = d.getFullYear(); S.calM = d.getMonth(); } renderAdminAbsensi(m); };
+  document.querySelectorAll('[data-abcal]').forEach(b => b.onclick = () => { S.absCal = !S.absCal; if (S.absCal) { const d = new Date(key + 'T00:00:00'); S.calY = d.getFullYear(); S.calM = d.getMonth(); } renderAdminAbsensi(m); });
   m.querySelectorAll('[data-guru]').forEach(bt => bt.onclick = () => { S.absGuru = bt.dataset.guru; renderAdminAbsensi(m); });
   m.querySelectorAll('[data-acal]').forEach(bt => bt.onclick = () => { const d = +bt.dataset.acal; S.calM += d; if (S.calM < 0) { S.calM = 11; S.calY--; } if (S.calM > 11) { S.calM = 0; S.calY++; } renderAdminAbsensi(m); });
   m.querySelectorAll('[data-aday]').forEach(bt => bt.onclick = () => { S.absCal = false; go(bt.dataset.aday); });
@@ -1586,7 +1589,13 @@ async function renderAdminAbsensi(m) {
   $('abAddCls').onclick = () => openSesiForm(m, key, null);
   if (S.absCal) fillAdminCalendarDots();
   setTimeout(() => { const gb = $('abGuruBar'), ac = gb && gb.querySelector('.ab-gp.active'); if (gb && ac) gb.scrollLeft = ac.offsetLeft - gb.offsetWidth / 2 + ac.offsetWidth / 2; }, 30);
-  setTimeout(() => { const bar = $('dayBar'), act = bar && (bar.querySelector('.ab-pill.active:not(.ab-cal)') || bar.querySelector('.ab-pill.active')); if (bar && act) bar.scrollLeft = act.offsetLeft - bar.offsetWidth / 2 + act.offsetWidth / 2; }, 30);
+  // Pusatkan tanggal terpilih; kalau di luar strip, tampilkan tombol Kalender di ujung yang sesuai
+  setTimeout(() => {
+    const bar = $('dayBar'); if (!bar) return;
+    const act = bar.querySelector('.ab-pill.active:not(.ab-cal)') || $(key < today ? 'abCalBtnL' : 'abCalBtn'); if (!act) return;
+    const br = bar.getBoundingClientRect(), ar = act.getBoundingClientRect();
+    bar.scrollLeft += (ar.left - br.left) - bar.clientWidth / 2 + ar.width / 2;
+  }, 30);
   m.querySelectorAll('[data-izin]').forEach(bt => bt.onclick = () => openIzin(rows.find(r => r.id === bt.dataset.izin), key, m));
   m.querySelectorAll('[data-unizin]').forEach(bt => bt.onclick = async () => {
     try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'att', bt.dataset.unizin)]]); toast('Izin dihapus'); renderAdminAbsensi(m); }
