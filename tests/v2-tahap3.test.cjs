@@ -100,6 +100,20 @@ const wib=new Date(Date.now()+7*3600e3); const TODAY=DAYS[wib.getUTCDay()]; cons
   await A.screenshot({path:OUT+'t3_admin_kalender.png'});
   await A.click('.acal-day.today'); await sleep(1200);
   ok(!(await A.$('.acal'))&&(await A.$$('.ab-item')).length===nAll,'tap tanggal di kalender → kembali ke daftar absensi tanggal itu');
+  // Strip tanggal tetap: 7 hari lalu s/d 7 hari ke depan dari hari ini (tidak ikut bergeser)
+  const stripOf=()=>A.evaluate(()=>[...document.querySelectorAll('#dayBar [data-date]')].map(b=>b.dataset.date));
+  const dates=await A.evaluate(()=>{const f=d=>{const x=new Date();x.setDate(x.getDate()+d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');};return {m7:f(-7),p7:f(7),z:f(0)};});
+  const sh=(d)=>d===-7?dates.m7:d===7?dates.p7:dates.z;
+  let strip=await stripOf();
+  ok(strip.length===15&&strip[0]===sh(-7)&&strip[14]===sh(7),'strip tanggal: 7 hari lalu s/d 7 hari ke depan ('+strip[0]+' … '+strip[14]+')');
+  await A.click('#dayBar [data-date="'+sh(-7)+'"]'); await sleep(1200);
+  strip=await stripOf();
+  ok(strip[0]===sh(-7)&&strip[14]===sh(7)&&await A.evaluate(k=>document.querySelector('#dayBar [data-date="'+k+'"]').classList.contains('active'),sh(-7)),'pilih tanggal paling kiri → strip tidak bergeser lebih jauh');
+  await A.click('#abCalBtn'); await sleep(1000); await A.click('.acal-nav[data-acal="-1"]'); await sleep(600); await A.click('.acal-nav[data-acal="-1"]'); await sleep(600);
+  await A.click('.acal-day[data-aday] >> nth=9'); await sleep(1300);
+  ok(await A.evaluate(()=>{const c=document.getElementById('abCalBtn');return c.classList.contains('active')&&/\d+ [A-Z][a-z]{2}/.test(c.innerText)&&!document.querySelector('#dayBar [data-date].active');}),'tanggal jauh dari kalender → tombol Kalender menampilkan tanggal itu');
+  await A.screenshot({path:OUT+'t3_admin_strip.png'});
+  await A.click('#dayBar [data-date="'+sh(0)+'"]'); await sleep(1200);
   await M.reload(); await sleep(3000);
   await M.click('.s-item:has-text("Hosyana") .s-avatar'); await sleep(300);
   t=await M.evaluate(()=>document.querySelector('.s-item.expanded').innerText);

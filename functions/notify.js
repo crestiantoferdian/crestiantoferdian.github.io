@@ -127,6 +127,20 @@ function invoiceEmail({ orderId, label, amount, paidAtMs, activeUntilMs, orgName
   };
 }
 
+function orgEndingEmail({ name, orgName, paid, daysLeft, endsMs }) {
+  const first = String(name || '').split(' ')[0] || 'Bapak/Ibu';
+  const what = paid ? 'Langganan LLK Lembaga' : 'Masa uji coba LLK Lembaga';
+  const when = daysLeft === 1 ? 'besok' : daysLeft + ' hari lagi';
+  return {
+    subject: '⏳ ' + what + ' ' + orgName + ' berakhir ' + when,
+    html: shell(what + ' berakhir ' + when, `
+      <p style="line-height:1.6;margin:0 0 10px">Halo ${esc(first)}, ${paid ? 'langganan' : 'masa uji coba gratis'} untuk lembaga <b>${esc(orgName)}</b> berakhir pada <b>${esc(tanggal(endsMs))}</b>.</p>
+      <p style="line-height:1.6;margin:0 0 10px">Setelah itu, Guru Mitra tidak bisa mengisi absensi dan siswa baru tidak bisa ditambahkan. Semua data tetap aman dan langsung aktif lagi begitu ${paid ? 'diperpanjang' : 'berlangganan'}.</p>
+      ${btn(SITE + '/v2/', paid ? 'Perpanjang Sekarang' : 'Pilih Paket Langganan')}
+      <p style="font-size:13px;color:#6f6459;line-height:1.6;margin:10px 0 0">Buka LLK Lembaga → <b>Lainnya</b> → <b>Langganan Lembaga</b>.</p>`),
+  };
+}
+
 // ── Pesan Telegram untuk pemilik ────────────────────────────────────
 const tgNewUser = ({ name, email, trialDenied, total }) =>
   `👤 Pengguna baru LesLesanKu\n\nNama: ${name || '-'}\nEmail: ${email || '-'}\n${trialDenied ? 'Uji coba: ditolak (email sudah pernah trial)' : 'Uji coba gratis dimulai'}${total ? '\nTotal pengguna: ' + total : ''}\nWaktu: ${jam(Date.now())}`;
@@ -135,4 +149,7 @@ const tgNewOrg = ({ orgName, name, email }) =>
 const tgPaid = ({ v2, orderId, email, label, amount, orgName, activeUntilMs, env: e }) =>
   `💰 Pembayaran berhasil${e === 'sandbox' ? ' (SANDBOX/uji coba)' : ''}!\n\n${v2 ? 'Produk: LLK Lembaga' + (orgName ? ' — ' + orgName : '') : 'Produk: LesLesanKu (V1)'}\nPaket: ${label || '-'}\nTotal: ${rupiah(amount)}\nPembeli: ${email || '-'}\nAktif sampai: ${activeUntilMs ? tanggal(activeUntilMs) : '-'}\nNo. Order: ${orderId}\nWaktu: ${jam(Date.now())}`;
 
-module.exports = { sendEmail, sendTelegram, welcomeEmail, orgWelcomeEmail, invoiceEmail, tgNewUser, tgNewOrg, tgPaid, redact };
+const tgOrgEnding = ({ orgName, name, email, paid, daysLeft, endsMs }) =>
+  `⏰ ${paid ? 'Langganan' : 'Uji coba'} lembaga berakhir ${daysLeft === 1 ? 'BESOK' : daysLeft + ' hari lagi'}\n\nLembaga: ${orgName}\nPemilik: ${name || '-'}\nEmail: ${email || '-'}\nBerakhir: ${tanggal(endsMs)}\n(Email pengingat sudah dikirim ke pemilik lembaga)`;
+
+module.exports = { sendEmail, sendTelegram, welcomeEmail, orgWelcomeEmail, invoiceEmail, orgEndingEmail, tgNewUser, tgNewOrg, tgPaid, tgOrgEnding, redact };

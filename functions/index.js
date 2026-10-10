@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { PLANS, resolvePlan, nextSubscription, priceFor, trialKey } = require('./plans');
 const OP = require('./orgPlans');
 const N = require('./notify');
+const R = require('./reminders');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -131,6 +132,16 @@ exports.onOrgCreate = functions.firestore.document('orgs/{orgId}').onCreate(asyn
     N.sendEmail({ to: email, subject: mail.subject, html: mail.html }),
     N.sendTelegram(N.tgNewOrg({ orgName: o.name || '-', name, email })),
   ]);
+});
+
+/**
+ * 1c) LLK Lembaga: tiap pagi 08.00 WIB kirim pengingat H-3 & H-1 sebelum langganan / uji coba
+ *     berakhir (email ke pemilik lembaga + Telegram ke pemilik LLK). Lihat reminders.js.
+ */
+exports.orgEndReminders = functions.pubsub.schedule('0 8 * * *').timeZone('Asia/Jakarta').onRun(async () => {
+  const n = await R.runOrgEndReminders({ db, getUser: (uid) => admin.auth().getUser(uid), N, OP, nowMs: Date.now() });
+  console.log('Pengingat lembaga terkirim:', n);
+  return null;
 });
 
 /**

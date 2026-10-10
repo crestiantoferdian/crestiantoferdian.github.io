@@ -199,13 +199,16 @@ function relDayLabel(key) {
 function dayBarHtml() {
   const today = todayStr(), sel = G.date || today, base = new Date(today + 'T00:00:00');
   let pills = '';
-  for (let i = -7; i <= 6; i++) {
+  // Tetap: 7 hari lalu s/d 7 hari ke depan dari hari ini; lebih jauh lewat Kalender
+  for (let i = -7; i <= 7; i++) {
     const d = new Date(base); d.setDate(d.getDate() + i);
     const key = dk(d), showMonth = i === -7 || d.getDate() === 1;
     pills += `<button class="day-pill date-pill${key === sel ? ' active' : ''}${key === today && key !== sel ? ' today' : ''}${key < today ? ' past' : ''}" data-date="${key}">`
       + `<span class="dp-d">${key === today ? 'Hari ini' : DAY_SHORT_JS[d.getDay()]}</span><span class="dp-n">${d.getDate()}${showMonth ? ' ' + MONTH_SHORT_ID[d.getMonth()] : ''}</span></button>`;
   }
-  pills += `<button class="day-pill cal-pill" id="calPill" aria-label="Buka Kalender">${I('calendar-day')}<span>Kalender</span></button>`;
+  const lo = new Date(base), hi = new Date(base); lo.setDate(lo.getDate() - 7); hi.setDate(hi.getDate() + 7);
+  const out = sel < dk(lo) || sel > dk(hi), sd = new Date(sel + 'T00:00:00');
+  pills += `<button class="day-pill cal-pill${out ? ' active' : ''}" id="calPill" aria-label="Buka Kalender">${I('calendar-day')}<span>${out ? sd.getDate() + ' ' + MONTH_SHORT_ID[sd.getMonth()] : 'Kalender'}</span></button>`;
   return '<div class="day-scroll" id="dayBar">' + pills + '</div>';
 }
 function centerDayBar() {

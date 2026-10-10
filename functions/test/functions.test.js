@@ -73,6 +73,7 @@ const fakeFunctions = {
   auth: { user: () => ({ onCreate: (fn) => fn, onDelete: (fn) => fn }) },
   https: { onCall: (fn) => fn, onRequest: (fn) => fn, HttpsError },
   firestore: { document: () => ({ onCreate: (fn) => fn }) },
+  pubsub: { schedule: () => ({ timeZone: () => ({ onRun: (fn) => fn }) }) },
 };
 const origLoad = Module._load;
 Module._load = function (req, ...rest) {
@@ -502,4 +503,29 @@ test('notifikasi: belum diisi di .env → diam, pembayaran tetap aktif; token ti
   assert.deepStrictEqual(await N.sendEmail({ to: 'a@b.c', subject: 's', html: 'h' }), { skipped: 'not-configured' });
   process.env.TELEGRAM_BOT_TOKEN = '123:RAHASIA';
   try { assert.ok(!N.redact('gagal https://api.telegram.org/bot123:RAHASIA/x').includes('RAHASIA')); } finally { delete process.env.TELEGRAM_BOT_TOKEN; }
+});
+
+// ── Pengingat H-3 / H-1 sebelum lembaga berakhir ───────────────────
+test('pengingat lembaga: H-3 & H-1 (hari WIB), sekali per tanggal berakhir, email + Telegram', async () => {
+  const R = require('../reminders.js'), N = require('../notify.js'), OP = require('../orgPlans.js');
+  const sentMail = [], sentTg = [];
+  const N2 = Object.assign({}, N, { sendEmail: async (m) => { sentMail.push(m); return { ok: true }; }, sendTelegram: async (t) => { sentTg.push(t); return { ok: true }; } });
+  const getUser = async (uid) => ({ email: uid + '@gmail.com', displayName: 'Bu ' + uid });
+  // "sekarang" = 11 Okt 2026 08.00 WIB
+  const now = Date.UTC(2026, 9, 11, 1, 0);
+  store.clear();
+  store.set('orgs/a', { name: 'Les A', ownerUid: 'rani', plan: 'pro', createdAt: ts(now - 60 * DAY), activeUntil: ts(Date.UTC(2026, 9, 14, 6, 0)) }); // 14 Okt 13.00 WIB → H-3
+  store.set('orgs/b', { name: 'Les B', ownerUid: 'dimas', plan: 'trial', createdAt: ts(Date.UTC(2026, 9, 12, 3, 0) - OP.ORG_TRIAL_DAYS * DAY) }); // uji coba habis 12 Okt → H-1
+  store.set('orgs/c', { name: 'Les C', ownerUid: 'sari', plan: 'pro', createdAt: ts(now - 60 * DAY), activeUntil: ts(now + 10 * DAY) }); // masih lama
+  const n = await R.runOrgEndReminders({ db: firestore(), getUser, N: N2, OP, nowMs: now });
+  assert.strictEqual(n, 2);
+  assert.deepStrictEqual(sentMail.map(m => m.to).sort(), ['dimas@gmail.com', 'rani@gmail.com']);
+  assert.ok(sentMail.find(m => m.to === 'rani@gmail.com').subject.includes('3 hari lagi'));
+  assert.ok(sentMail.find(m => m.to === 'dimas@gmail.com').subject.includes('uji coba') && sentMail.find(m => m.to === 'dimas@gmail.com').subject.includes('besok'));
+  assert.ok(sentTg.some(t => t.includes('Les A') && t.includes('3 hari lagi')) && sentTg.some(t => t.includes('Les B') && t.includes('BESOK')));
+  // dijalankan lagi di hari yang sama → tidak dobel
+  assert.strictEqual(await R.runOrgEndReminders({ db: firestore(), getUser, N: N2, OP, nowMs: now + 3600e3 }), 0);
+  // diperpanjang → tanggal berakhir baru → pengingat baru boleh terkirim lagi nanti
+  const a = store.get('orgs/a'); store.set('orgs/a', Object.assign({}, a, { activeUntil: ts(Date.UTC(2026, 10, 13, 6, 0)) }));
+  assert.strictEqual(await R.runOrgEndReminders({ db: firestore(), getUser, N: N2, OP, nowMs: Date.UTC(2026, 10, 10, 1, 0) }), 1);
 });
