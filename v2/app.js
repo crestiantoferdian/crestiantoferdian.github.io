@@ -946,28 +946,41 @@ async function renderMurid(m) {
 function rerenderMurid() { const m = $('main'); if (m && S.tab === 'murid') renderMurid(m); }
 
 // ── Daftar Murid ──
+// Kotak filter bergaya: ikon + label kecil + <select> asli (tetap ramah HP & pembaca layar)
+function fsel(id, icon, label, options, on) {
+  return `<label class="fsel${on ? ' on' : ''}"><span class="fsel-ic">${I(icon, 'sm')}</span><span class="fsel-b"><span class="fsel-l">${esc(label)}</span><select id="${id}">${options}</select></span><span class="fsel-chev">${I('chevron-down', 'sm')}</span></label>`;
+}
 function renderDaftarMurid(body) {
   const d = S.data, f = S.filt;
   const opt = (v, l, cur) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
   body.innerHTML = `
     ${d.subjects.length ? '' : `<div class="callout">${I('info')}<div><b>Mulai dari Mata Pelajaran.</b> Tambahkan pelajaran & tarif standarnya dulu (mis. Piano Rp 50.000), lalu tambahkan murid. <button class="link-btn" id="goPel">Buka Mata Pelajaran →</button></div></div>`}
-    <div class="toolbar">
-      <div class="search">${I('search', 'sm')}<input id="fQ" placeholder="Cari nama siswa / ortu…" value="${esc(f.q)}"/></div>
-      <select id="fGuru">${opt('', 'Semua guru', f.guru)}${d.mitras.map(x => opt(x.id, x.name, f.guru)).join('')}${opt('none', 'Belum punya guru', f.guru)}</select>
-      <select id="fSubj">${opt('', 'Semua pelajaran', f.subj)}${d.subjects.map(x => opt(x.id, x.name, f.subj)).join('')}</select>
-      <select id="fStat">${opt('aktif', 'Aktif', f.status)}${opt('nonaktif', 'Nonaktif', f.status)}${opt('semua', 'Semua status', f.status)}</select>
-      <button class="btn btn-ghost tb-btn" id="impV1">${I('download', 'sm')} Impor dari LLK V1</button>
-      <button class="btn btn-primary tb-btn" id="addStu" ${d.subjects.length ? '' : 'disabled'}>${I('plus', 'sm')} Tambah Siswa</button>
+    <div class="flt-panel">
+      <div class="flt-top">
+        <div class="search flt-search${f.q.trim() ? ' on' : ''}">${I('search', 'sm')}<input id="fQ" placeholder="Cari nama siswa / ortu…" value="${esc(f.q)}"/></div>
+        <div class="flt-acts">
+          <button class="btn btn-ghost tb-btn btn-raised" id="impV1">${I('download', 'sm')} Impor dari LLK V1</button>
+          <button class="btn btn-primary tb-btn flt-add" id="addStu" ${d.subjects.length ? '' : 'disabled'}>${I('plus', 'sm')} Tambah Siswa</button>
+        </div>
+      </div>
+      <div class="flt-row">
+        ${fsel('fGuru', 'users', 'Guru', opt('', 'Semua guru', f.guru) + d.mitras.map(x => opt(x.id, x.name, f.guru)).join('') + opt('none', 'Belum punya guru', f.guru), f.guru)}
+        ${fsel('fSubj', 'book', 'Pelajaran', opt('', 'Semua pelajaran', f.subj) + d.subjects.map(x => opt(x.id, x.name, f.subj)).join(''), f.subj)}
+        ${fsel('fStat', 'check-circle', 'Status', opt('aktif', 'Aktif', f.status) + opt('nonaktif', 'Nonaktif', f.status) + opt('semua', 'Semua status', f.status), f.status !== 'aktif')}
+      </div>
     </div>
+    <div id="fActive"></div>
     <div class="chips" id="fChips"></div>
     <div id="stuList"></div>`;
   const g = $('goPel'); if (g) g.onclick = () => { S.muridView = 'pelajaran'; rerenderMurid(); };
-  $('fQ').oninput = (e) => { f.q = e.target.value; drawStudentList(); };
-  $('fGuru').onchange = (e) => { f.guru = e.target.value; drawStudentList(); };
+  $('fQ').oninput = (e) => { f.q = e.target.value; e.target.closest('.search').classList.toggle('on', !!f.q.trim()); drawStudentList(); };
+  // Filter diganti → warna lain + goyang sebentar
+  const markOn = (e, on) => { const el = e.target.closest('.fsel'); el.classList.toggle('on', on); el.classList.remove('wiggle'); void el.offsetWidth; if (on) el.classList.add('wiggle'); };
+  $('fGuru').onchange = (e) => { f.guru = e.target.value; markOn(e, !!f.guru); drawStudentList(); };
   // Tombol cepat "Belum punya guru" (sama dengan pilihan di daftar guru)
-  $('fChips').onclick = (e) => { const b = e.target.closest('[data-chip]'); if (!b) return; f.guru = b.dataset.chip === 'none' && f.guru !== 'none' ? 'none' : ''; $('fGuru').value = f.guru; S.sel.clear(); drawStudentList(); };
-  $('fSubj').onchange = (e) => { f.subj = e.target.value; drawStudentList(); };
-  $('fStat').onchange = (e) => { f.status = e.target.value; drawStudentList(); };
+  $('fChips').onclick = (e) => { const b = e.target.closest('[data-chip]'); if (!b) return; f.guru = b.dataset.chip === 'none' && f.guru !== 'none' ? 'none' : ''; $('fGuru').value = f.guru; $('fGuru').closest('.fsel').classList.toggle('on', !!f.guru); S.sel.clear(); drawStudentList(); };
+  $('fSubj').onchange = (e) => { f.subj = e.target.value; markOn(e, !!f.subj); drawStudentList(); };
+  $('fStat').onchange = (e) => { f.status = e.target.value; markOn(e, f.status !== 'aktif'); drawStudentList(); };
   $('addStu').onclick = () => openStudentForm(null);
   $('impV1').onclick = openImportV1;
   drawStudentList();
@@ -993,6 +1006,18 @@ function filteredStudents() {
 function drawStudentList() {
   const box = $('stuList'); if (!box) return;
   const list = filteredStudents();
+  // Filter tidak di posisi bawaan → beri tanda mencolok + tombol kembalikan, supaya tidak kaget "siswanya hilang"
+  const fa = $('fActive');
+  if (fa) {
+    const F0 = S.filt, parts = [];
+    if (F0.q.trim()) parts.push('pencarian "' + esc(F0.q.trim()) + '"');
+    if (F0.guru) parts.push(F0.guru === 'none' ? 'belum punya guru' : 'guru ' + esc((mitraOf(F0.guru) || {}).name || ''));
+    if (F0.subj) parts.push('pelajaran ' + esc((subjOf(F0.subj) || {}).name || ''));
+    if (F0.status !== 'aktif') parts.push(F0.status === 'nonaktif' ? 'siswa nonaktif' : 'semua status');
+    const hidden = S.data.students.filter(st => st.active).length - list.filter(st => st.active).length;
+    fa.innerHTML = parts.length ? `<div class="f-active">${I('sliders', 'sm')}<div class="grow"><b>Filter aktif:</b> ${parts.join(' · ')}${hidden > 0 ? ` <span class="f-hid">— ${hidden} siswa aktif tidak ditampilkan</span>` : ''}</div><button class="f-reset" id="fReset">${I('undo', 'sm')} Tampilkan semua</button></div>` : '';
+    const rb = $('fReset'); if (rb) rb.onclick = () => { Object.assign(S.filt, { q: '', guru: '', subj: '', status: 'aktif' }); S.sel.clear(); rerenderMurid(); };
+  }
   const ch = $('fChips');
   if (ch) {
     const nNo = S.data.students.filter(st => st.active && (st.classes || []).some(c => !mitraOf(c.mitraUid))).length;
@@ -1008,14 +1033,15 @@ function drawStudentList() {
   }
   const row = st => {
     const cl = st.classes || [];
-    const kelas = cl.map(c => { const sj = subjOf(c.subjectId); return `<div class="cl-line"><b>${esc(sj ? sj.name : '—')}</b> · ${guruLabel(c.mitraUid)}</div>`; }).join('');
-    const jadwal = cl.map(c => `<div class="cl-line">${esc((c.schedule || []).slice().sort(byDayTime).map(slotTxt).join(', ') || '—')}</div>`).join('');
-    const tarif = cl.map(c => `<div class="cl-line">${esc(rupiah(rateOf(c)))}${c.rate != null ? ' <span class="pill pill-amber">KHUSUS</span>' : ''}</div>`).join('');
+    const kelas = cl.map(c => { const sj = subjOf(c.subjectId); return `<div class="cl-line"><span class="t-subj">${esc(sj ? sj.name : '—')}</span><span class="t-guru${mitraOf(c.mitraUid) ? '' : ' none'}">${guruLabel(c.mitraUid)}</span></div>`; }).join('');
+    const jadwal = cl.map(c => `<div class="cl-line t-jd">${I('clock', 'sm')}<span>${esc((c.schedule || []).slice().sort(byDayTime).map(slotTxt).join(', ') || '—')}</span></div>`).join('');
+    const tarif = cl.map(c => `<div class="cl-line t-rp">${esc(rupiah(rateOf(c)))}${c.rate != null ? ' <span class="pill pill-amber">KHUSUS</span>' : ''}</div>`).join('');
+    const first = cl.length ? subjOf(cl[0].subjectId) : null;
     return `<tr data-stu="${esc(st.id)}" class="${st.active ? '' : 'is-off'}${S.sel.has(st.id) ? ' is-sel' : ''}">
-      <td class="td-chk"><input type="checkbox" data-sel="${esc(st.id)}" ${S.sel.has(st.id) ? 'checked' : ''} aria-label="Pilih ${esc(st.name)}"/></td>
-      <td><div class="t-name">${esc(st.name)}</div><div class="t-meta">${esc(st.parentName || '')}</div></td>
+      <td class="td-chk"><label class="stu-chk tbl-chk"><input type="checkbox" data-sel="${esc(st.id)}" ${S.sel.has(st.id) ? 'checked' : ''} aria-label="Pilih ${esc(st.name)}"/><span class="chk-box">${I('check', 'sm')}</span></label></td>
+      <td><div class="t-who"><span class="t-av">${subjectIcon(first ? first.name : '')}</span><div style="min-width:0"><div class="t-name">${esc(st.name)}</div><div class="t-meta">${esc(st.parentName || '')}</div></div></div></td>
       <td>${kelas || '—'}</td><td>${jadwal || '—'}</td><td>${tarif || '—'}</td>
-      <td>${st.phone ? esc(st.phone) : '<span class="t-meta">—</span>'}</td>
+      <td>${st.phone ? `<span class="t-ph">${I('phone', 'sm')} ${esc(st.phone)}</span>` : '<span class="t-meta">—</span>'}</td>
       <td>${st.active ? '<span class="pill pill-green">AKTIF</span>' : '<span class="pill pill-grey">NONAKTIF</span>'}</td>
       <td class="td-act"><button class="mini" data-edit="${esc(st.id)}">${I('edit', 'sm')} Ubah</button></td></tr>`;
   };
@@ -1043,10 +1069,10 @@ function drawStudentList() {
   const selBar = `<div class="sel-bar">
       <label class="sel-all"><input type="checkbox" id="selAll" ${allOn ? 'checked' : ''}/><span class="chk-box">${I('check', 'sm')}</span> Centang semua (${list.length})</label>
       <span class="t-meta">${nSel ? `<b style="color:var(--text)">${nSel} siswa dipilih</b>` : 'Centang siswa untuk menugaskan ke satu guru sekaligus'}</span></div>`;
-  const bulk = nSel ? `<div class="bulk-bar"><b>${nSel} siswa dipilih</b>
-      <select id="bkGuru"><option value="">Tugaskan ${fSubj ? 'kelas ' + esc(fSubj.name) + ' ' : ''}ke guru…</option>${S.data.mitras.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('')}<option value="__none">Belum ditentukan</option></select>
-      <button class="btn btn-primary tb-btn" id="bkGo">${I('check', 'sm')} Terapkan</button>
-      <button class="btn btn-ghost tb-btn" id="bkNo">Batal pilih</button>
+  const bulk = nSel ? `<div class="bulk-bar"><div class="bk-count"><span class="bk-n">${nSel}</span><span>siswa<br>dipilih</span></div>
+      ${fsel('bkGuru', 'user-plus', 'Tugaskan ' + (fSubj ? 'kelas ' + fSubj.name + ' ' : '') + 'ke guru', `<option value="">Pilih guru…</option>${S.data.mitras.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('')}<option value="__none">Belum ditentukan</option>`)}
+      <button class="btn btn-shine tb-btn bk-go" id="bkGo">${I('check', 'sm')} Terapkan</button>
+      <button class="btn btn-ghost tb-btn btn-raised" id="bkNo">Batal pilih</button>
       ${fSubj || fNone ? `<div class="t-meta" style="flex-basis:100%;white-space:normal">Hanya kelas ${fSubj ? '<b>' + esc(fSubj.name) + '</b> ' : ''}${fNone ? 'yang <b>belum punya guru</b> ' : ''}yang ditugaskan; kelas lain siswa itu tetap pada gurunya.</div>` : ''}</div>` : '';
   const wide = window.matchMedia('(min-width: 900px)').matches;
   box.innerHTML = selBar + bulk + (wide ? `<div class="tbl-wrap"><table class="tbl">
@@ -1058,7 +1084,7 @@ function drawStudentList() {
     openStudentForm(S.data.students.find(x => x.id === el.dataset.stu));
   });
   box.querySelectorAll('[data-sel]').forEach(c => c.onchange = () => { c.checked ? S.sel.add(c.dataset.sel) : S.sel.delete(c.dataset.sel); drawStudentList(); });
-  box.querySelectorAll('.td-chk').forEach(td => td.onclick = (e) => { if (e.target.tagName !== 'INPUT') { const c = td.querySelector('input'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); } });
+  box.querySelectorAll('.td-chk').forEach(td => td.onclick = (e) => { if (e.target.closest('label')) return; const c = td.querySelector('input'); c.checked = !c.checked; c.dispatchEvent(new Event('change')); });
   $('selAll').onchange = (e) => { list.forEach(x => e.target.checked ? S.sel.add(x.id) : S.sel.delete(x.id)); drawStudentList(); };
   if (nSel) {
     $('bkNo').onclick = () => { S.sel.clear(); drawStudentList(); };
@@ -1094,19 +1120,20 @@ function openStudentForm(st) {
   F = st ? JSON.parse(JSON.stringify(st)) : { id: null, name: '', parentName: '', phone: '', note: '', active: true, classes: [] };
   if (!F.classes.length) F.classes.push(blankClass());
   const ov = openModal(`
-    <div class="modal-t">${I(st ? 'edit' : 'user-plus')} ${st ? 'Ubah Siswa' : 'Tambah Siswa'}</div>
-    <div class="modal-sub">No HP ortu & tarif hanya terlihat oleh Guru Admin. Guru Mitra hanya melihat nama murid, pelajaran & jadwalnya.</div>
+    <div class="sf-head"><span class="sf-ic">${I(st ? 'edit' : 'user-plus')}</span><div class="grow"><div class="modal-t" style="margin:0">${st ? 'Ubah Siswa' : 'Tambah Siswa'}</div>
+      <div class="modal-sub" style="margin:2px 0 0">No HP ortu & tarif hanya terlihat oleh Guru Admin. Guru Mitra hanya melihat nama murid, pelajaran & jadwalnya.</div></div></div>
     <div id="sfMsg"></div>
+    <div class="sf-sec"><div class="sf-sec-t">${I('user', 'sm')} Data siswa</div>
     <div class="grid2">
       <div class="field"><label>Nama murid</label><input id="sfName" maxlength="80" value="${esc(F.name)}" placeholder="cth: Brilian"/></div>
       <div class="field"><label>Nama ortu (opsional)</label><input id="sfParent" maxlength="80" value="${esc(F.parentName || '')}" placeholder="cth: Bu Rina"/></div>
       <div class="field"><label>No HP / WA ortu</label><input id="sfPhone" type="tel" inputmode="tel" maxlength="20" value="${esc(F.phone || '')}" placeholder="cth: 0812xxxx"/></div>
       <div class="field"><label>Status</label><select id="sfActive"><option value="1" ${F.active ? 'selected' : ''}>Aktif</option><option value="0" ${F.active ? '' : 'selected'}>Nonaktif (berhenti les)</option></select></div>
     </div>
-    <div class="field"><label>Catatan (opsional)</label><input id="sfNote" maxlength="200" value="${esc(F.note || '')}"/></div>
-    <div class="card-t" style="margin-top:6px">${I('book-open', 'sm')} Kelas yang diikuti</div>
+    <div class="field" style="margin-bottom:0"><label>Catatan (opsional)</label><input id="sfNote" maxlength="200" value="${esc(F.note || '')}"/></div></div>
+    <div class="sf-sec-t sf-sec-t2">${I('calendar', 'sm')} Kelas rutin yang diikuti</div>
     <div id="sfClasses"></div>
-    <button class="btn btn-ghost" id="sfAddClass" style="margin-bottom:14px">${I('plus', 'sm')} Tambah Kelas (pelajaran lain)</button>
+    <button class="btn sf-add-class" id="sfAddClass">${I('plus', 'sm')} Tambah Kelas (pelajaran lain)</button>
     <div class="btn-row">
       ${st ? `<button class="btn btn-danger" id="sfDel" style="flex:0 0 auto;width:auto;padding:0 16px">${I('trash', 'sm')}</button>` : ''}
       <button class="btn btn-ghost" id="sfNo">Batal</button><button class="btn btn-primary" id="sfGo">${I('check', 'sm')} Simpan</button>
@@ -1135,16 +1162,16 @@ function drawClasses() {
         <button class="icon-btn" data-delslot="${ci}:${si}" title="Hapus hari ini" ${c.schedule.length < 2 ? 'disabled' : ''}>${I('x', 'sm')}</button>
       </div>`).join('');
     return `<div class="class-card">
-      <div class="row" style="margin-bottom:10px"><div class="grow card-t" style="margin:0">Kelas ${ci + 1}</div>
+      <div class="row" style="margin-bottom:12px"><span class="cc-n">${ci + 1}</span><div class="grow"><div class="cc-t">Kelas rutin ${ci + 1}</div><div class="cc-s">${esc(sj ? sj.name : 'Pilih pelajaran')}${c.schedule.length ? ' · ' + c.schedule.length + ' hari/minggu' : ''}</div></div>
         ${F.classes.length > 1 ? `<button class="mini mini-red" data-delclass="${ci}" style="flex:0 0 auto">${I('trash', 'sm')} Hapus kelas</button>` : ''}</div>
       <div class="grid3">
         <div class="field"><label>Pelajaran</label><select data-c="${ci}" data-k="subjectId">${subjOpts || '<option value="">(belum ada pelajaran)</option>'}</select></div>
         <div class="field"><label>Guru</label><select data-c="${ci}" data-k="mitraUid">${guruOpts}</select></div>
         <div class="field"><label>Tarif khusus (opsional)</label><input type="number" inputmode="numeric" min="0" step="1000" data-c="${ci}" data-k="rate" value="${c.rate != null ? esc(c.rate) : ''}" placeholder="Standar ${esc(rupiah(sj ? sj.rate : 0))}"/></div>
       </div>
-      <label class="mini-label">Jadwal rutin</label>
-      ${slots}
-      <button class="link-btn" data-addslot="${ci}">${I('plus', 'sm')} Tambah hari</button>
+      <label class="mini-label">${I('clock', 'sm')} Jadwal rutin tiap minggu</label>
+      <div class="slot-box">${slots}</div>
+      <div class="add-day-wrap"><button class="add-day-btn" data-addslot="${ci}">${I('plus', 'sm')} Tambah hari</button></div>
     </div>`;
   }).join('');
   box.querySelectorAll('[data-delclass]').forEach(b => b.onclick = () => { readForm(); F.classes.splice(+b.dataset.delclass, 1); drawClasses(); });

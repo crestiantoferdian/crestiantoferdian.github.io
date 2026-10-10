@@ -74,7 +74,7 @@ const V1N={'2026-08-03_Andi':{progress:'Tangga nada C mayor',prSiswa:'Latihan FÃ
   const Fr=await dev({uid:'rwFeran',email:'feran@gmail.com',displayName:'Feran'});
   await Fr.goto(URL+'?kode='+code); await sleep(2500); await Fr.click('#jJoin'); await sleep(3500);
   await A.click('[data-tab=murid]'); await sleep(1500);
-  await A.check('tr:has-text("Andi") [data-sel]'); await sleep(300);
+  await A.click('tr:has-text("Andi") .tbl-chk'); await sleep(300);
   await A.selectOption('#bkGuru',{label:'Feran'}); await A.click('#bkGo'); await sleep(4500);
   att=await attOf(ORG);
   ok(att.filter(a=>a.studentName==='Andi').every(a=>a.teachUid==='rwFeran'),'riwayat Andi ditandai untuk guru kelas sekarang (Feran)');
