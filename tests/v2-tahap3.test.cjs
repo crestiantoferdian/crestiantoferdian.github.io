@@ -104,6 +104,7 @@ const wib=new Date(Date.now()+7*3600e3); const TODAY=DAYS[wib.getUTCDay()]; cons
   const stripOf=()=>A.evaluate(()=>[...document.querySelectorAll('#dayBar [data-date]')].map(b=>b.dataset.date));
   const dates=await A.evaluate(()=>{const f=d=>{const x=new Date();x.setDate(x.getDate()+d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');};return {m7:f(-7),p7:f(7),z:f(0)};});
   const sh=(d)=>d===-7?dates.m7:d===7?dates.p7:dates.z;
+  ok(await A.evaluate(()=>{const b=[...document.getElementById('dayBar').children];return b[0].id==='abCalBtnL'&&b[b.length-1].id==='abCalBtn'&&!!document.getElementById('abCalTop');}),'Admin: tombol Kalender di kedua ujung strip + pojok kanan atas (seperti V1)');
   let strip=await stripOf();
   ok(strip.length===15&&strip[0]===sh(-7)&&strip[14]===sh(7),'strip tanggal: 7 hari lalu s/d 7 hari ke depan ('+strip[0]+' … '+strip[14]+')');
   await A.click('#dayBar [data-date="'+sh(-7)+'"]'); await sleep(1200);
@@ -140,6 +141,8 @@ const wib=new Date(Date.now()+7*3600e3); const TODAY=DAYS[wib.getUTCDay()]; cons
   ok(await M.evaluate(()=>!document.documentElement.getAttribute('data-theme')&&localStorage.getItem('llk_theme')==='latte'),'ganti tema dari Lainnya');
   await M.click('[data-tab=absensi]'); await sleep(400); await M.screenshot({path:OUT+'t3_mitra_absensi_latte.png'});
   // Track & Kalender ala V1 di aplikasi Guru Mitra
+  ok(await M.evaluate(()=>{const b=[...document.getElementById('dayBar').children];return b[0].id==='calPillL'&&b[b.length-1].id==='calPill'&&!!document.getElementById('calTop')&&document.querySelectorAll('#dayBar [data-date]').length===15;}),'Guru Mitra: Kalender di kedua ujung strip + pojok kanan atas, strip 15 hari');
+  await M.screenshot({path:OUT+'t3_guru_strip.png'});
   await M.click('#calPill'); await sleep(600);
   ok(M.url().includes('guru.html')&&await M.evaluate(()=>!!document.querySelector('.cal-grid')&&!!document.querySelector('.date-detail')),'Absensi → tombol Kalender membuka kalender bulanan + detail hari ini');
   ok(await M.evaluate(()=>document.querySelectorAll('.cal-day.has-data').length>=1),'kalender: tanggal yang ada catatan diberi titik');

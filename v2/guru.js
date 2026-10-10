@@ -208,11 +208,18 @@ function dayBarHtml() {
   }
   const lo = new Date(base), hi = new Date(base); lo.setDate(lo.getDate() - 7); hi.setDate(hi.getDate() + 7);
   const out = sel < dk(lo) || sel > dk(hi), sd = new Date(sel + 'T00:00:00');
-  pills += `<button class="day-pill cal-pill${out ? ' active' : ''}" id="calPill" aria-label="Buka Kalender">${I('calendar-day')}<span>${out ? sd.getDate() + ' ' + MONTH_SHORT_ID[sd.getMonth()] : 'Kalender'}</span></button>`;
-  return '<div class="day-scroll" id="dayBar">' + pills + '</div>';
+  // Seperti LLK V1: tombol Kalender di kedua ujung strip
+  const cal = (id) => `<button class="day-pill cal-pill${out ? ' active' : ''}" id="${id}" data-calpill aria-label="Buka Kalender">${I('calendar-day')}<span>${out ? sd.getDate() + ' ' + MONTH_SHORT_ID[sd.getMonth()] : 'Kalender'}</span></button>`;
+  return '<div class="day-scroll" id="dayBar">' + cal('calPillL') + pills + cal('calPill') + '</div>';
 }
 function centerDayBar() {
-  setTimeout(() => { const bar = $('dayBar'), a = bar && bar.querySelector('.day-pill.active'); if (bar && a) bar.scrollLeft = a.offsetLeft - bar.offsetWidth / 2 + a.offsetWidth / 2; }, 50);
+  setTimeout(() => {
+    const bar = $('dayBar'); if (!bar) return;
+    // Tanggal di luar strip → tampilkan tombol Kalender di ujung yang sesuai
+    const a = bar.querySelector('.date-pill.active') || $((G.date || todayStr()) < todayStr() ? 'calPillL' : 'calPill'); if (!a) return;
+    const br = bar.getBoundingClientRect(), ar = a.getBoundingClientRect();
+    bar.scrollLeft += (ar.left - br.left) - bar.clientWidth / 2 + ar.width / 2;
+  }, 50);
 }
 // Langganan lembaga habis → absensi dikunci (aturan server juga menolak)
 function orgActive() {
@@ -227,7 +234,7 @@ function renderAbsensi() {
   const cards = list.length ? list.map(s => cardHtml(s, key, isToday, isPast)).join('')
     : `<div class="empty">${ill(isPast ? 'calendar' : 'notebook')}<div class="empty-t">Tidak ada jadwal ${isPast ? 'di tanggal ini' : 'hari ' + dayNameOf(key)}</div><div class="empty-d">Pilih tanggal lain di atas. Jadwal murid diatur oleh Guru Admin.</div></div>`;
   $('mainContent').innerHTML =
-    `<div class="page-title-area"><div class="page-title">Absensi Harian</div><div class="page-sub">Tandai siswa yang hadir. Catat progress di setiap pertemuan.</div></div>`
+    `<div class="page-title-area" style="position:relative"><button class="llk-icon-btn" id="calTop" data-calpill aria-label="Buka kalender" title="Kalender" style="position:absolute;top:18px;right:20px">${I('calendar-day')}</button><div class="page-title">Absensi Harian</div><div class="page-sub">Tandai siswa yang hadir. Catat progress di setiap pertemuan.</div></div>`
     + (orgActive() ? '' : `<div id="subOff" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 12px;padding:12px 14px;border-radius:14px;font-size:0.86rem;line-height:1.5;background:var(--alpa-bg);color:var(--alpa-text)">${I('lock')}<div><b>Langganan ${esc(G.org.name)} sudah berakhir.</b> Absensi dikunci sementara — minta Guru Admin memperpanjang. Data tetap aman.</div></div>`)
     + dayBarHtml()
     + `<div class="stats-row"${offC ? ' style="grid-template-columns:repeat(5,1fr)"' : ''}>
@@ -245,7 +252,7 @@ function renderAbsensi() {
       ${cards}
     </div>`;
   $('mainContent').querySelectorAll('[data-date]').forEach(b => b.onclick = () => { G.date = b.dataset.date === today ? '' : b.dataset.date; renderAbsensi(); });
-  const cb = $('calPill'); if (cb) cb.onclick = () => { G.trackMode = 'tanggal'; const d = new Date(key + 'T00:00:00'); G.calY = d.getFullYear(); G.calM = d.getMonth(); G.calSel = key; setTab('track'); };
+  document.querySelectorAll('[data-calpill]').forEach(cb => cb.onclick = () => { G.trackMode = 'tanggal'; const d = new Date(key + 'T00:00:00'); G.calY = d.getFullYear(); G.calM = d.getMonth(); G.calSel = key; setTab('track'); });
   bindSessionCards($('mainContent'), key);
   centerDayBar();
 }
