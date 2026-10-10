@@ -214,6 +214,7 @@ async function login(pendingAction) {
   provider.setCustomParameters({ prompt: 'select_account' }); // selalu tampilkan pilihan akun
   try {
     const res = await signInWithPopup(auth, provider);
+    S.freshLogin = true;
     return res.user;
   } catch (e) {
     if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') { toast('Login dibatalkan'); return null; }
@@ -304,17 +305,54 @@ function renderChooser() {
   const lo = $('lnkLogout'); if (lo) lo.onclick = (e) => { e.preventDefault(); logout(); };
 }
 
+// Browser yang sudah login (mis. V1 dengan akun asli) tidak menampilkan pilihan akun lagi.
+// Sebelum membuat lembaga / bergabung, pastikan akunnya benar supaya data asli & percobaan tidak tertukar.
+function confirmAccount(kind) {
+  return new Promise((resolve) => {
+    const email = (S.user && S.user.email) || '-';
+    openModal(`
+      <div class="modal-t">${I('alert')} Pakai akun ini?</div>
+      <div class="modal-sub">${kind === 'lembaga' ? 'Lembaga baru akan didaftarkan' : 'Kamu akan bergabung sebagai Guru Mitra'} dengan akun Google:</div>
+      <div style="font-weight:700;font-size:1.05rem;word-break:break-all;padding:10px 12px;border:1.5px solid var(--line,#e4d9c9);border-radius:12px;margin:6px 0 14px" id="caEmail">${esc(email)}</div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="caSwitch">Ganti akun</button>
+        <button class="btn btn-primary" id="caYes">Ya, lanjut</button>
+      </div>`);
+    $('caYes').onclick = () => { closeModal(); resolve(true); };
+    $('caSwitch').onclick = async () => {
+      closeModal();
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      try {
+        const res = await signInWithPopup(auth, provider);
+        S.user = res.user; S.profile = S.org = S.member = null; S.freshLogin = true;
+        resolve('switched');
+      } catch (e) {
+        if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
+          try { sessionStorage.setItem(PENDING_KEY, kind); } catch (x) {}
+          await signOut(auth).catch(() => {});
+          await signInWithRedirect(auth, provider);
+        } else toast('Ganti akun dibatalkan');
+        resolve(false);
+      }
+    };
+  });
+}
 async function startLembaga() {
+  const wasLogged = !!S.user && !S.freshLogin;
   const u = await login('lembaga'); if (!u) return;
   S.user = u; await loadProfile();
   if (await loadMembership()) return enterShell();
+  if ((!TEST || TEST.askAccount) && wasLogged) { const ok = await confirmAccount('lembaga'); if (ok === 'switched') return startLembaga(); if (!ok) return; }
   setChoice('lembaga');
   renderCreateOrg();
 }
 async function startMitra(prefillCode) {
+  const wasLogged = !!S.user && !S.freshLogin;
   const u = await login('mitra'); if (!u) return;
   S.user = u; await loadProfile();
   if (await loadMembership()) return enterShell();
+  if ((!TEST || TEST.askAccount) && wasLogged) { const ok = await confirmAccount('mitra'); if (ok === 'switched') return startMitra(prefillCode); if (!ok) return; }
   setChoice('mitra');
   renderJoin(prefillCode || sessionStorage.getItem(CODE_KEY) || '');
 }
@@ -2687,6 +2725,7 @@ async function afterAuth(user) {
   const codeParam = url.searchParams.get('kode');
   if (codeParam) { try { sessionStorage.setItem(CODE_KEY, codeParam); } catch (e) {} history.replaceState(null, '', url.pathname); }
   let pending = null; try { pending = sessionStorage.getItem(PENDING_KEY); sessionStorage.removeItem(PENDING_KEY); } catch (e) {}
+  if (pending && user) S.freshLogin = true; // baru saja login lewat redirect → akun sudah dipilih
   // Peran sudah dipilih di halaman awal leslesanku.com (?mulai=lembaga|mitra)
   const mulai = url.searchParams.get('mulai');
   if (mulai) history.replaceState(null, '', url.pathname);

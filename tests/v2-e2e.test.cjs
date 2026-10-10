@@ -5,13 +5,13 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'  ✅ ':'  �
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
   const b=await chromium.launch({executablePath:process.env.CHROME_PATH||undefined});
-  async function dev(user,{w=390,h=844}={}){
+  async function dev(user,{w=390,h=844,ask=false}={}){
     const ctx=await b.newContext({viewport:{width:w,height:h},serviceWorkers:'block'});
     await ctx.route('**/*',r=>{const u=r.request().url();
       if(u.startsWith('http://localhost')||u.startsWith('http://127.0.0.1')) return r.continue();
       const m=u.match(/firebasejs\/10\.14\.1\/(firebase-[a-z]+\.js)$/); if(m) return r.fulfill({contentType:'text/javascript',body:fs.readFileSync(FB+m[1],'utf8')});
       return r.abort();});
-    await ctx.addInitScript(u=>{ window.__LLK_TEST__={host:'127.0.0.1',port:8089,user:u}; window.__opened=[]; window.open=(x)=>{window.__opened.push(x);return null;}; },user);
+    await ctx.addInitScript(u=>{ window.__LLK_TEST__={host:'127.0.0.1',port:8089,user:u.user,askAccount:u.ask}; window.__opened=[]; window.open=(x)=>{window.__opened.push(x);return null;}; },{user,ask});
     const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); p.on('dialog',d=>d.accept());
     return p;
   }
@@ -84,6 +84,17 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   for(let i=0;i<2;i++){ await A.click('#addMitra'); await A.fill('#amName','Guru '+i); await A.fill('#amHonor','20000'); await A.click('#amGo'); await sleep(1300); await A.click('#icClose'); await sleep(900); }
   ok((await txt(A)).includes('2 / 2') && await A.evaluate(()=>document.getElementById('addMitra').disabled) && !!(await A.$('#addSlot')),'2/2 → Tambah Guru Mitra nonaktif, muncul tombol Tambah Slot Guru');
 
+  console.log('\n[Konfirmasi akun sebelum daftar lembaga / gabung]');
+  const K=await dev({uid:'asliK',email:'akun.asli@gmail.com'},{ask:true});
+  await K.goto(URL); await K.waitForSelector('#rcLembaga',{timeout:15000}); await K.click('#rcLembaga'); await sleep(800);
+  ok(await K.evaluate(()=>!!document.getElementById('caEmail')&&document.getElementById('caEmail').textContent.includes('akun.asli@gmail.com')&&!document.getElementById('coName')),'browser sudah login → ditanya dulu "Pakai akun ini?" dengan email yang tampil, form lembaga belum muncul');
+  await K.screenshot({path:OUT+'v2_konfirmasi_akun.png'});
+  await K.click('#caYes'); await sleep(600);
+  ok(await K.evaluate(()=>!!document.getElementById('coName')),'"Ya, lanjut" → baru muncul form daftar lembaga');
+  const K2=await dev({uid:'asliK2',email:'akun.lain@gmail.com'},{ask:true});
+  await K2.goto(URL); await K2.waitForSelector('#rcMitra',{timeout:15000}); await K2.click('#rcMitra'); await sleep(800);
+  ok(await K2.evaluate(()=>!!document.getElementById('caEmail')),'Guru Mitra juga ditanya akunnya sebelum bergabung');
+
   console.log('\n[Tampilan laptop]');
   const D=await dev({uid:'adminA',email:'admin@les.com'},{w:1280,h:800});
   await D.goto(URL); await sleep(2500);
@@ -92,6 +103,6 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   await D.screenshot({path:OUT+'v2_desktop.png'});
   await A.click('[data-tab=lainnya]'); await sleep(300); await A.screenshot({path:OUT+'v2_admin_lainnya.png'});
 
-  const errs=[A,M,X,D].flatMap(p=>p.errs); ok(errs.length===0,'tidak ada error JavaScript'+(errs.length?': '+errs.join(' | '):''));
+  const errs=[A,M,X,D,K,K2].flatMap(p=>p.errs); ok(errs.length===0,'tidak ada error JavaScript'+(errs.length?': '+errs.join(' | '):''));
   console.log(`\nHASIL: ${pass} lulus, ${fail} gagal`); await b.close(); process.exit(fail?1:0);
 })().catch(e=>{console.error(e);process.exit(2);});
