@@ -1055,6 +1055,31 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
     linear-gradient(90deg,transparent 0,transparent 27px,rgba(168,55,42,0.22) 27px,rgba(168,55,42,0.22) 28px,transparent 28px),
     repeating-linear-gradient(180deg,transparent 0,transparent 31px,rgba(111,100,89,0.10) 31px,rgba(111,100,89,0.10) 32px);
 }
+/* Halaman harga/paket: latar pink mengilap, kartu kaca, tombol timbul & berkilau (tampilan saja) */
+.llk-pricing-bg{
+  background-color:#ffe3ea;
+  background-image:radial-gradient(ellipse at 20% 0%,rgba(255,255,255,0.9),rgba(255,255,255,0) 55%),
+    radial-gradient(ellipse at 100% 100%,rgba(255,190,210,0.7),rgba(255,190,210,0) 60%),
+    linear-gradient(160deg,#fff4f6 0%,#ffe1e8 40%,#ffd0dc 75%,#ffe6ec 100%);
+  background-attachment:fixed;
+}
+.llk-pricing-bg .llk-plan-row>div{background:rgba(255,255,255,0.62)!important;border-color:rgba(214,92,122,0.28)!important;
+  box-shadow:0 10px 26px rgba(150,40,70,0.14),inset 0 1px 0 rgba(255,255,255,0.95)!important;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.llk-pricing-bg .llk-plan-btn{position:relative;overflow:hidden;
+  box-shadow:0 5px 0 rgba(120,30,60,0.28),0 10px 18px rgba(120,30,60,0.18),inset 0 1px 0 rgba(255,255,255,0.6)!important;
+  transform:translateY(-2px)}
+.llk-pricing-bg .llk-plan-btn.dark{background:linear-gradient(180deg,#4a3d36 0%,#2b2420 60%,#1d1714 100%)!important;
+  box-shadow:0 5px 0 #0e0b09,0 12px 20px rgba(43,36,32,0.35),inset 0 1px 0 rgba(255,255,255,0.25)!important}
+.llk-pricing-bg .llk-plan-btn:not(.dark){background:linear-gradient(180deg,#ffffff 0%,#fff3f6 100%)!important}
+.llk-pricing-bg .llk-plan-btn::before{content:"";position:absolute;inset:0 0 50% 0;background:linear-gradient(180deg,rgba(255,255,255,0.35),rgba(255,255,255,0));pointer-events:none}
+.llk-pricing-bg .llk-plan-btn::after{content:"";position:absolute;top:-30%;bottom:-30%;left:-60%;width:40%;transform:skewX(-20deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.7),transparent);animation:llkBtnShine 2.8s ease-in-out infinite;pointer-events:none}
+.llk-pricing-bg .llk-plan-btn:active{transform:translateY(3px) scale(0.99)!important;box-shadow:0 1px 0 rgba(120,30,60,0.28),0 4px 8px rgba(120,30,60,0.15)!important}
+@keyframes llkBtnShine{0%,55%{left:-60%}85%,100%{left:130%}}
+:root[data-theme="dark"] .llk-pricing-bg{background-color:#3a1f28;background-image:radial-gradient(ellipse at 20% 0%,rgba(255,255,255,0.08),rgba(255,255,255,0) 55%),linear-gradient(160deg,#3a1f28,#4a2532 50%,#3b1d27)}
+:root[data-theme="dark"] .llk-pricing-bg .llk-plan-row>div{background:rgba(255,255,255,0.06)!important;border-color:rgba(255,255,255,0.12)!important}
+:root[data-theme="dark"] .llk-pricing-bg .llk-plan-btn:not(.dark){background:linear-gradient(180deg,#3a2e33,#2a2125)!important}
+@media (prefers-reduced-motion:reduce){ .llk-pricing-bg .llk-plan-btn::after{animation:none;display:none} }
 @media (min-width:900px){
   .llk-plan-row{display:flex;justify-content:center;align-items:stretch;gap:16px;max-width:1080px;margin:0 auto 8px}
   .llk-plan-row>div{flex:1 1 0;max-width:340px!important;margin:0!important;display:flex;flex-direction:column}
@@ -1220,6 +1245,22 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
   50%{ transform:scale(1.06); opacity:.8; }
 }
 @keyframes llkRingSpin{ to{ transform:rotate(360deg); } }
+#llkPayLoad{position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;
+  background:radial-gradient(ellipse at 20% 0%,rgba(255,255,255,0.95),rgba(255,255,255,0) 55%),linear-gradient(160deg,#fff4f6 0%,#ffe1e8 45%,#ffd0dc 100%);
+  font-family:inherit;color:#5a2333;opacity:0;transition:opacity .25s ease;touch-action:none}
+#llkPayLoad.show{opacity:1}
+#llkPayLoad .pl-ring{position:relative;width:86px;height:86px}
+#llkPayLoad .pl-ring::before{content:"";position:absolute;inset:0;border-radius:50%;border:4px solid rgba(214,92,122,0.18);border-top-color:#c2185b;border-right-color:#e57399;animation:llkPlSpin .9s linear infinite}
+#llkPayLoad .pl-ring img{position:absolute;inset:16px;width:54px;height:54px;object-fit:contain;animation:llkPlPulse 1.4s ease-in-out infinite}
+#llkPayLoad .pl-t{font-weight:800;font-size:1.05rem}
+#llkPayLoad .pl-d{font-size:0.84rem;color:#7a4a56;max-width:300px;line-height:1.5}
+#llkPayLoad .pl-bar{width:200px;height:6px;border-radius:3px;background:rgba(214,92,122,0.18);overflow:hidden}
+#llkPayLoad .pl-bar span{display:block;height:100%;width:40%;border-radius:3px;background:linear-gradient(90deg,#e57399,#c2185b);animation:llkPlBar 1.2s ease-in-out infinite}
+#llkPayLoad .pl-safe{display:flex;align-items:center;gap:6px;font-size:0.76rem;font-weight:700;color:#1f7a45;background:rgba(255,255,255,0.7);border-radius:999px;padding:5px 12px}
+@keyframes llkPlSpin{to{transform:rotate(360deg)}}
+@keyframes llkPlPulse{0%,100%{transform:scale(0.92)}50%{transform:scale(1.05)}}
+@keyframes llkPlBar{0%{margin-left:-40%}100%{margin-left:100%}}
+
 @keyframes llkFadeUp{ from{ opacity:0; transform:translateY(12px); } to{ opacity:1; transform:translateY(0); } }
 #loginGate{ transition:opacity var(--d3) var(--ease-out); }
 #loginGate.llk-hide{ opacity:0; pointer-events:none; }
@@ -10551,11 +10592,42 @@ function llkEnsureSnap(){
   });
 }
 let _llkPayBusy=false;
+// ── Loading pembayaran: tampil sampai halaman Midtrans benar-benar termuat, + 1 detik ──
+function llkShowPayLoading(){
+  let el=document.getElementById('llkPayLoad');
+  if(!el){
+    el=document.createElement('div'); el.id='llkPayLoad';
+    el.innerHTML='<div class="pl-ring"><img src="logo-llk.png" alt=""/></div><div class="pl-t">Menyiapkan halaman pembayaran…</div>'
+      +'<div class="pl-bar"><span></span></div><div class="pl-d">Mohon tunggu sebentar, jangan tutup aplikasi.</div>'
+      +'<div class="pl-safe">🔒 Pembayaran aman melalui Midtrans</div>';
+    const block=function(e){ e.preventDefault(); e.stopPropagation(); };
+    el.addEventListener('touchmove',block,{passive:false}); el.addEventListener('wheel',block,{passive:false});
+    document.body.appendChild(el);
+  }
+  clearTimeout(el._t); el.style.display='flex'; requestAnimationFrame(function(){ el.classList.add('show'); });
+}
+function llkHidePayLoading(){
+  const el=document.getElementById('llkPayLoad'); if(!el) return;
+  if(el._obs){ el._obs.disconnect(); el._obs=null; }
+  el.classList.remove('show'); clearTimeout(el._t); el._t=setTimeout(function(){ el.style.display='none'; },260);
+}
+// Dipanggil tepat sebelum snap.pay(): tunggu iframe Midtrans selesai dimuat, lalu tahan 1 detik lagi
+function llkHidePayLoadingWhenSnapReady(){
+  const el=document.getElementById('llkPayLoad'); if(!el) return;
+  let done=false;
+  const finish=function(){ if(done) return; done=true; setTimeout(llkHidePayLoading,1000); };
+  const watch=function(f){ if(f._llkW) return; f._llkW=true; f.addEventListener('load',finish,{once:true}); setTimeout(finish,6000); };
+  const scan=function(){ document.querySelectorAll('iframe').forEach(function(f){ if(/midtrans/i.test(f.src||'')||f.id==='snap-midtrans') watch(f); }); };
+  if(el._obs) el._obs.disconnect();
+  el._obs=new MutationObserver(scan); el._obs.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['src']});
+  scan();
+  setTimeout(function(){ if(!done){ done=true; llkHidePayLoading(); } },20000);
+}
 async function mulaiLangganan(plan){
   // Cegah tombol tertekan dua kali (snap.pay kedua ditolak Midtrans: "not allowed in this state")
   if(_llkPayBusy) return;
   _llkPayBusy=true; setTimeout(function(){ _llkPayBusy=false; },4000);
-  showGlobalLoading('Menyiapkan pembayaran…');
+  llkShowPayLoading();
   setPaywallStatus('Menyiapkan pembayaran…');
   try{
     const fn=firebase.functions().httpsCallable('createMidtransTransaction');
@@ -10564,29 +10636,29 @@ async function mulaiLangganan(plan){
       // Jendela Midtrans tidak bisa dimuat → buka halaman pembayaran Midtrans langsung.
       // Setelah bayar, kembali ke aplikasi: langganan dicek otomatis saat paywall tampil
       // (atau tekan "Cek status pembayaran").
-      if(result.data&&result.data.redirectUrl){ hideGlobalLoading(); setPaywallStatus('Membuka halaman pembayaran Midtrans…'); location.href=result.data.redirectUrl; return; }
+      if(result.data&&result.data.redirectUrl){ llkHidePayLoading(); setPaywallStatus('Membuka halaman pembayaran Midtrans…'); location.href=result.data.redirectUrl; return; }
       throw new Error('jendela Midtrans tidak termuat (cek internet)');
     }
     const goRedirect=function(){
       if(!(result.data&&result.data.redirectUrl)) return false;
-      hideGlobalLoading(); setPaywallStatus('Membuka halaman pembayaran Midtrans…');
+      llkHidePayLoading(); setPaywallStatus('Membuka halaman pembayaran Midtrans…');
       location.href=result.data.redirectUrl; return true;
     };
-    waitForSnapThenHideLoading(); // loading TETAP tampil sampai Snap benar-benar muncul
+    llkHidePayLoadingWhenSnapReady(); // loading tetap tampil sampai halaman Midtrans termuat + 1 detik
     const snapCb={
       onSuccess:function(){
-        setTimeout(llkUnlockPageScroll,500);
+        llkHidePayLoading(); setTimeout(llkUnlockPageScroll,500);
         setPaywallStatus('✅ Pembayaran berhasil! Mengaktifkan langganan…');
         toast('✅ Pembayaran berhasil! Invoice sudah dikirim ke email — cek folder Spam kalau belum kelihatan.',5000);
         // Cadangan kalau notifikasi Midtrans ke server terlambat/gagal
         setTimeout(function(){ cekStatusPembayaran(true); },4000);
       },
       onPending:function(){
-        setTimeout(llkUnlockPageScroll,500);
+        llkHidePayLoading(); setTimeout(llkUnlockPageScroll,500);
         setPaywallStatus('⏳ Menunggu konfirmasi pembayaran… Setelah membayar, tekan "Cek status pembayaran" kalau paket belum aktif.');
       },
-      onError:function(){ setTimeout(llkUnlockPageScroll,500); setPaywallStatus('❌ Pembayaran gagal, silakan coba lagi.'); },
-      onClose:function(){ setTimeout(llkUnlockPageScroll,500); setPaywallStatus(''); setTimeout(function(){ cekStatusPembayaran(true); },2000); }
+      onError:function(){ llkHidePayLoading(); setTimeout(llkUnlockPageScroll,500); setPaywallStatus('❌ Pembayaran gagal, silakan coba lagi.'); },
+      onClose:function(){ llkHidePayLoading(); setTimeout(llkUnlockPageScroll,500); setPaywallStatus(''); setTimeout(function(){ cekStatusPembayaran(true); },2000); }
     };
     try{ window.snap.pay(result.data.token, snapCb); }
     catch(e1){
@@ -10598,7 +10670,7 @@ async function mulaiLangganan(plan){
       catch(e2){ if(!goRedirect()) throw e2; }
     }
   }catch(err){
-    hideGlobalLoading();
+    llkHidePayLoading();
     console.error('Gagal membuat transaksi:', err);
     const why=(err&&(err.message||err.code))?' ('+String(err.message||err.code).slice(0,80)+')':'';
     setPaywallStatus('⚠️ Gagal memulai pembayaran, coba lagi.'+why);

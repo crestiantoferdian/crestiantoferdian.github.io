@@ -560,3 +560,53 @@ textarea#pgMsg{width:100%;font-size:0.88rem;line-height:1.5}
 .kur-l{font-weight:600;font-size:0.94rem;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .kur-pin{color:var(--red);display:flex}
 @media (max-width:420px){ .kur-row .icon-btn{width:36px;height:36px} }
+/* ── Halaman harga (Langganan & Tambah Slot): latar pink mengilap, tombol timbul & berkilau ── */
+.modal.pricing-modal{position:relative;overflow:hidden;
+  background:linear-gradient(160deg,#fff4f6 0%,#ffe1e8 38%,#ffd0dc 70%,#ffe6ec 100%);border:1px solid rgba(214,92,122,0.28);
+  box-shadow:0 20px 50px rgba(150,40,70,0.25),inset 0 1px 0 rgba(255,255,255,0.9)}
+.price-glow{position:absolute;inset:-40% -20% auto -20%;height:70%;pointer-events:none;
+  background:radial-gradient(ellipse at 30% 40%,rgba(255,255,255,0.85),rgba(255,255,255,0) 60%);opacity:0.8}
+.pricing-modal>*:not(.price-glow){position:relative}
+.pricing-modal .modal-t{color:#8e2340}
+.pricing-modal .modal-sub,.pricing-modal .t-meta,.pricing-modal .hint{color:#7a4a56}
+.pricing-modal .seg{background:rgba(255,255,255,0.55);border:1px solid rgba(214,92,122,0.22);backdrop-filter:blur(6px)}
+.pricing-modal .seg-b.on{background:linear-gradient(180deg,#fff,#fff4f6);box-shadow:0 2px 6px rgba(150,40,70,0.15),inset 0 1px 0 #fff;color:#a8264b}
+.pricing-modal .po-sum{background:rgba(255,255,255,0.62);border:1px solid rgba(255,255,255,0.9);border-radius:16px;
+  box-shadow:0 6px 18px rgba(150,40,70,0.10),inset 0 1px 0 rgba(255,255,255,0.95);backdrop-filter:blur(8px)}
+.pricing-modal .stepper{background:rgba(255,255,255,0.6);border-color:rgba(214,92,122,0.25)}
+.pricing-modal .btn-ghost{background:rgba(255,255,255,0.55);border-color:rgba(214,92,122,0.3)}
+/* Tombol bayar: timbul (3D) + kilau bergerak */
+.btn-shine{position:relative;overflow:hidden;border:none!important;
+  background:linear-gradient(180deg,#2fb36a 0%,#1f8a4c 55%,#17713d 100%)!important;color:#fff!important;
+  box-shadow:0 6px 0 #0f5a2f,0 12px 22px rgba(15,90,47,0.35),inset 0 1px 0 rgba(255,255,255,0.45)!important;
+  transform:translateY(-2px);transition:transform .12s,box-shadow .12s;animation:btnGlow 2.4s ease-in-out infinite}
+.btn-shine::before{content:"";position:absolute;inset:0 0 50% 0;background:linear-gradient(180deg,rgba(255,255,255,0.35),rgba(255,255,255,0));pointer-events:none}
+.btn-shine::after{content:"";position:absolute;top:-30%;bottom:-30%;left:-60%;width:40%;transform:skewX(-20deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.75),transparent);animation:btnShine 2.8s ease-in-out infinite;pointer-events:none}
+.btn-shine:active{transform:translateY(3px);box-shadow:0 1px 0 #0f5a2f,0 4px 10px rgba(15,90,47,0.3),inset 0 1px 0 rgba(255,255,255,0.4)!important}
+.btn-shine:disabled{animation:none;filter:grayscale(0.4);opacity:0.75}
+.btn-shine:disabled::after{display:none}
+@keyframes btnShine{0%,55%{left:-60%}85%,100%{left:130%}}
+@keyframes btnGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.08)}}
+:root[data-theme="dark"] .modal.pricing-modal{background:linear-gradient(160deg,#3a1f28 0%,#4a2532 45%,#3b1d27 100%);border-color:rgba(255,150,180,0.2)}
+:root[data-theme="dark"] .pricing-modal .modal-t{color:#ffc2d3}
+:root[data-theme="dark"] .pricing-modal .modal-sub,:root[data-theme="dark"] .pricing-modal .t-meta,:root[data-theme="dark"] .pricing-modal .hint{color:#e7bcc8}
+:root[data-theme="dark"] .pricing-modal .po-sum,:root[data-theme="dark"] .pricing-modal .seg,:root[data-theme="dark"] .pricing-modal .stepper,:root[data-theme="dark"] .pricing-modal .btn-ghost{background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.12)}
+:root[data-theme="dark"] .price-glow{opacity:0.15}
+
+/* Loading pembayaran Midtrans (sama dengan V1) */
+#llkPayLoad{position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;
+  background:radial-gradient(ellipse at 20% 0%,rgba(255,255,255,0.95),rgba(255,255,255,0) 55%),linear-gradient(160deg,#fff4f6 0%,#ffe1e8 45%,#ffd0dc 100%);
+  font-family:inherit;color:#5a2333;opacity:0;transition:opacity .25s ease;touch-action:none}
+#llkPayLoad.show{opacity:1}
+#llkPayLoad .pl-ring{position:relative;width:86px;height:86px}
+#llkPayLoad .pl-ring::before{content:"";position:absolute;inset:0;border-radius:50%;border:4px solid rgba(214,92,122,0.18);border-top-color:#c2185b;border-right-color:#e57399;animation:llkPlSpin .9s linear infinite}
+#llkPayLoad .pl-ring img{position:absolute;inset:16px;width:54px;height:54px;object-fit:contain;animation:llkPlPulse 1.4s ease-in-out infinite}
+#llkPayLoad .pl-t{font-weight:800;font-size:1.05rem}
+#llkPayLoad .pl-d{font-size:0.84rem;color:#7a4a56;max-width:300px;line-height:1.5}
+#llkPayLoad .pl-bar{width:200px;height:6px;border-radius:3px;background:rgba(214,92,122,0.18);overflow:hidden}
+#llkPayLoad .pl-bar span{display:block;height:100%;width:40%;border-radius:3px;background:linear-gradient(90deg,#e57399,#c2185b);animation:llkPlBar 1.2s ease-in-out infinite}
+#llkPayLoad .pl-safe{display:flex;align-items:center;gap:6px;font-size:0.76rem;font-weight:700;color:#1f7a45;background:rgba(255,255,255,0.7);border-radius:999px;padding:5px 12px}
+@keyframes llkPlSpin{to{transform:rotate(360deg)}}
+@keyframes llkPlPulse{0%,100%{transform:scale(0.92)}50%{transform:scale(1.05)}}
+@keyframes llkPlBar{0%{margin-left:-40%}100%{margin-left:100%}}
