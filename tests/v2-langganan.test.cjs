@@ -131,6 +131,8 @@ const FAKE_SNAP=`window.snap={pay:function(token,cb){ var f=document.createEleme
   console.log('\n[4] Murid meledak: tambah 5 slot sekaligus');
   await A.click('[data-tab=lainnya]'); await sleep(1200);
   t=await txt(A); ok(t.includes('AKTIF')&&t.includes('Riwayat pembayaran')&&t.includes(rp(300000)),'Lainnya: AKTIF + riwayat pembayaran Rp 300.000');
+  await A.evaluate(()=>{document.getElementById('subCard').scrollIntoView();window.scrollBy(0,-90);}); await A.screenshot({path:OUT+'langganan_kartu_aktif.png'});
+  await A.setViewportSize({width:390,height:844}); await sleep(300); await A.evaluate(()=>{document.getElementById('subCard').scrollIntoView();window.scrollBy(0,-70);}); await A.screenshot({path:OUT+'langganan_kartu_hp.png'}); await A.setViewportSize({width:1440,height:900});
   await A.click('#subAdd'); await sleep(600);
   for(let i=0;i<4;i++){ await A.click('.modal [data-st="1"]'); await sleep(80); }
   t=await modal(A);

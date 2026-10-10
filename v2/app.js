@@ -2345,17 +2345,31 @@ function subBanner() {
 function subCard() {
   const i = orgInfo();
   const status = !i.active ? `<span class="pill pill-red">${i.paid ? 'BERAKHIR' : 'UJI COBA BERAKHIR'}</span>` : i.paid ? '<span class="pill pill-green">AKTIF</span>' : '<span class="pill pill-amber">UJI COBA</span>';
-  return `<div class="card" id="subCard">
-      <div class="row"><div class="grow"><div class="card-t" style="margin:0">Langganan Lembaga</div></div>${status}</div>
-      <div class="t-meta" style="white-space:normal;margin-top:8px;line-height:1.7">
-        ${i.paid ? (i.active ? 'Aktif sampai' : 'Berakhir') : (i.active ? 'Uji coba gratis sampai' : 'Uji coba berakhir')} <b style="color:var(--text)">${esc(fmtMs(i.endsMs))}</b>${i.active ? ' · ' + i.daysLeft + ' hari lagi' : ''}<br>
-        1 Guru Admin + <b style="color:var(--text)">${i.seats} slot Guru Mitra</b>${i.paid ? ' · ' + (i.period === 'yearly' ? 'tahunan' : 'bulanan') + ' ' + esc(rupiah(BL.periodPrice(i.extra, i.period))) : ''}</div>
-      <div class="mini-btns">
-        <button class="mini mini-green" id="subGo">${I('card', 'sm')} ${i.paid ? 'Perpanjang' : 'Pilih Paket Langganan'}</button>
-        ${i.paid && i.active ? `<button class="mini" id="subAdd">${I('plus', 'sm')} Tambah Slot Guru</button>` : ''}
-        <button class="mini" id="subCheck">${I('refresh', 'sm')} Cek status pembayaran</button>
+  const untilLbl = i.paid ? (i.active ? 'Aktif sampai' : 'Berakhir') : (i.active ? 'Uji coba gratis sampai' : 'Uji coba berakhir');
+  return `<div class="card sub-card${i.active ? '' : ' is-off'}" id="subCard">
+      <div class="sub-glow"></div>
+      <div class="sub-head">
+        <span class="sub-ic">${I('crown')}</span>
+        <div class="grow"><div class="sub-title">Langganan Lembaga</div><div class="sub-kicker">LLK Lembaga · ${i.paid ? 'Pro' : 'Uji coba'}</div></div>
+        ${status}
       </div>
-      <div id="subInv" class="t-meta" style="margin-top:10px;white-space:normal"></div>
+      <div class="sub-until">
+        <div class="sub-until-l">${untilLbl}</div>
+        <div class="sub-until-d">${esc(fmtMs(i.endsMs))}</div>
+        ${i.active ? `<span class="sub-left${i.daysLeft <= 5 ? ' warn' : ''}">${I('clock', 'sm')} ${i.daysLeft} hari lagi</span>` : ''}
+      </div>
+      <div class="sub-facts">
+        <div class="sub-fact">${I('users', 'sm')}<span>1 Guru Admin + <b>${i.seats} slot Guru Mitra</b></span></div>
+        ${i.paid ? `<div class="sub-fact">${I('card', 'sm')}<span>${i.period === 'yearly' ? 'Tahunan' : 'Bulanan'} · <b>${esc(rupiah(BL.periodPrice(i.extra, i.period)))}</b></span></div>` : ''}
+      </div>
+      <div class="sub-actions">
+        <button class="btn btn-shine sub-main" id="subGo">${I('card', 'sm')} ${i.paid ? 'Perpanjang Langganan' : 'Pilih Paket Langganan'}</button>
+        <div class="sub-sec">
+          ${i.paid && i.active ? `<button class="btn btn-raised" id="subAdd">${I('plus', 'sm')} Tambah Slot Guru</button>` : ''}
+          <button class="btn btn-raised" id="subCheck">${I('refresh', 'sm')} Cek Status Pembayaran</button>
+        </div>
+      </div>
+      <div id="subInv"></div>
     </div>`;
 }
 async function bindSubCard() {
@@ -2365,8 +2379,11 @@ async function bindSubCard() {
   try {
     const snap = await getDocs(collection(db, 'orgs', S.org.id, 'invoices'));
     const list = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((x, y) => tsMs(y.paidAt) - tsMs(x.paidAt));
-    if (list.length && $('subInv')) $('subInv').innerHTML = `<div class="card-t" style="margin:6px 0">Riwayat pembayaran</div>` + list.map(x =>
-      `<div class="row" style="padding:6px 0;border-top:1px solid var(--border)"><div class="grow">${esc(x.label || '')}<br><span style="font-size:0.78rem">${esc(fmtMs(tsMs(x.paidAt)))} · ${esc(x.id)}</span></div><div style="text-align:right"><b style="color:var(--text)">${esc(rupiah(x.amount))}</b><br><button class="link-btn" data-inv="${esc(x.id)}">${I('receipt', 'sm')} Invoice</button></div></div>`).join('');
+    if (list.length && $('subInv')) $('subInv').innerHTML = `<div class="sub-inv-h">${I('receipt', 'sm')} Riwayat pembayaran</div>` + list.map(x =>
+      `<div class="sub-inv">
+        <div class="sub-inv-main"><div class="sub-inv-l">${esc(x.label || '')}</div><div class="sub-inv-m">${esc(fmtMs(tsMs(x.paidAt)))}</div><div class="sub-inv-id">${esc(x.id)}</div></div>
+        <div class="sub-inv-r"><div class="sub-inv-amt">${esc(rupiah(x.amount))}</div><button class="sub-inv-btn" data-inv="${esc(x.id)}">${I('receipt', 'sm')} Invoice</button></div>
+      </div>`).join('');
     document.querySelectorAll('[data-inv]').forEach(b => b.onclick = () => openOrgInvoice(list.find(x => x.id === b.dataset.inv)));
   } catch (e) {}
 }
