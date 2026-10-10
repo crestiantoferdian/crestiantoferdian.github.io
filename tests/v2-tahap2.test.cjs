@@ -80,7 +80,11 @@ const V1=[
   ok((await txt(A)).includes('isi hari & jam mulai'),'jadwal tanpa jam ditolak'); await A.evaluate(()=>document.getElementById('sfNo').click());
 
   console.log('\n[Filter & Jadwal Mingguan]');
-  await A.selectOption('#fGuru',{label:'Sinta'}); await sleep(300);
+  await A.click('#fGuru'); await sleep(300);
+  ok(await A.evaluate(()=>{const m=document.getElementById('fmenu');return !!m&&m.innerText.includes('Semua guru')&&m.innerText.includes('Sinta')&&!!m.querySelector('.fmenu-i.on');}),'klik filter Guru → menu pilihan setema (bukan daftar bawaan browser)');
+  await A.screenshot({path:OUT+'t2_filter_menu.png'});
+  await A.click('#fmenu .fmenu-i:has-text("Sinta")'); await sleep(400);
+  ok(await A.evaluate(()=>!document.getElementById('fmenu')&&document.getElementById('fGuru').selectedOptions[0].textContent==='Sinta'),'pilih Sinta di menu → menu tertutup, filter terpasang');
   t=await A.evaluate(()=>document.getElementById('stuList').innerText);
   ok(t.includes('Brilian')&&!t.includes('Cici'),'filter guru Sinta: hanya Brilian');
   ok(await A.evaluate(()=>document.querySelector('#fGuru').closest('.fsel').classList.contains('on')&&!!document.querySelector('.f-active #fReset')),'filter diganti → kotak berwarna oranye + pesan "Filter aktif" & tombol Tampilkan semua');

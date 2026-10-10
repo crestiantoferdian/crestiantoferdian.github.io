@@ -950,6 +950,43 @@ function rerenderMurid() { const m = $('main'); if (m && S.tab === 'murid') rend
 function fsel(id, icon, label, options, on) {
   return `<label class="fsel${on ? ' on' : ''}"><span class="fsel-ic">${I(icon, 'sm')}</span><span class="fsel-b"><span class="fsel-l">${esc(label)}</span><select id="${id}">${options}</select></span><span class="fsel-chev">${I('chevron-down', 'sm')}</span></label>`;
 }
+// Menu pilihan buatan sendiri untuk kotak .fsel (daftar pilihan bawaan browser tidak bisa diberi tema).
+// <select> asli tetap ada & menyimpan nilainya; menu ini hanya mengganti tampilan daftar pilihannya.
+function closeFmenu() { const m = $('fmenu'); if (m) { m.remove(); document.querySelectorAll('.fsel.open').forEach(x => x.classList.remove('open')); } }
+function openFmenu(sel) {
+  closeFmenu();
+  const box = sel.closest('.fsel'), r = box.getBoundingClientRect();
+  const m = document.createElement('div'); m.id = 'fmenu'; m.className = 'fmenu'; m.setAttribute('role', 'listbox');
+  m.innerHTML = `<div class="fmenu-h">${box.querySelector('.fsel-l').textContent}</div>` + [...sel.options].map((o, i) =>
+    `<button type="button" role="option" class="fmenu-i${o.selected ? ' on' : ''}" data-i="${i}" aria-selected="${o.selected}"><span class="grow">${esc(o.textContent)}</span>${o.selected ? I('check', 'sm') : ''}</button>`).join('');
+  document.body.appendChild(m); box.classList.add('open');
+  const w = Math.max(r.width, 220), left = Math.min(r.left, window.innerWidth - w - 8);
+  const below = window.innerHeight - r.bottom - 12, above = r.top - 12;
+  m.style.left = Math.max(8, left) + 'px'; m.style.width = w + 'px';
+  if (below >= Math.min(m.scrollHeight, 260) || below >= above) { m.style.top = (r.bottom + 6) + 'px'; m.style.maxHeight = Math.max(160, below) + 'px'; }
+  else { m.style.bottom = (window.innerHeight - r.top + 6) + 'px'; m.style.maxHeight = Math.max(160, above) + 'px'; }
+  m.onclick = (e) => { const it = e.target.closest('[data-i]'); if (!it) return; sel.selectedIndex = +it.dataset.i; closeFmenu(); sel.dispatchEvent(new Event('change', { bubbles: true })); sel.focus(); };
+  m.onkeydown = (e) => {
+    const items = [...m.querySelectorAll('.fmenu-i')], k = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items[Math.max(0, Math.min(items.length - 1, k + (e.key === 'ArrowDown' ? 1 : -1)))].focus(); }
+    else if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); closeFmenu(); sel.focus(); }
+  };
+  (m.querySelector('.fmenu-i.on') || m.querySelector('.fmenu-i')).focus({ preventScroll: true });
+}
+if (!window.__fmenuBound) {
+  window.__fmenuBound = true;
+  document.addEventListener('mousedown', (e) => {
+    const sel = e.target.closest('.fsel') && e.target.closest('.fsel').querySelector('select');
+    if (sel && !sel.disabled) { e.preventDefault(); if ($('fmenu') && sel.closest('.fsel').classList.contains('open')) closeFmenu(); else openFmenu(sel); return; }
+    if (!e.target.closest('#fmenu')) closeFmenu();
+  }, true);
+  document.addEventListener('keydown', (e) => {
+    const sel = e.target.matches && e.target.matches('.fsel select') ? e.target : null;
+    if (sel && [' ', 'Enter', 'ArrowDown', 'ArrowUp'].includes(e.key) && !$('fmenu')) { e.preventDefault(); openFmenu(sel); }
+  });
+  window.addEventListener('resize', closeFmenu);
+  document.addEventListener('scroll', (e) => { if (!(e.target.closest && e.target.closest('#fmenu'))) closeFmenu(); }, true);
+}
 function renderDaftarMurid(body) {
   const d = S.data, f = S.filt;
   const opt = (v, l, cur) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
