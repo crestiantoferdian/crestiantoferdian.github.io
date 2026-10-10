@@ -60,6 +60,8 @@ const V1=[
   await pick('select[data-c="1"][data-k="subjectId"]','Vokal'); await sleep(100);
   await pick('select[data-c="1"][data-k="mitraUid"]','Sinta');
   await A.fill('input[data-c="1"][data-k="rate"]','40000');
+  ok(await A.evaluate(()=>document.querySelector('.modal').innerText.includes('Kelas rutin yang diikuti')&&document.querySelectorAll('.add-day-wrap .add-day-btn').length===2),'form siswa: judul "Kelas rutin yang diikuti" + tombol Tambah hari di tengah berbingkai');
+  await A.screenshot({path:OUT+'t2_form_siswa.png'});
   await pick('select[data-c="1"][data-s="0"][data-k="day"]','Rabu');
   await A.fill('input[data-c="1"][data-s="0"][data-k="start"]','16:00');
   await A.screenshot({path:OUT+'t2_form.png'});
@@ -81,7 +83,10 @@ const V1=[
   await A.selectOption('#fGuru',{label:'Sinta'}); await sleep(300);
   t=await A.evaluate(()=>document.getElementById('stuList').innerText);
   ok(t.includes('Brilian')&&!t.includes('Cici'),'filter guru Sinta: hanya Brilian');
-  await A.selectOption('#fGuru',{label:'Semua guru'});
+  ok(await A.evaluate(()=>document.querySelector('#fGuru').closest('.fsel').classList.contains('on')&&!!document.querySelector('.f-active #fReset')),'filter diganti → kotak berwarna oranye + pesan "Filter aktif" & tombol Tampilkan semua');
+  await A.screenshot({path:OUT+'t2_filter_aktif.png'});
+  await A.click('#fReset'); await sleep(400);
+  ok(await A.evaluate(()=>!document.querySelector('.f-active')&&document.getElementById('fGuru').value===''&&document.getElementById('stuList').innerText.includes('Cici')),'Tampilkan semua → filter kembali bawaan, semua siswa tampil');
   await A.click('[data-view=jadwal]'); await sleep(500);
   t=await txt(A);
   ok(t.includes('BENTROK')&&t.includes('2 sesi bentrok'),'Brilian 14:00 & Cici 14:30 (Budi, Senin) ditandai bentrok');

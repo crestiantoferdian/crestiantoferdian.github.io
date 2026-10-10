@@ -105,6 +105,7 @@ V1[1].day2='Kamis'; V1[1].time2a='19:45'; V1[1].time2b='20:30';
   const assign=async(from,to,label)=>{
     await A.evaluate(([from,to])=>{ const cs=[...document.querySelectorAll('[data-sel]')].slice(from,to); cs.forEach(c=>{c.checked=true;c.dispatchEvent(new Event('change'));}); },[from,to]);
     await sleep(300);
+    if(from===0) await A.screenshot({path:OUT+'sim5_siswa_laptop.png'});
     await A.selectOption('#bkGuru',{label}); await A.click('#bkGo'); await sleep(3500);
   };
   const adminLabel='Rani (Anda)';
