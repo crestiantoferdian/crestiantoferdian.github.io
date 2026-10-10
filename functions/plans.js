@@ -50,9 +50,9 @@ function nextSubscription(current, planKey, nowMs) {
 
 // Naik paket (pelanggan BERBAYAR yang masih aktif pindah ke tingkat lebih tinggi):
 //   langganan sekarang BULANAN → paket bulanan diskon 50%, paket tahunan diskon 10%
-//   langganan sekarang TAHUNAN → diskon 50%
+//   langganan sekarang TAHUNAN → paket tahunan diskon 50%, pindah ke bulanan TANPA diskon
 // HARUS sama dengan llkUpgradeDiscount() di index.html.
-const UPGRADE_DISCOUNT = { monthly: { monthly: 0.5, yearly: 0.1 }, yearly: { monthly: 0.5, yearly: 0.5 } };
+const UPGRADE_DISCOUNT = { monthly: { monthly: 0.5, yearly: 0.1 }, yearly: { monthly: 0, yearly: 0.5 } };
 const TIER_RANK = { basic: 0, up: 1, unlimited: 2 };
 
 /**
@@ -70,6 +70,7 @@ function priceFor(current, planKey, nowMs) {
   const curPlan = resolvePlan(current.plan);
   const curPeriod = curPlan ? curPlan.period : 'monthly';
   const discount = UPGRADE_DISCOUNT[curPeriod][plan.period];
+  if (!discount) return { price: plan.price, fullPrice: plan.price, upgrade: false, discount: 0 };
   return { price: Math.round(plan.price * (1 - discount)), fullPrice: plan.price, upgrade: true, discount };
 }
 

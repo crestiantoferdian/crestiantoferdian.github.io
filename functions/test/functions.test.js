@@ -148,15 +148,16 @@ test('naik paket dari langganan BULANAN: bulanan diskon 50%, tahunan diskon 10% 
   assert.strictEqual(store.get('orders/' + r2.orderId).discount, 'upgrade10');
 });
 
-test('naik paket dari langganan TAHUNAN: diskon 50%', async () => {
+test('naik paket dari langganan TAHUNAN: tahunan diskon 50%, pindah ke bulanan tanpa diskon', async () => {
   store.clear();
   let sentBody;
   global.fetch = async (url, opts) => { sentBody = JSON.parse(opts.body); return { ok: true, json: async () => ({ token: 'tok' }) }; };
   store.set('subscriptions/upg2', { status: 'active', tier: 'up', plan: 'up_yearly', subscriptionEndsAt: ts(Date.now() + 200 * DAY) });
   await fns.createMidtransTransaction({ plan: 'unlimited_yearly' }, { auth: { uid: 'upg2', token: {} } });
   assert.strictEqual(sentBody.transaction_details.gross_amount, 500000);
-  await fns.createMidtransTransaction({ plan: 'unlimited_monthly' }, { auth: { uid: 'upg2', token: {} } });
-  assert.strictEqual(sentBody.transaction_details.gross_amount, 50000);
+  const r = await fns.createMidtransTransaction({ plan: 'unlimited_monthly' }, { auth: { uid: 'upg2', token: {} } });
+  assert.strictEqual(sentBody.transaction_details.gross_amount, 100000);
+  assert.strictEqual(store.get('orders/' + r.orderId).discount, undefined);
 });
 
 test('tanpa diskon: perpanjang paket sama, turun paket, trial, tester, langganan habis', async () => {

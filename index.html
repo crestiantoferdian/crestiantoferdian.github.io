@@ -10146,8 +10146,9 @@ const LLK_TIERS=[
 ];
 // Naik paket saat langganan berbayar masih aktif. HARUS sama dengan UPGRADE_DISCOUNT di functions/plans.js
 // (harga sebenarnya tetap dihitung server; ini hanya untuk tampilan):
-//   langganan sekarang bulanan → paket bulanan 50%, paket tahunan 10%; langganan sekarang tahunan → 50%
-const LLK_UPGRADE_DISCOUNT={monthly:{monthly:0.5,yearly:0.1}, yearly:{monthly:0.5,yearly:0.5}};
+//   langganan sekarang bulanan → paket bulanan 50%, paket tahunan 10%;
+//   langganan sekarang tahunan → paket tahunan 50%, pindah ke bulanan tanpa diskon
+const LLK_UPGRADE_DISCOUNT={monthly:{monthly:0.5,yearly:0.1}, yearly:{monthly:0,yearly:0.5}};
 let _currentPeriod='monthly'; // periode langganan berbayar yang sedang aktif
 function llkUpgradeDiscount(targetPeriod){ return (LLK_UPGRADE_DISCOUNT[_currentPeriod]||LLK_UPGRADE_DISCOUNT.monthly)[targetPeriod]||0; }
 let _currentTier=null;      // 'basic'|'up'|'unlimited'|null (null = belum diketahui → tidak dibatasi)
@@ -10462,7 +10463,7 @@ function planCardsHtml(opts){
     if(!opts.upgrade||!llkUpgradeDiscount(per)) return formatRpPlan(p);
     return '<s style="opacity:0.55;font-weight:600">'+formatRpPlan(p)+'</s> '+formatRpPlan(Math.round(p*(1-llkUpgradeDiscount(per))));
   };
-  const promo=pct('monthly')===pct('yearly')?'Diskon '+pct('monthly')+'% khusus naik paket':'Diskon naik paket: bulanan '+pct('monthly')+'% · tahunan '+pct('yearly')+'%';
+  const promo=!pct('monthly')?'Diskon '+pct('yearly')+'% naik ke paket tahunan':pct('monthly')===pct('yearly')?'Diskon '+pct('monthly')+'% khusus naik paket':'Diskon naik paket: bulanan '+pct('monthly')+'% · tahunan '+pct('yearly')+'%';
   return (opts.upgrade?'<div style="max-width:360px;margin:0 auto 16px;padding:10px 14px;border-radius:var(--r-md);background:linear-gradient(135deg,#a8372a,#d4566a);color:#fff;font-weight:800;font-size:0.92rem;box-shadow:var(--shadow-md)">'+llkI('sparkle','sm')+' '+promo+'</div>':'')
     +'<div class="llk-plan-row">'+tiers.map(function(t){
     const isFit=fit&&fit.id===t.id;
