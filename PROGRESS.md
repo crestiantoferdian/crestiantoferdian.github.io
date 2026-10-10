@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 7 Okt 2026 (V1: invoice & kuitansi dikirim sebagai gambar JPG)_
+_Terakhir diperbarui: 10 Okt 2026 (SEO: meta, robots.txt, sitemap.xml)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,10 @@ _Terakhir diperbarui: 7 Okt 2026 (V1: invoice & kuitansi dikirim sebagai gambar 
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 🔎 SEO: agar leslesanku.com muncul di Google (10 Okt 2026)
+- Ditambah di `<head>` `index.html` (hanya meta, tidak menyentuh data/skrip): judul "LesLesanKu (LLK) — Aplikasi Jadwal, Absensi & Tagihan untuk Guru Les", `meta description`, `canonical`, Open Graph, JSON-LD `WebApplication`. File baru `robots.txt` & `sitemap.xml` (halaman utama + privacy-policy).
+- **Langkah pemilik (tidak bisa dilakukan lewat kode):** daftarkan `leslesanku.com` di Google Search Console (properti Domain, verifikasi lewat TXT DNS) → kirim `https://leslesanku.com/sitemap.xml` → "Inspeksi URL" `https://leslesanku.com/` → "Minta pengindeksan". Biasanya muncul beberapa hari–beberapa minggu; mencari "LesLesanKu" lebih dulu muncul daripada "LLK".
 
 ## 🚪 leslesanku.com → halaman pilih peran dulu (9 Okt 2026)
 - Skrip kecil paling atas `<head>` `index.html`: pengunjung **baru** di **browser** diarahkan ke `v2/` (Selamat datang di LLK: Guru Lepas · LLK V1 / Pemilik Lembaga Les / Guru Mitra). Pilih **Guru Lepas** → `llk_v2_choice='lepas'` → kembali ke V1 (login). Tidak diarahkan: aplikasi terpasang (display-mode standalone / Play Store `android-app://`), browser yang sudah punya data V1 (`rms4_*` / `rms_*`), atau yang sudah memilih Guru Lepas. `?v1=1` = paksa V1. Tidak menyentuh data.
