@@ -170,7 +170,7 @@ exports.createMidtransTransaction = functions.https.onCall(async (data, context)
   const subSnap = await db.collection('subscriptions').doc(uid).get();
   const cur = subSnap.exists ? subSnap.data() : null;
   const pr = priceFor(cur && {
-    status: cur.status, tier: cur.tier, isTester: cur.isTester === true,
+    status: cur.status, tier: cur.tier, plan: cur.plan, isTester: cur.isTester === true,
     subscriptionEndsMs: cur.subscriptionEndsAt ? cur.subscriptionEndsAt.toMillis() : 0,
   }, plan, Date.now());
   const grossAmount = pr.price;
@@ -180,7 +180,7 @@ exports.createMidtransTransaction = functions.https.onCall(async (data, context)
     uid,
     plan,
     grossAmount,
-    ...(pr.upgrade ? { fullPrice: pr.fullPrice, discount: 'upgrade50', label: PLANS[plan].label + ' · diskon naik paket 50%' } : {}),
+    ...(pr.upgrade ? { fullPrice: pr.fullPrice, discount: 'upgrade' + Math.round(pr.discount * 100), label: PLANS[plan].label + ' · diskon naik paket ' + Math.round(pr.discount * 100) + '%' } : {}),
     email,
     status: 'pending',
     createdAt: admin.firestore.Timestamp.now(),

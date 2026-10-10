@@ -10144,9 +10144,12 @@ const LLK_TIERS=[
   {id:'up', name:'Pro Up', limit:40, monthly:{plan:'up_monthly',price:75000}, yearly:{plan:'up_yearly',price:700000}},
   {id:'unlimited', name:'Pro Unlimited', limit:Infinity, monthly:{plan:'unlimited_monthly',price:100000}, yearly:{plan:'unlimited_yearly',price:1000000}}
 ];
-// Naik paket saat langganan berbayar masih aktif → diskon 50%. HARUS sama dengan UPGRADE_DISCOUNT di functions/plans.js
-// (harga sebenarnya tetap dihitung server; ini hanya untuk tampilan).
-const LLK_UPGRADE_DISCOUNT=0.5;
+// Naik paket saat langganan berbayar masih aktif. HARUS sama dengan UPGRADE_DISCOUNT di functions/plans.js
+// (harga sebenarnya tetap dihitung server; ini hanya untuk tampilan):
+//   langganan sekarang bulanan → paket bulanan 50%, paket tahunan 10%; langganan sekarang tahunan → 50%
+const LLK_UPGRADE_DISCOUNT={monthly:{monthly:0.5,yearly:0.1}, yearly:{monthly:0.5,yearly:0.5}};
+let _currentPeriod='monthly'; // periode langganan berbayar yang sedang aktif
+function llkUpgradeDiscount(targetPeriod){ return (LLK_UPGRADE_DISCOUNT[_currentPeriod]||LLK_UPGRADE_DISCOUNT.monthly)[targetPeriod]||0; }
 let _currentTier=null;      // 'basic'|'up'|'unlimited'|null (null = belum diketahui → tidak dibatasi)
 let _subTrialDenied=false;  // server menolak trial karena email ini sudah pernah trial
 function tierInfo(id){ return LLK_TIERS.find(function(t){ return t.id===id; })||null; }
@@ -10270,6 +10273,7 @@ function applySubscriptionDoc(doc){
     const tb=document.getElementById('trialBanner');
     if(subActive){
       _currentTier=tierInfo(d.tier)?d.tier:'unlimited'; // PRO lama tanpa tier = Unlimited
+      _currentPeriod=/yearly$/.test(String(d.plan||''))?'yearly':'monthly';
       hidePaywall();
       if(tb) tb.style.display='none';
       _subBadgeInfo={label:'PRO',tier:d.tier||null};
@@ -10453,18 +10457,20 @@ function planCardsHtml(opts){
   const tiers=LLK_TIERS.filter(function(t,i){ return i>minIdx; });
   const fit=tiers.find(function(t){ return t.limit>n; })||tiers[tiers.length-1];
   // opts.upgrade: pelanggan berbayar aktif naik paket → harga coret + harga diskon
-  const priceTxt=function(p){
-    if(!opts.upgrade) return formatRpPlan(p);
-    return '<s style="opacity:0.55;font-weight:600">'+formatRpPlan(p)+'</s> '+formatRpPlan(Math.round(p*(1-LLK_UPGRADE_DISCOUNT)));
+  const pct=function(per){ return Math.round(llkUpgradeDiscount(per)*100); };
+  const priceTxt=function(p,per){
+    if(!opts.upgrade||!llkUpgradeDiscount(per)) return formatRpPlan(p);
+    return '<s style="opacity:0.55;font-weight:600">'+formatRpPlan(p)+'</s> '+formatRpPlan(Math.round(p*(1-llkUpgradeDiscount(per))));
   };
-  return (opts.upgrade?'<div style="max-width:360px;margin:0 auto 16px;padding:10px 14px;border-radius:var(--r-md);background:linear-gradient(135deg,#a8372a,#d4566a);color:#fff;font-weight:800;font-size:0.92rem;box-shadow:var(--shadow-md)">'+llkI('sparkle','sm')+' Diskon '+Math.round(LLK_UPGRADE_DISCOUNT*100)+'% khusus naik paket</div>':'')
+  const promo=pct('monthly')===pct('yearly')?'Diskon '+pct('monthly')+'% khusus naik paket':'Diskon naik paket: bulanan '+pct('monthly')+'% · tahunan '+pct('yearly')+'%';
+  return (opts.upgrade?'<div style="max-width:360px;margin:0 auto 16px;padding:10px 14px;border-radius:var(--r-md);background:linear-gradient(135deg,#a8372a,#d4566a);color:#fff;font-weight:800;font-size:0.92rem;box-shadow:var(--shadow-md)">'+llkI('sparkle','sm')+' '+promo+'</div>':'')
     +'<div class="llk-plan-row">'+tiers.map(function(t){
     const isFit=fit&&fit.id===t.id;
     const limitText=t.limit===Infinity?'Murid aktif <b>tanpa batas</b>':'Maks. <b>'+t.limit+' murid aktif</b>';
-    let btns='<button onclick="pickPlan(\''+t.monthly.plan+'\')" class="llk-plan-btn llk-pro-btn'+(isFit?' dark':'')+'" style="width:100%;min-height:50px;padding:12px;background:'+(isFit?'var(--text)':'var(--card)')+';color:'+(isFit?'#fffcf7':'var(--text)')+';border:'+(isFit?'none':'1.5px solid var(--text)')+';border-radius:var(--r-md);font-size:0.94rem;font-weight:700;cursor:pointer">Bulanan — '+priceTxt(t.monthly.price)+'</button>';
+    let btns='<button onclick="pickPlan(\''+t.monthly.plan+'\')" class="llk-plan-btn llk-pro-btn'+(isFit?' dark':'')+'" style="width:100%;min-height:50px;padding:12px;background:'+(isFit?'var(--text)':'var(--card)')+';color:'+(isFit?'#fffcf7':'var(--text)')+';border:'+(isFit?'none':'1.5px solid var(--text)')+';border-radius:var(--r-md);font-size:0.94rem;font-weight:700;cursor:pointer">Bulanan — '+priceTxt(t.monthly.price,'monthly')+'</button>';
     if(t.yearly){
       const hemat=t.monthly.price*12-t.yearly.price;
-      btns+='<button onclick="pickPlan(\''+t.yearly.plan+'\')" class="llk-plan-btn" style="width:100%;margin-top:8px;min-height:50px;padding:10px 12px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:0.92rem;font-weight:700;cursor:pointer">Tahunan — '+priceTxt(t.yearly.price)+(opts.upgrade?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">diskon naik paket '+Math.round(LLK_UPGRADE_DISCOUNT*100)+'%</span>':hemat>0?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">hemat '+formatRpPlan(hemat)+'</span>':'')+'</button>';
+      btns+='<button onclick="pickPlan(\''+t.yearly.plan+'\')" class="llk-plan-btn" style="width:100%;margin-top:8px;min-height:50px;padding:10px 12px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:0.92rem;font-weight:700;cursor:pointer">Tahunan — '+priceTxt(t.yearly.price,'yearly')+(opts.upgrade?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">diskon naik paket '+pct('yearly')+'%</span>':hemat>0?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">hemat '+formatRpPlan(hemat)+'</span>':'')+'</button>';
     }
     return '<div style="border:'+(isFit?'2px solid var(--text)':'1px solid var(--border)')+';border-radius:var(--r-lg);padding:20px;max-width:360px;margin:0 auto 16px;text-align:left;position:relative;background:var(--card);'+(isFit?'box-shadow:var(--shadow-md)':'')+'">'
       +(isFit?'<div style="position:absolute;top:-11px;right:16px;background:var(--ink);color:var(--on-ink);font-size:0.68rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.04em">COCOK UNTUKMU</div>':'')
