@@ -13,7 +13,9 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'  ✅ ':'  �
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const rp=n=>'Rp '+n.toLocaleString('id-ID');
 const DAY=864e5;
-const FAKE_SNAP=`window.snap={pay:function(token,cb){ window.__llkPaid(token).then(function(){ setTimeout(function(){ cb.onSuccess({order_id:token}); },200); }); }};`;
+// Snap tiruan: seperti aslinya, memasang iframe Midtrans dulu (loading LLK harus menunggu iframe termuat + 1 detik)
+const FAKE_SNAP=`window.snap={pay:function(token,cb){ var f=document.createElement('iframe'); f.id='snap-midtrans'; f.src='/v2/billing.js?midtrans=1'; f.style.cssText='position:fixed;inset:0;width:10px;height:10px;opacity:0'; document.body.appendChild(f); window.__snapAt=Date.now(); f.onload=function(){ window.__snapLoadedAt=Date.now(); };
+  setTimeout(function(){ window.__llkPaid(token).then(function(){ f.remove(); setTimeout(function(){ cb.onSuccess({order_id:token}); },200); }); },1600); }};`;
 (async()=>{
   let t;
   const env=await initializeTestEnvironment({projectId:'llk-67a30',firestore:{host:'127.0.0.1',port:8089,rules:fs.readFileSync(__dirname+'/../firestore.rules','utf8')}});
@@ -105,7 +107,15 @@ const FAKE_SNAP=`window.snap={pay:function(token,cb){ window.__llkPaid(token).th
   ok((await pay()).includes(rp(300000)),'Rani memilih Paket Mulai + 1 slot bulanan = Rp 300.000');
 
   console.log('\n[3] Bayar (Midtrans sandbox) → langganan aktif');
-  await A.click('#suPay'); await sleep(6000);
+  await A.click('#suPay'); await sleep(250);
+  ok(await A.evaluate(()=>{ const l=document.getElementById('llkPayLoad'); return !!l&&getComputedStyle(l).display==='flex'&&l.innerText.includes('Menyiapkan halaman pembayaran'); }),'tombol Bayar → layar loading pembayaran langsung tampil');
+  await A.screenshot({path:OUT+'langganan_loading.png'});
+  await A.waitForFunction(()=>window.__snapLoadedAt,null,{timeout:10000});
+  await sleep(500);
+  ok(await A.evaluate(()=>{ const l=document.getElementById('llkPayLoad'); return l&&l.classList.contains('show'); }),'halaman Midtrans sudah termuat, loading masih tampil (+1 detik)');
+  await sleep(900);
+  ok(await A.evaluate(()=>{ const l=document.getElementById('llkPayLoad'); return !l.classList.contains('show'); }),'±1 detik setelah Midtrans termuat → loading selesai, halaman Midtrans terlihat');
+  await sleep(5000);
   const o1=Object.values(orders)[0];
   ok(o1&&o1.paid&&o1.grossAmount===300000&&o1.extra===1&&o1.period==='monthly','server menerima order Rp 300.000 (1 slot, bulanan) & lunas');
   t=await txt(A); ok(t.includes('Langganan aktif'),'aplikasi menampilkan "Langganan aktif"');

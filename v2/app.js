@@ -180,7 +180,7 @@ function openModal(html) {
   closeModal();
   const ov = document.createElement('div');
   ov.className = 'overlay'; ov.id = 'modalOverlay';
-  ov.innerHTML = '<div class="modal">' + html + '</div>';
+  ov.innerHTML = '<div class="modal' + (html.includes('class="price-glow"') ? ' pricing-modal' : '') + '">' + html + '</div>';
   ov.addEventListener('click', e => { if (e.target === ov) closeModal(); });
   document.body.appendChild(ov);
   return ov;
@@ -2251,7 +2251,7 @@ async function openSubscribe() {
   const lockUp = i.paid && i.active; // langganan aktif: tambah slot lewat "Tambah Slot Guru" (bayar sisa hari)
   const minX = Math.max(0, used - BL.ORG_BASE_SLOTS), maxX = lockUp ? i.extra : BL.ORG_MAX_EXTRA;
   const F = { extra: Math.min(maxX, Math.max(minX, i.extra)), period: i.paid ? i.period : 'monthly' };
-  openModal(`
+  openModal(`<div class="price-glow" aria-hidden="true"></div>
     <div class="modal-t">${I('card')} ${i.paid ? 'Perpanjang Langganan' : 'Langganan LLK Lembaga'}</div>
     <div class="modal-sub">Paket Mulai: 1 Guru Admin + ${BL.ORG_BASE_SLOTS} Guru Mitra. Dapat guru baru? Tambah slot kapan saja.</div>
     <div class="seg" style="margin-bottom:12px"><button class="seg-b" data-per="monthly">Bulanan</button><button class="seg-b" data-per="yearly">Tahunan · gratis 2 bulan</button></div>
@@ -2260,7 +2260,7 @@ async function openSubscribe() {
       <div class="hint" id="suHint"></div></div>
     <div class="po-sum" id="suSum" style="display:block"></div>
     <div id="suMsg"></div>
-    <button class="btn btn-green" id="suPay"></button>
+    <button class="btn btn-green btn-shine" id="suPay"></button>
     <button class="btn btn-ghost" id="suNo">Batal</button>`);
   const paint = () => {
     document.querySelectorAll('[data-per]').forEach(b => b.classList.toggle('on', b.dataset.per === F.period));
@@ -2291,14 +2291,14 @@ async function openSubscribe() {
 function openAddSlots() {
   const i = orgInfo();
   const F = { add: 1 };
-  openModal(`
+  openModal(`<div class="price-glow" aria-hidden="true"></div>
     <div class="modal-t">${I('plus')} Tambah Slot Guru Mitra</div>
     <div class="modal-sub">Sekarang ${i.seats} slot. Slot baru langsung bisa dipakai mengundang guru.</div>
     <div class="field"><label>Tambah berapa slot?</label><div class="row" style="gap:12px">${stepperHtml('asN', 1)}<div class="grow t-meta" id="asGuru" style="white-space:normal"></div></div>
       <div class="hint" id="asHint"></div></div>
     <div class="po-sum" id="asSum" style="display:block"></div>
     <div id="asMsg"></div>
-    <button class="btn btn-green" id="asPay"></button>
+    <button class="btn btn-green btn-shine" id="asPay"></button>
     <button class="btn btn-ghost" id="asNo">Batal</button>`);
   const paint = () => {
     const n = F.add, oldMo = BL.periodPrice(i.extra, i.period), newMo = BL.periodPrice(i.extra + n, i.period);
@@ -2335,26 +2335,59 @@ function loadSnap() {
   });
   return snapLoading;
 }
+// ── Loading pembayaran: tampil sampai halaman Midtrans benar-benar termuat, + 1 detik ──
+function llkShowPayLoading(){
+  let el=document.getElementById('llkPayLoad');
+  if(!el){
+    el=document.createElement('div'); el.id='llkPayLoad';
+    el.innerHTML='<div class="pl-ring"><img src="../logo-llk.png" alt=""/></div><div class="pl-t">Menyiapkan halaman pembayaran…</div>'
+      +'<div class="pl-bar"><span></span></div><div class="pl-d">Mohon tunggu sebentar, jangan tutup aplikasi.</div>'
+      +'<div class="pl-safe">🔒 Pembayaran aman melalui Midtrans</div>';
+    const block=function(e){ e.preventDefault(); e.stopPropagation(); };
+    el.addEventListener('touchmove',block,{passive:false}); el.addEventListener('wheel',block,{passive:false});
+    document.body.appendChild(el);
+  }
+  clearTimeout(el._t); el.style.display='flex'; requestAnimationFrame(function(){ el.classList.add('show'); });
+}
+function llkHidePayLoading(){
+  const el=document.getElementById('llkPayLoad'); if(!el) return;
+  if(el._obs){ el._obs.disconnect(); el._obs=null; }
+  el.classList.remove('show'); clearTimeout(el._t); el._t=setTimeout(function(){ el.style.display='none'; },260);
+}
+// Dipanggil tepat sebelum snap.pay(): tunggu iframe Midtrans selesai dimuat, lalu tahan 1 detik lagi
+function llkHidePayLoadingWhenSnapReady(){
+  const el=document.getElementById('llkPayLoad'); if(!el) return;
+  let done=false;
+  const finish=function(){ if(done) return; done=true; setTimeout(llkHidePayLoading,1000); };
+  const watch=function(f){ if(f._llkW) return; f._llkW=true; f.addEventListener('load',finish,{once:true}); setTimeout(finish,6000); };
+  const scan=function(){ document.querySelectorAll('iframe').forEach(function(f){ if(/midtrans/i.test(f.src||'')||f.id==='snap-midtrans') watch(f); }); };
+  if(el._obs) el._obs.disconnect();
+  el._obs=new MutationObserver(scan); el._obs.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['src']});
+  scan();
+  setTimeout(function(){ if(!done){ done=true; llkHidePayLoading(); } },20000);
+}
 async function startPayment(req, btnId, msgId) {
   const btn = $(btnId), msg = (t, cls) => { $(msgId).innerHTML = `<div class="msg ${cls || 'msg-err'}">${t}</div>`; };
   btn.disabled = true; const label = btn.innerHTML; btn.textContent = 'Menyiapkan pembayaran…';
+  llkShowPayLoading();
   let r;
   try { [r] = await Promise.all([callFn('createOrgTransaction', req), loadSnap()]); }
-  catch (e) { btn.disabled = false; btn.innerHTML = label; msg(esc((e && e.message) || 'Gagal membuat pembayaran')); return; }
-  const done = (kind) => { closeModal(); waitActivation(r.orderId, kind); };
+  catch (e) { llkHidePayLoading(); btn.disabled = false; btn.innerHTML = label; msg(esc((e && e.message) || 'Gagal membuat pembayaran')); return; }
+  const done = (kind) => { llkHidePayLoading(); closeModal(); waitActivation(r.orderId, kind); };
   const cb = {
     onSuccess: () => done('success'),
     onPending: () => done('pending'),
-    onError: () => { btn.disabled = false; btn.innerHTML = label; msg('Pembayaran gagal. Coba lagi atau pilih metode lain.'); },
-    onClose: () => { btn.disabled = false; btn.innerHTML = label; checkPayments(false); },
+    onError: () => { llkHidePayLoading(); btn.disabled = false; btn.innerHTML = label; msg('Pembayaran gagal. Coba lagi atau pilih metode lain.'); },
+    onClose: () => { llkHidePayLoading(); btn.disabled = false; btn.innerHTML = label; checkPayments(false); },
   };
   // Jendela Snap kadang "nyangkut" (snap.pay not allowed in this state) → tutup & coba lagi,
   // kalau tetap ditolak buka halaman pembayaran Midtrans langsung.
+  llkHidePayLoadingWhenSnapReady(); // loading tetap tampil sampai halaman Midtrans termuat + 1 detik
   try { window.snap.pay(r.token, cb); }
   catch (e1) {
     try { if (window.snap.hide) window.snap.hide(); } catch (e) {}
     try { window.snap.pay(r.token, cb); }
-    catch (e2) { if (r.redirectUrl) location.href = r.redirectUrl; else { btn.disabled = false; btn.innerHTML = label; msg(esc(e2.message || 'Gagal membuka Midtrans')); } }
+    catch (e2) { if (r.redirectUrl) location.href = r.redirectUrl; else { llkHidePayLoading(); btn.disabled = false; btn.innerHTML = label; msg(esc(e2.message || 'Gagal membuka Midtrans')); } }
   }
 }
 // Server mengaktifkan lewat notifikasi Midtrans; aplikasi ikut mengecek supaya cepat tampil
