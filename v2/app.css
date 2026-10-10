@@ -610,3 +610,12 @@ textarea#pgMsg{width:100%;font-size:0.88rem;line-height:1.5}
 @keyframes llkPlSpin{to{transform:rotate(360deg)}}
 @keyframes llkPlPulse{0%,100%{transform:scale(0.92)}50%{transform:scale(1.05)}}
 @keyframes llkPlBar{0%{margin-left:-40%}100%{margin-left:100%}}
+/* Absensi Admin: jadwal khusus (reschedule / kelas tambahan) */
+.ab-tag{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:3px 10px;border-radius:999px;font-size:0.76rem;font-weight:700}
+.ab-tag .ico{width:13px;height:13px}
+.ab-tag.reschedule{background:rgba(107,78,155,0.12);color:#6b4e9b}
+.ab-tag.extra{background:var(--blue-bg);color:var(--blue)}
+.ab-act{flex-wrap:wrap}
+.ab-act:empty{display:none}
+.ab-head{position:relative}
+.ab-addcls{float:right;width:auto;flex:none;padding:0 12px;margin:-2px 0 0 8px}

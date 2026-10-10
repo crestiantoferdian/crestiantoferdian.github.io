@@ -154,6 +154,18 @@ await t('Admin memperbarui teachUid saat kelas pindah guru', assertSucceeds(setD
 await t('Field asing di absensi tetap ditolak', assertFails(setDoc(aref(a2,old1,'c9'),att({classId:'c9',date:old1,by:'admin2',foo:1}))));
 await deleteDoc(aref(a2)).catch(()=>{});
 
+console.log('\n[Jadwal khusus: Reschedule & Kelas Tambahan]');
+const ses=(o={})=>({type:'reschedule',classId:'c9',studentId:'s9',studentName:'Brilian',subjectName:'Piano',mitraUid:'mitra2',fromDate:'2026-10-12',date:'2026-10-14',start:'15:00',end:'16:00',note:'Ortu minta pindah',by:'admin2',...o});
+await t('Admin membuat reschedule', assertSucceeds(setDoc(doc(a2,'orgs','org2','sesi','r1'),ses())));
+await t('Admin membuat kelas tambahan', assertSucceeds(setDoc(doc(a2,'orgs','org2','sesi','x1'),ses({type:'extra',fromDate:null,date:'2026-10-16'}))));
+await t('Reschedule tanpa tanggal asal ditolak', assertFails(setDoc(doc(a2,'orgs','org2','sesi','r2'),ses({fromDate:null}))));
+await t('Jam tidak valid ditolak', assertFails(setDoc(doc(a2,'orgs','org2','sesi','r3'),ses({start:'jam 3'}))));
+await t('Guru kelas itu membaca jadwal khususnya', assertSucceeds(getDocs(query(collection(mitra2,'orgs','org2','sesi'),where('mitraUid','==','mitra2')))));
+await t('Guru lain tidak bisa membacanya', assertFails(getDoc(doc(m3,'orgs','org2','sesi','r1'))));
+await t('Guru tidak bisa membuat reschedule sendiri', assertFails(setDoc(doc(mitra2,'orgs','org2','sesi','r4'),ses({by:'mitra2'}))));
+await t('Admin mengisi Off (guru berhalangan) tanpa honor', assertSucceeds(setDoc(aref(a2,todayWIB,'c9'),att({classId:'c9',status:'off',progress:'',reason:'Guru sakit',honor:0,by:'admin2'}))));
+await t('Admin mengoreksi jadi Hadir + progres', assertSucceeds(setDoc(aref(a2,todayWIB,'c9'),att({classId:'c9',status:'hadir',progress:'Dikoreksi admin',by:'admin2'}))));
+await deleteDoc(aref(a2,todayWIB,'c9')).catch(()=>{});
 console.log('\n[Materi, Kurikulum, PR Guru, Catatan ke Admin]');
 await t('Admin menambah materi (tautan)', assertSucceeds(setDoc(doc(a2,'orgs','org2','materi','m1'),{type:'link',name:'Buku Piano 1',url:'https://drive.google.com/x',by:'admin2'})));
 await t('Guru membaca materi lembaga', assertSucceeds(getDoc(doc(mitra2,'orgs','org2','materi','m1'))));
