@@ -619,3 +619,57 @@ textarea#pgMsg{width:100%;font-size:0.88rem;line-height:1.5}
 .ab-act:empty{display:none}
 .ab-head{position:relative}
 .ab-addcls{float:right;width:auto;flex:none;padding:0 12px;margin:-2px 0 0 8px}
+
+/* ── Kartu Langganan Lembaga (Lainnya): premium, pink mengilap, tombol timbul & berkilau ── */
+.sub-card{position:relative;overflow:hidden;padding:18px 18px 16px;
+  background:linear-gradient(160deg,#fff7f9 0%,#ffe6ec 45%,#ffd6e0 100%);border:1px solid rgba(214,92,122,0.28);
+  box-shadow:0 14px 34px rgba(150,40,70,0.16),inset 0 1px 0 rgba(255,255,255,0.95)}
+.sub-card.is-off{background:linear-gradient(160deg,#fbf6f3 0%,#f3e7e2 100%);border-color:var(--border)}
+.sub-card>*:not(.sub-glow){position:relative}
+.sub-glow{position:absolute;inset:-45% -25% auto -25%;height:75%;pointer-events:none;
+  background:radial-gradient(ellipse at 30% 40%,rgba(255,255,255,0.9),rgba(255,255,255,0) 60%)}
+.sub-head{display:flex;align-items:center;gap:12px}
+.sub-ic{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#8a6414;
+  background:linear-gradient(160deg,#fff3cf,#f2d27a);box-shadow:0 4px 10px rgba(185,138,46,0.3),inset 0 1px 0 #fff}
+.sub-title{font-family:var(--font-display,Georgia,serif);font-size:1.12rem;font-weight:700;color:#5a1f30;line-height:1.25}
+.sub-kicker{font-size:0.76rem;color:#8a5a66;margin-top:2px;letter-spacing:0.02em}
+.sub-until{margin:16px 0 12px;padding:14px 16px;border-radius:16px;background:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.95);
+  box-shadow:0 4px 14px rgba(150,40,70,0.08),inset 0 1px 0 #fff;backdrop-filter:blur(6px)}
+.sub-until-l{font-size:0.8rem;color:#8a5a66}
+.sub-until-d{font-family:var(--font-display,Georgia,serif);font-size:1.4rem;font-weight:700;color:#3a1520;margin:2px 0 8px;line-height:1.2}
+.sub-left{display:inline-flex;align-items:center;gap:6px;font-size:0.8rem;font-weight:700;color:#155c2d;background:var(--green-bg);padding:5px 10px;border-radius:99px}
+.sub-left.warn{color:#8a4b00;background:rgba(214,140,30,0.15)}
+.sub-facts{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.sub-fact{display:flex;align-items:center;gap:10px;font-size:0.9rem;color:#4a2a33;line-height:1.45}
+.sub-fact svg{color:#a8264b;flex-shrink:0}
+.sub-actions{display:flex;flex-direction:column;gap:12px}
+.sub-main{width:100%;min-height:52px;font-size:1rem;font-weight:800;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px}
+.sub-sec{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.btn-raised{position:relative;overflow:hidden;min-height:46px;display:flex;align-items:center;justify-content:center;gap:6px;
+  border-radius:12px;font-weight:700;font-size:0.88rem;color:#8e2340;background:linear-gradient(180deg,#ffffff 0%,#fff1f4 100%);
+  border:1px solid rgba(214,92,122,0.3);box-shadow:0 4px 0 rgba(190,90,115,0.35),0 8px 16px rgba(150,40,70,0.12),inset 0 1px 0 #fff;
+  transform:translateY(-2px);transition:transform .12s,box-shadow .12s}
+.btn-raised::after{content:"";position:absolute;top:-30%;bottom:-30%;left:-60%;width:35%;transform:skewX(-20deg);pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.9),transparent);animation:btnShine 3.6s ease-in-out infinite}
+.btn-raised:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(190,90,115,0.35),0 3px 8px rgba(150,40,70,0.12),inset 0 1px 0 #fff}
+.btn-raised:disabled{opacity:0.6}
+.btn-raised:disabled::after{display:none}
+#subInv:not(:empty){margin-top:18px;padding-top:14px;border-top:1px dashed rgba(214,92,122,0.35)}
+.sub-inv-h{display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.9rem;color:#5a1f30;margin-bottom:8px}
+.sub-inv{display:flex;gap:12px;align-items:center;padding:12px 14px;margin-top:8px;border-radius:14px;background:rgba(255,255,255,0.72);
+  border:1px solid rgba(255,255,255,0.95);box-shadow:0 2px 8px rgba(150,40,70,0.06)}
+.sub-inv-main{flex:1;min-width:0}
+.sub-inv-l{font-weight:700;font-size:0.88rem;color:var(--text);line-height:1.4}
+.sub-inv-m{font-size:0.8rem;color:var(--muted);margin-top:3px}
+.sub-inv-id{font-size:0.72rem;color:var(--muted2);margin-top:2px;word-break:break-all;font-family:ui-monospace,Menlo,monospace}
+.sub-inv-r{text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.sub-inv-amt{font-weight:800;font-size:0.98rem;color:var(--text);white-space:nowrap}
+.sub-inv-btn{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:0.78rem;font-weight:700;color:#a8264b;cursor:pointer;
+  background:#fff;border:1px solid rgba(214,92,122,0.35);border-radius:99px;padding:5px 11px;box-shadow:0 2px 0 rgba(190,90,115,0.25)}
+:root[data-theme="dark"] .sub-card{background:linear-gradient(160deg,#3a1f28 0%,#4a2532 45%,#3b1d27 100%);border-color:rgba(255,150,180,0.2)}
+:root[data-theme="dark"] .sub-glow{opacity:0.12}
+:root[data-theme="dark"] .sub-title,:root[data-theme="dark"] .sub-until-d,:root[data-theme="dark"] .sub-inv-h{color:#ffd6e0}
+:root[data-theme="dark"] .sub-kicker,:root[data-theme="dark"] .sub-until-l,:root[data-theme="dark"] .sub-fact{color:#e7bcc8}
+:root[data-theme="dark"] .sub-until,:root[data-theme="dark"] .sub-inv{background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.12)}
+:root[data-theme="dark"] .btn-raised,:root[data-theme="dark"] .sub-inv-btn{background:rgba(255,255,255,0.1);color:#ffc2d3;border-color:rgba(255,255,255,0.18)}
+.sub-actions .btn,.sub-sec .btn{margin:0}
