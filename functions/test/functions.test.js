@@ -133,6 +133,32 @@ test('createMidtransTransaction memakai harga paket baru', async () => {
   assert.strictEqual(store.get('orders/' + res.orderId).grossAmount, 700000);
 });
 
+test('naik paket saat langganan berbayar aktif: diskon 50% dihitung di server', async () => {
+  store.clear();
+  let sentBody;
+  global.fetch = async (url, opts) => { sentBody = JSON.parse(opts.body); return { ok: true, json: async () => ({ token: 'tok' }) }; };
+  store.set('subscriptions/upg1', { status: 'active', tier: 'basic', subscriptionEndsAt: ts(Date.now() + 10 * DAY) });
+  const res = await fns.createMidtransTransaction({ plan: 'unlimited_monthly' }, { auth: { uid: 'upg1', token: { email: 'a@b.c' } } });
+  assert.strictEqual(sentBody.transaction_details.gross_amount, 50000);
+  const o = store.get('orders/' + res.orderId);
+  assert.strictEqual(o.grossAmount, 50000); assert.strictEqual(o.fullPrice, 100000); assert.strictEqual(o.discount, 'upgrade50');
+  // tahunan juga
+  await fns.createMidtransTransaction({ plan: 'up_yearly' }, { auth: { uid: 'upg1', token: {} } });
+  assert.strictEqual(sentBody.transaction_details.gross_amount, 350000);
+});
+
+test('tanpa diskon: perpanjang paket sama, turun paket, trial, tester, langganan habis', async () => {
+  const P = require('../plans.js'), now = Date.now();
+  assert.strictEqual(P.priceFor({ status: 'active', tier: 'up', subscriptionEndsMs: now + DAY }, 'up_monthly', now).price, 75000);
+  assert.strictEqual(P.priceFor({ status: 'active', tier: 'unlimited', subscriptionEndsMs: now + DAY }, 'up_monthly', now).price, 75000);
+  assert.strictEqual(P.priceFor({ status: 'active', subscriptionEndsMs: now + DAY }, 'unlimited_yearly', now).price, 1000000);
+  assert.strictEqual(P.priceFor({ status: 'trial', tier: 'basic', subscriptionEndsMs: now + DAY }, 'up_monthly', now).price, 75000);
+  assert.strictEqual(P.priceFor({ status: 'active', tier: 'basic', isTester: true, subscriptionEndsMs: now + DAY }, 'up_monthly', now).price, 75000);
+  assert.strictEqual(P.priceFor({ status: 'active', tier: 'basic', subscriptionEndsMs: now - DAY }, 'up_monthly', now).price, 75000);
+  assert.strictEqual(P.priceFor(null, 'up_monthly', now).price, 75000);
+  assert.strictEqual(P.priceFor({ status: 'active', tier: 'up', subscriptionEndsMs: now + DAY }, 'unlimited_yearly', now).price, 500000);
+});
+
 test('createMidtransTransaction menolak paket lama & paket tak dikenal', async () => {
   for (const plan of ['monthly', 'yearly', 'gratis', undefined]) {
     await assert.rejects(
