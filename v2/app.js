@@ -819,10 +819,11 @@ function byDayTime(a, b) { return DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || S
 async function loadOrgData(force) {
   if (S.data && !force) return S.data;
   const o = S.org.id;
-  const [sub, stu, mem] = await Promise.all([
+  const [sub, stu, mem, ses] = await Promise.all([
     getDocs(collection(db, 'orgs', o, 'subjects')),
     getDocs(collection(db, 'orgs', o, 'students')),
     getDocs(collection(db, 'orgs', o, 'members')),
+    getDocs(collection(db, 'orgs', o, 'sesi')).catch(() => ({ docs: [] })),
   ]);
   // Daftar guru = Guru Mitra + Guru Admin yang juga terdaftar mengajar (lewat aplikasi Guru Mitra)
   const all = mem.docs.map(d => Object.assign({ id: d.id }, d.data()));
@@ -833,6 +834,7 @@ async function loadOrgData(force) {
     subjects: sub.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.name.localeCompare(b.name)),
     students: stu.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.name.localeCompare(b.name)),
     mitras,
+    sesi: ses.docs.map(d => Object.assign({ id: d.id }, d.data())),
   };
   S.data.mitras.forEach((x, i) => { x.color = GURU_COLORS[i % GURU_COLORS.length]; });
   return S.data;
@@ -869,6 +871,9 @@ async function syncAttTeach() {
       if ((a.teachUid === undefined ? a.mitraUid : a.teachUid) === want && a.teachUid !== undefined) return;
       ops.push(['set', x.ref, Object.assign({}, a, { teachUid: want })]);
     });
+    // Jadwal khusus yang belum lewat ikut pindah ke guru kelas saat ini
+    const today = localKey(new Date());
+    (d.sesi || []).forEach(x => { if (x.date >= today && cur.has(x.classId) && (x.mitraUid || null) !== cur.get(x.classId)) { const y = Object.assign({}, x, { mitraUid: cur.get(x.classId) }); delete y.id; ops.push(['set', doc(db, 'orgs', S.org.id, 'sesi', x.id), y]); } });
     if (ops.length) await commitOps(ops);
   } catch (e) { console.warn('syncAttTeach:', e); }
 }
@@ -1408,6 +1413,32 @@ async function runImportV1(list, mitraUid, withHist) {
 // ADMIN — ABSENSI (Tahap 3): pantau absensi & progres semua Guru Mitra per
 // tanggal, dan isi Izin (Izin hanya oleh Admin). Kirim progres ke ortu menyusul.
 // ══════════════════════════════════════════════════════════════════════
+// Sesi pada satu tanggal: jadwal rutin kelas aktif, dikurangi yang di-reschedule keluar dari tanggal itu,
+// ditambah reschedule masuk & kelas tambahan (orgs/{org}/sesi). Satu kelas paling banyak 1 sesi per tanggal.
+function sessionsFor(key) {
+  const day = dayOfKey(key), out = [], seen = new Set(), sesi = S.data.sesi || [];
+  const movedOut = new Set(sesi.filter(x => x.type === 'reschedule' && x.fromDate === key).map(x => x.classId));
+  S.data.students.filter(st => st.active).forEach(st => (st.classes || []).forEach(c => (c.schedule || []).filter(x => x.day === day).forEach(x => {
+    const id = c.id + '_' + key; if (seen.has(id) || movedOut.has(c.id)) return; seen.add(id);
+    out.push({ id, st, c, start: x.start, end: x.end, sesi: null });
+  })));
+  sesi.filter(x => x.date === key).forEach(x => {
+    const id = x.classId + '_' + key; if (seen.has(id)) return;
+    let st = null, c = null;
+    S.data.students.forEach(s2 => (s2.classes || []).forEach(k => { if (k.id === x.classId) { st = s2; c = k; } }));
+    if (!c) return; seen.add(id);
+    out.push({ id, st, c, start: x.start, end: x.end || '', sesi: x });
+  });
+  return out;
+}
+// Apakah kelas ini sudah punya sesi di tanggal itu (rutin / pindahan / tambahan)?
+function classBusyOn(classId, key, exceptSesiId) {
+  if (S.data.sesi.some(x => x.classId === classId && x.date === key && x.id !== exceptSesiId)) return true;
+  const moved = S.data.sesi.some(x => x.type === 'reschedule' && x.classId === classId && x.fromDate === key && x.id !== exceptSesiId);
+  let rutin = false;
+  S.data.students.forEach(st => (st.classes || []).forEach(c => { if (c.id === classId && (c.schedule || []).some(y => y.day === dayOfKey(key))) rutin = true; }));
+  return rutin && !moved;
+}
 function localKey(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function dayOfKey(k) { return DAYS[(new Date(k + 'T00:00:00').getDay() + 6) % 7]; }
 async function renderAdminAbsensi(m) {
@@ -1421,11 +1452,10 @@ async function renderAdminAbsensi(m) {
     att = {}; snap.docs.forEach(d => { att[d.id] = Object.assign({ id: d.id }, d.data()); });
   } catch (e) { m.innerHTML = `<div class="msg msg-err">Gagal memuat: ${esc(friendlyError(e))}</div>`; return; }
   const day = dayOfKey(key), rows = [], seen = new Set();
-  S.data.students.filter(st => st.active).forEach(st => (st.classes || []).forEach(c => (c.schedule || []).filter(x => x.day === day).forEach(x => {
-    const id = c.id + '_' + key; if (seen.has(id)) return; seen.add(id);
-    const sj = subjOf(c.subjectId);
-    rows.push({ id, st, c, name: st.name, subj: sj ? sj.name : '—', uid: c.mitraUid || null, start: x.start, end: x.end, rec: att[id] || null });
-  })));
+  sessionsFor(key).forEach(x => {
+    seen.add(x.id); const sj = subjOf(x.c.subjectId);
+    rows.push({ id: x.id, st: x.st, c: x.c, name: x.st.name, subj: sj ? sj.name : '—', uid: x.c.mitraUid || null, start: x.start, end: x.end, sesi: x.sesi, rec: att[x.id] || null });
+  });
   Object.values(att).filter(a => !seen.has(a.id)).forEach(a => rows.push({ id: a.id, st: null, c: { id: a.classId }, name: a.studentName, subj: a.subjectName, uid: a.mitraUid, start: a.start, end: a.end, rec: a }));
   rows.sort((a, b) => String(a.start).localeCompare(String(b.start)) || a.name.localeCompare(b.name));
   const stOf = r => (r.rec && r.rec.status) || 'belum';
@@ -1456,12 +1486,18 @@ async function renderAdminAbsensi(m) {
       <div class="ab-body">
         <div class="ab-top"><div class="ab-name">${esc(r.name)}</div><div class="ab-time">${esc(r.start)}${r.end ? '–' + esc(r.end) : ''}</div></div>
         <div class="ab-sub"><b>${esc(r.subj)}</b></div>
+        ${r.sesi ? `<div class="ab-tag ${r.sesi.type}">${I(r.sesi.type === 'extra' ? 'plus' : 'swap', 'sm')} ${r.sesi.type === 'extra' ? 'Kelas tambahan' : 'Pindahan dari ' + esc(fmtDayShort(r.sesi.fromDate))}${r.sesi.note ? ' · ' + esc(r.sesi.note) : ''}</div>` : ''}
         ${guruTag(r.uid)}
         <div class="ab-st">${pill(st)}${a.src === 'v1' ? '<span class="pill pill-grey">DARI LLK V1</span>' : ''}${a.reason ? `<span class="ab-reason">${esc(a.reason)}</span>` : ''}</div>
         ${a.progress ? `<div class="ab-note">${I('note', 'sm')}<span>${esc(a.progress)}</span></div>` : ''}
         ${a.prSiswa ? `<div class="ab-note" style="color:var(--plum,#6b4e9b)">${I('book', 'sm')}<span>PR: ${esc(a.prSiswa)}</span></div>` : ''}
-        ${st === 'izin' ? `<div class="ab-act"><button class="mini" data-unizin="${esc(r.id)}">${I('x', 'sm')} Hapus Izin</button></div>` : (st === 'belum' && r.st ? `<div class="ab-act"><button class="mini" data-izin="${esc(r.id)}">${I('hand', 'sm')} Izin</button></div>` : '')}
-        ${st === 'hadir' || st === 'alpa' ? `<div class="ab-act"><button class="mini mini-blue" data-prog="${esc(r.id)}">${I('note', 'sm')} Progres${(r.st && r.st.phone) ? ' & Kirim' : ''}</button></div>` : ''}
+        <div class="ab-act">
+          ${st === 'belum' && r.st ? `<button class="mini" data-izin="${esc(r.id)}">${I('hand', 'sm')} Izin</button><button class="mini" data-off="${esc(r.id)}">${I('pause', 'sm')} Off</button>
+            ${r.sesi ? `<button class="mini mini-red" data-sesidel="${esc(r.sesi.id)}">${I('x', 'sm')} Batalkan ${r.sesi.type === 'extra' ? 'Kelas' : 'Pindahan'}</button>` : `<button class="mini" data-resch="${esc(r.id)}">${I('swap', 'sm')} Reschedule</button>`}` : ''}
+          ${st === 'izin' ? `<button class="mini" data-unizin="${esc(r.id)}">${I('x', 'sm')} Hapus Izin</button>` : ''}
+          ${st === 'hadir' || st === 'alpa' ? `<button class="mini mini-blue" data-prog="${esc(r.id)}">${I('note', 'sm')} Progres${(r.st && r.st.phone) ? ' & Kirim' : ''}</button>` : ''}
+          ${st !== 'belum' ? `<button class="mini" data-koreksi="${esc(r.id)}">${I('edit', 'sm')} Ubah</button>` : (r.st ? `<button class="mini" data-koreksi="${esc(r.id)}">${I('edit', 'sm')} Isi</button>` : '')}
+        </div>
       </div>
     </div>`;
   };
@@ -1483,7 +1519,7 @@ async function renderAdminAbsensi(m) {
       <div class="ab-stat"><div class="stat-label">Belum</div><div class="stat-num">${n('belum')}</div></div>
     </div>
     <div class="ab-list">
-      <div class="ab-head"><div class="ab-title">${esc(day)} — ${rel}</div>
+      <div class="ab-head"><button class="mini ab-addcls" id="abAddCls">${I('plus', 'sm')} Tambah Kelas</button><div class="ab-title">${esc(day)} — ${rel}</div>
         <div class="t-meta">${esc(new Date(key + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }))}${gName ? ' · ' + esc(gName) : ''}</div></div>
       ${shown.length ? shown.map(item).join('')
         : `<div class="empty"><div class="empty-ic">${I('calendar')}</div><div class="empty-t">Tidak ada jadwal ${gName ? esc(gName) + ' ' : ''}hari ${esc(day)}</div><div class="empty-d">Pilih tanggal${gSel ? ' atau guru' : ''} lain.</div></div>`}
@@ -1496,6 +1532,17 @@ async function renderAdminAbsensi(m) {
   m.querySelectorAll('[data-acal]').forEach(bt => bt.onclick = () => { const d = +bt.dataset.acal; S.calM += d; if (S.calM < 0) { S.calM = 11; S.calY--; } if (S.calM > 11) { S.calM = 0; S.calY++; } renderAdminAbsensi(m); });
   m.querySelectorAll('[data-aday]').forEach(bt => bt.onclick = () => { S.absCal = false; go(bt.dataset.aday); });
   m.querySelectorAll('[data-prog]').forEach(bt => bt.onclick = () => openProgres(rows.find(r => r.id === bt.dataset.prog), key));
+  const rowOf = id => rows.find(r => r.id === id);
+  m.querySelectorAll('[data-off]').forEach(bt => bt.onclick = () => openKoreksi(rowOf(bt.dataset.off), key, m, 'off'));
+  m.querySelectorAll('[data-koreksi]').forEach(bt => bt.onclick = () => openKoreksi(rowOf(bt.dataset.koreksi), key, m));
+  m.querySelectorAll('[data-resch]').forEach(bt => bt.onclick = () => openSesiForm(m, key, rowOf(bt.dataset.resch)));
+  m.querySelectorAll('[data-sesidel]').forEach(bt => bt.onclick = () => {
+    const x = S.data.sesi.find(y => y.id === bt.dataset.sesidel);
+    confirmDanger({ title: x.type === 'extra' ? 'Batalkan kelas tambahan?' : 'Batalkan pindahan jadwal?', message: x.type === 'extra' ? 'Sesi tambahan ini dihapus.' : 'Sesi kembali ke jadwal semula (' + esc(fmtDayShort(x.fromDate)) + ').', confirmText: 'Ya, Batalkan' }, async () => {
+      try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'sesi', x.id)]]); toast('Dibatalkan'); await loadOrgData(true); renderAdminAbsensi(m); } catch (e) { toast('❌ ' + friendlyError(e)); }
+    });
+  });
+  $('abAddCls').onclick = () => openSesiForm(m, key, null);
   if (S.absCal) fillAdminCalendarDots();
   setTimeout(() => { const gb = $('abGuruBar'), ac = gb && gb.querySelector('.ab-gp.active'); if (gb && ac) gb.scrollLeft = ac.offsetLeft - gb.offsetWidth / 2 + ac.offsetWidth / 2; }, 30);
   setTimeout(() => { const bar = $('dayBar'), act = bar && bar.querySelector('.ab-pill.active'); if (bar && act) bar.scrollLeft = act.offsetLeft - bar.offsetWidth / 2 + act.offsetWidth / 2; }, 30);
@@ -1563,6 +1610,77 @@ async function openProgres(r, key) {
     <div class="btn-row"><button class="btn btn-ghost" id="pgCopy">${I('copy', 'sm')} Salin</button><button class="btn btn-primary btn-wa" id="pgSend" ${st && st.phone ? '' : 'disabled'}>${I('chat', 'sm')} Kirim ke WA Ortu</button></div>`);
   $('pgCopy').onclick = async () => { try { await navigator.clipboard.writeText($('pgMsg').value); toast('✅ Pesan disalin'); } catch (e) { $('pgMsg').select(); document.execCommand('copy'); toast('✅ Pesan disalin'); } };
   $('pgSend').onclick = () => { if (!st || !st.phone) return; window.open('https://wa.me/' + waNumber(st.phone) + '?text=' + encodeURIComponent($('pgMsg').value), '_blank'); };
+}
+const fmtDayShort = k => k ? new Date(k + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
+// Reschedule 1 sesi (r = sesi yang dipindah) atau Kelas Tambahan (r = null)
+function openSesiForm(m, key, r) {
+  const resch = !!r, opts = [];
+  S.data.students.filter(st => st.active).forEach(st => (st.classes || []).forEach(c => { const sj = subjOf(c.subjectId); opts.push({ st, c, label: st.name + ' · ' + (sj ? sj.name : '—') }); }));
+  opts.sort((a, b) => a.label.localeCompare(b.label));
+  openModal(`<div class="modal-t">${I(resch ? 'swap' : 'plus')} ${resch ? 'Reschedule · ' + esc(r.name) : 'Tambah Kelas'}</div>
+    <div class="modal-sub">${resch ? 'Pindahkan sesi ' + esc(fmtDayShort(key)) + ' ' + esc(r.start) + ' ke hari/jam lain. Jadwal rutin minggu berikutnya tidak berubah.' : 'Sesi tambahan di luar jadwal rutin (mis. kelas pengganti / persiapan konser). Dihitung seperti pertemuan biasa.'}</div>
+    ${resch ? '' : `<div class="field"><label>Siswa & pelajaran</label><select id="sfCls">${opts.map((o, i) => `<option value="${i}">${esc(o.label)}</option>`).join('')}</select></div>`}
+    <div class="grid3"><div class="field"><label>Tanggal</label><input type="date" id="sfDate" value="${resch ? '' : key}"/></div>
+      <div class="field"><label>Mulai</label><input type="time" id="sfStart" value="${esc(resch ? r.start || '' : '')}"/></div>
+      <div class="field"><label>Selesai</label><input type="time" id="sfEnd" value="${esc(resch ? r.end || '' : '')}"/></div></div>
+    <div class="field"><label>Catatan (opsional)</label><input id="sfNote" maxlength="200" placeholder="${resch ? 'cth: ortu minta pindah' : 'cth: kelas pengganti'}"/></div>
+    <div id="sfMsg2"></div>
+    <div class="btn-row"><button class="btn btn-ghost" id="sfNo">Batal</button><button class="btn btn-primary" id="sfGo">${I('check', 'sm')} Simpan</button></div>`);
+  $('sfNo').onclick = closeModal;
+  $('sfGo').onclick = async () => {
+    const err = t => { $('sfMsg2').innerHTML = `<div class="msg msg-err">${t}</div>`; };
+    const o = resch ? { st: r.st, c: r.c } : opts[+$('sfCls').value];
+    const date = $('sfDate').value, start = $('sfStart').value, end = $('sfEnd').value;
+    if (!o) return err('Pilih siswa dulu.');
+    if (!date || !/^\d{2}:\d{2}$/.test(start)) return err('Isi tanggal & jam mulai.');
+    if (resch && date === key) return err('Pilih tanggal lain dari jadwal semula.');
+    if (classBusyOn(o.c.id, date)) return err('Kelas ini sudah punya sesi di tanggal itu. Pilih tanggal lain.');
+    try {
+      const ex = await getDoc(doc(db, 'orgs', S.org.id, 'att', o.c.id + '_' + date));
+      if (ex.exists()) return err('Tanggal itu sudah ada catatan absensinya untuk kelas ini.');
+    } catch (e) {}
+    const sj = subjOf(o.c.subjectId);
+    const data = { type: resch ? 'reschedule' : 'extra', classId: o.c.id, studentId: o.st.id, studentName: o.st.name, subjectName: sj ? sj.name : '', mitraUid: o.c.mitraUid || null,
+      fromDate: resch ? key : null, date, start, end: end || '', note: $('sfNote').value.trim(), by: S.user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+    $('sfGo').disabled = true;
+    try { await commitOps([['set', doc(db, 'orgs', S.org.id, 'sesi', newId()), data]]); closeModal(); toast(resch ? '✅ ' + o.st.name + ' dipindah ke ' + fmtDayShort(date) + ' ' + start : '✅ Kelas tambahan ' + o.st.name + ' · ' + fmtDayShort(date) + ' ' + start, 4000); await loadOrgData(true); renderAdminAbsensi(m); }
+    catch (e) { $('sfGo').disabled = false; err(esc(friendlyError(e))); }
+  };
+}
+// Koreksi / isi absensi oleh Admin (semua status, semua tanggal). mode 'off' = Off · guru berhalangan.
+function openKoreksi(r, key, m, mode) {
+  if (!r) return;
+  const a = r.rec || {}, cur = mode || a.status || 'hadir';
+  const g = mitraOf(a.mitraUid || r.uid);
+  openModal(`<div class="modal-t">${I(mode === 'off' ? 'pause' : 'edit')} ${mode === 'off' ? 'Off · ' : (r.rec ? 'Ubah absensi · ' : 'Isi absensi · ')}${esc(r.name)}</div>
+    <div class="modal-sub">${esc(r.subj)} · ${esc(fmtDayShort(key))} ${esc(r.start || '')}${r.end ? '–' + esc(r.end) : ''} · guru ${esc(g ? g.name : '—')}${mode === 'off' ? '<br><b>Off</b> = guru berhalangan, tidak dihitung tagihan siswa maupun honor guru.' : ''}</div>
+    <div class="field"><label>Status</label><select id="koSt">${[['hadir', 'Hadir'], ['alpa', 'Alpa (siswa tidak datang)'], ['izin', 'Izin (siswa berhalangan)'], ['off', 'Off (guru berhalangan)']].map(([v, l]) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+    <div id="koHadir"><div class="field"><label>Progres / materi (wajib untuk Hadir)</label><textarea id="koProg" rows="3" maxlength="2000">${esc(a.progress || '')}</textarea></div>
+      <div class="field"><label>PR siswa</label><input id="koPr" maxlength="2000" value="${esc(a.prSiswa || '')}"/></div>
+      <div class="field"><label>PR guru</label><input id="koPrG" maxlength="500" value="${esc(a.prGuru || '')}"/></div></div>
+    <div class="field" id="koAlasanW"><label>Alasan (opsional)</label><input id="koReason" maxlength="200" value="${esc(a.reason || '')}"/></div>
+    <div id="koMsg"></div>
+    <div class="btn-row">${r.rec ? `<button class="btn btn-ghost" id="koDel" style="color:var(--danger)">${I('trash', 'sm')} Hapus</button>` : ''}<button class="btn btn-ghost" id="koNo">Batal</button><button class="btn btn-primary" id="koGo">${I('check', 'sm')} Simpan</button></div>`);
+  const sync = () => { const h = $('koSt').value === 'hadir'; $('koHadir').style.display = h ? '' : 'none'; $('koAlasanW').style.display = h ? 'none' : ''; };
+  $('koSt').onchange = sync; sync();
+  $('koNo').onclick = closeModal;
+  const ref = doc(db, 'orgs', S.org.id, 'att', r.id);
+  const del = $('koDel'); if (del) del.onclick = async () => { try { await commitOps([['del', ref]]); closeModal(); toast('Catatan absensi dihapus'); renderAdminAbsensi(m); } catch (e) { toast('❌ ' + friendlyError(e)); } };
+  $('koGo').onclick = async () => {
+    const st = $('koSt').value, prog = $('koProg').value.trim();
+    if (st === 'hadir' && !prog) { $('koMsg').innerHTML = '<div class="msg msg-err">Progres wajib diisi untuk Hadir.</div>'; return; }
+    const paid = st === 'hadir' || st === 'alpa', uid = a.src === 'v1' ? null : (a.mitraUid || r.uid || null), gg = mitraOf(uid);
+    const honor = paid ? (a.mitraUid === uid && Number.isInteger(a.honor) && (a.status === 'hadir' || a.status === 'alpa') ? a.honor : (gg ? (gg.honor || 0) : 0)) : 0;
+    const sj = subjOf(r.c.subjectId);
+    const data = { classId: r.c.id, studentId: r.st ? r.st.id : (a.studentId || ''), studentName: r.name, subjectName: sj ? sj.name : (a.subjectName || ''), mitraUid: uid,
+      date: key, start: r.start || a.start || '', end: r.end || a.end || '', status: st,
+      progress: st === 'hadir' ? prog : '', prSiswa: st === 'hadir' ? $('koPr').value.trim() : '', prGuru: st === 'hadir' ? $('koPrG').value.trim() : '',
+      reason: st === 'hadir' ? '' : $('koReason').value.trim(), honor: a.src === 'v1' ? 0 : honor, by: S.user.uid, teachUid: r.uid || null, updatedAt: serverTimestamp() };
+    if (a.src === 'v1') data.src = 'v1';
+    $('koGo').disabled = true;
+    try { await commitOps([['set', ref, data]]); closeModal(); toast('✅ Absensi ' + r.name + ' disimpan'); renderAdminAbsensi(m); }
+    catch (e) { $('koGo').disabled = false; $('koMsg').innerHTML = `<div class="msg msg-err">${esc(friendlyError(e))}</div>`; }
+  };
 }
 function openIzin(r, key, m) {
   if (!r || !r.st) return;
@@ -1863,14 +1981,14 @@ async function renderKeuangan(m) {
   let pjGross = 0, pjGaji = 0, pjSesi = 0;
   const seenP = new Set();
   for (let d = new Date(R.from + 'T00:00:00'); localKey(d) <= R.to; d.setDate(d.getDate() + 1)) {
-    const k = localKey(d), dn = dayOfKey(k);
-    classes.filter(x => x.st.active).forEach(x => (x.c.schedule || []).filter(y => y.day === dn).forEach(() => {
-      const id = x.c.id + '_' + k; if (seenP.has(id)) return; seenP.add(id);
-      const a = attById.get(id);
+    const k = localKey(d);
+    sessionsFor(k).forEach(x => {
+      if (seenP.has(x.id)) return; seenP.add(x.id);
+      const a = attById.get(x.id);
       if (a && !isPaidSession(a)) return;
       const g = mitraOf(x.c.mitraUid);
       pjGross += rateOf(x.c); pjGaji += a ? (a.honor || 0) : (g ? (g.honor || 0) : 0); pjSesi++;
-    }));
+    });
   }
   attR.filter(a => isPaidSession(a) && !seenP.has(a.id)).forEach(a => { pjGross += rateByClass.get(a.classId) || 0; pjGaji += a.honor || 0; pjSesi++; });
   // Tagihan per kelas (murid aktif)

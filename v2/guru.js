@@ -136,12 +136,14 @@ async function loadData() {
   G.att = {}; tc.docs.concat(at.docs).forEach(d => { G.att[d.id] = Object.assign({ id: d.id }, d.data()); });
   // Materi, kurikulum (dibaca semua guru), PR Guru & catatan ke Admin milik sendiri
   const all = sn => sn.docs.map(d => Object.assign({ id: d.id }, d.data()));
-  const [mt, ku, tk, nt] = await Promise.all([
+  const [mt, ku, tk, nt, se] = await Promise.all([
     getDocs(collection(db, 'orgs', o, 'materi')).catch(() => ({ docs: [] })),
     getDocs(collection(db, 'orgs', o, 'kurikulum')).catch(() => ({ docs: [] })),
     getDocs(query(collection(db, 'orgs', o, 'tasks'), where('mitraUid', '==', u))).catch(() => ({ docs: [] })),
     getDocs(query(collection(db, 'orgs', o, 'notes'), where('mitraUid', '==', u))).catch(() => ({ docs: [] })),
+    getDocs(query(collection(db, 'orgs', o, 'sesi'), where('mitraUid', '==', u))).catch(() => ({ docs: [] })),
   ]);
+  G.sesi = all(se); // Reschedule & kelas tambahan dari Guru Admin
   G.materi = all(mt); G.kur = all(ku);
   G.tasks = all(tk).sort((a, b) => (a.done - b.done) || tsMs(b.createdAt) - tsMs(a.createdAt));
   G.notes = all(nt).sort((a, b) => tsMs(b.createdAt) - tsMs(a.createdAt));
@@ -149,11 +151,17 @@ async function loadData() {
 // Sesi pada tanggal tertentu: dari jadwal kelas aktif + absensi yang sudah tercatat
 // (supaya riwayat tetap tampil walau kelasnya sudah dipindah/nonaktif).
 function sessionsOn(key) {
-  const day = dayNameOf(key), out = [], seen = new Set();
+  const day = dayNameOf(key), out = [], seen = new Set(), sesi = G.sesi || [];
+  const movedOut = new Set(sesi.filter(x => x.type === 'reschedule' && x.fromDate === key).map(x => x.classId));
   G.sched.filter(c => c.active).forEach(c => (c.schedule || []).filter(x => x.day === day).forEach(x => {
-    const id = c.id + '_' + key; if (seen.has(id)) return; seen.add(id);
+    const id = c.id + '_' + key; if (seen.has(id) || movedOut.has(c.id)) return; seen.add(id);
     out.push({ id, classId: c.id, studentId: c.studentId, name: c.studentName, subject: c.subjectName, start: x.start, end: x.end, rec: G.att[id] || null });
   }));
+  // Jadwal khusus dari Guru Admin: pindahan (reschedule) & kelas tambahan
+  sesi.filter(x => x.date === key).forEach(x => {
+    const id = x.classId + '_' + key, c = G.sched.find(k => k.id === x.classId); if (seen.has(id) || !c) return; seen.add(id);
+    out.push({ id, classId: c.id, studentId: c.studentId, name: c.studentName, subject: c.subjectName, start: x.start, end: x.end || '', rec: G.att[id] || null, sesi: x });
+  });
   Object.values(G.att).filter(a => a.date === key && !seen.has(a.id)).forEach(a => {
     seen.add(a.id); out.push({ id: a.id, classId: a.classId, studentId: a.studentId, name: a.studentName, subject: a.subjectName, start: a.start, end: a.end, rec: a, orphan: true });
   });
@@ -275,7 +283,7 @@ function cardHtml(s, key, isToday, isPast) {
         <div class="s-time-row" style="margin-top:0;flex-shrink:0;text-align:right"><span style="color:${timeColor}${dim ? ';text-decoration:line-through' : ''};font-size:${status === 'belum' ? '1.05rem' : '1rem'};font-weight:700">${esc(s.start)}${s.end ? '–' + esc(s.end) : ''}</span></div>
       </div>
       ${infoRow}
-      <div class="s-pills" style="margin-top:${dim ? 2 : 5}px"></div>
+      <div class="s-pills" style="margin-top:${dim ? 2 : 5}px">${s.sesi ? (s.sesi.type === 'extra' ? `<span class="s-pill" style="background:var(--blue-bg);color:var(--blue)">${I('plus')} Kelas tambahan${s.sesi.note ? ' · ' + esc(s.sesi.note) : ''}</span>` : `<span class="s-pill rescue-pill">${I('swap')} Pindahan dari ${esc(new Date(s.sesi.fromDate + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' }))}${s.sesi.note ? ' · ' + esc(s.sesi.note) : ''}</span>`) : ''}</div>
       ${r.progress ? `<div class="s-note-preview">${I('note')}<span>${esc(r.progress)}</span></div>` : (status === 'belum' ? lastHint(s, key) : '')}
       ${r.prSiswa ? `<div class="s-note-preview" style="color:var(--plum)">${I('book')}<span>PR: ${esc(r.prSiswa)}</span></div>` : ''}
       ${r.prGuru ? `<div class="s-note-preview" style="color:var(--blue)">${I('tasks')}<span>PR Guru: ${esc(r.prGuru)}</span></div>` : ''}

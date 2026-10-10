@@ -12,7 +12,8 @@
     "test:langganan": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-langganan.test.cjs\"",
     "test:lainnya": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-lainnya.test.cjs\"",
     "test:riwayat": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-riwayat.test.cjs\"",
-    "test:materi": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-materi.test.cjs\""
+    "test:materi": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-materi.test.cjs\"",
+    "test:jadwal": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-jadwal.test.cjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.0",

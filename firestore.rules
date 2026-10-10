@@ -302,6 +302,20 @@ service cloud.firestore {
         allow read, write: if isAdmin(orgId);
       }
 
+      // ── Jadwal khusus per tanggal (seperti V1): Reschedule (pindah 1 sesi) & Kelas Tambahan.
+      //    Dibuat Admin; guru kelas itu ikut membaca (mitraUid = guru kelas saat ini).
+      match /sesi/{sid} {
+        allow read: if isAdmin(orgId) || (isMember(orgId) && resource.data.mitraUid == uid());
+        allow delete: if isAdmin(orgId);
+        allow create, update: if isAdmin(orgId)
+          && request.resource.data.keys().hasOnly(['type', 'classId', 'studentId', 'studentName', 'subjectName', 'mitraUid', 'fromDate', 'date', 'start', 'end', 'note', 'by', 'createdAt', 'updatedAt'])
+          && request.resource.data.type in ['reschedule', 'extra']
+          && request.resource.data.classId is string
+          && request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.start is string && request.resource.data.start.matches('^[0-9]{2}:[0-9]{2}$')
+          && (request.resource.data.type == 'extra' || (request.resource.data.fromDate is string && request.resource.data.fromDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+          && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 200));
+      }
       // ── Materi lembaga (tautan & folder, seperti tab Materi V1): Admin mengelola, semua guru membaca ──
       match /materi/{mid} {
         allow read: if isMember(orgId);
