@@ -1504,11 +1504,14 @@ async function renderAdminAbsensi(m) {
   const shown = rows.filter(r => !gSel || guruOf(r) === gSel);
   const n = st => shown.filter(r => stOf(r) === st).length;
   const shift = (k, d) => { const x = new Date(k + 'T00:00:00'); x.setDate(x.getDate() + d); return localKey(x); };
-  // Strip tanggal ala V1 (7 hari sebelum s/d 6 hari sesudah tanggal terpilih) + tombol kalender
+  // Strip tanggal tetap: 7 hari lalu s/d 7 hari ke depan dari HARI INI (tidak ikut bergeser).
+  // Tanggal yang lebih jauh lewat tombol Kalender.
   const DSH = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'], MSH = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const inStrip = key >= shift(today, -7) && key <= shift(today, 7);
+  const kd = new Date(key + 'T00:00:00');
   let pills = '';
-  for (let i = -7; i <= 6; i++) {
-    const k = shift(key, i), d = new Date(k + 'T00:00:00'), showMonth = i === -7 || d.getDate() === 1;
+  for (let i = -7; i <= 7; i++) {
+    const k = shift(today, i), d = new Date(k + 'T00:00:00'), showMonth = i === -7 || d.getDate() === 1;
     pills += `<button class="ab-pill${k === key ? ' active' : ''}${k === today && k !== key ? ' today' : ''}${k < today ? ' past' : ''}" data-date="${k}">`
       + `<span class="dp-d">${k === today ? 'Hari ini' : DSH[d.getDay()]}</span><span class="dp-n">${d.getDate()}${showMonth ? ' ' + MSH[d.getMonth()] : ''}</span></button>`;
   }
@@ -1542,7 +1545,7 @@ async function renderAdminAbsensi(m) {
   m.innerHTML = `
     <div class="page-head"><div><div class="page-title">Absensi</div>
       <div class="page-sub">Pantau kehadiran semua guru. Siswa berhalangan? Tekan <b>Izin</b>.</div></div></div>
-    <div class="ab-days" id="dayBar">${pills}<button class="ab-pill ab-cal${S.absCal ? ' active' : ''}" id="abCalBtn" aria-label="Buka Kalender">${I('calendar')}<span class="dp-d">Kalender</span></button></div>
+    <div class="ab-days" id="dayBar">${pills}<button class="ab-pill ab-cal${S.absCal || !inStrip ? ' active' : ''}" id="abCalBtn" aria-label="Buka Kalender">${I('calendar')}<span class="dp-d">${inStrip ? 'Kalender' : kd.getDate() + ' ' + MSH[kd.getMonth()]}</span></button></div>
     <input type="date" id="abDate" value="${key}" class="sr-only" tabindex="-1" aria-hidden="true"/>
     <div class="ab-gurus" id="abGuruBar">
       <button class="ab-gp${!gSel ? ' active' : ''}" data-guru="">${I('users', 'sm')} Semua <span class="ab-gn">${rows.length}</span></button>
@@ -1583,7 +1586,7 @@ async function renderAdminAbsensi(m) {
   $('abAddCls').onclick = () => openSesiForm(m, key, null);
   if (S.absCal) fillAdminCalendarDots();
   setTimeout(() => { const gb = $('abGuruBar'), ac = gb && gb.querySelector('.ab-gp.active'); if (gb && ac) gb.scrollLeft = ac.offsetLeft - gb.offsetWidth / 2 + ac.offsetWidth / 2; }, 30);
-  setTimeout(() => { const bar = $('dayBar'), act = bar && bar.querySelector('.ab-pill.active'); if (bar && act) bar.scrollLeft = act.offsetLeft - bar.offsetWidth / 2 + act.offsetWidth / 2; }, 30);
+  setTimeout(() => { const bar = $('dayBar'), act = bar && (bar.querySelector('.ab-pill.active:not(.ab-cal)') || bar.querySelector('.ab-pill.active')); if (bar && act) bar.scrollLeft = act.offsetLeft - bar.offsetWidth / 2 + act.offsetWidth / 2; }, 30);
   m.querySelectorAll('[data-izin]').forEach(bt => bt.onclick = () => openIzin(rows.find(r => r.id === bt.dataset.izin), key, m));
   m.querySelectorAll('[data-unizin]').forEach(bt => bt.onclick = async () => {
     try { await commitOps([['del', doc(db, 'orgs', S.org.id, 'att', bt.dataset.unizin)]]); toast('Izin dihapus'); renderAdminAbsensi(m); }

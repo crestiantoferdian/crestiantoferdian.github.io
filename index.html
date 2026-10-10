@@ -10275,6 +10275,7 @@ function applySubscriptionDoc(doc){
     if(subActive){
       _currentTier=tierInfo(d.tier)?d.tier:'unlimited'; // PRO lama tanpa tier = Unlimited
       _currentPeriod=/yearly$/.test(String(d.plan||''))?'yearly':'monthly';
+      scheduleSubEndReminders(subEndsMs); // push H-3 & H-1 sebelum langganan berbayar habis (ada dedupe)
       hidePaywall();
       if(tb) tb.style.display='none';
       _subBadgeInfo={label:'PRO',tier:d.tier||null};
@@ -10318,6 +10319,24 @@ function scheduleTrialReminder(trialEndsMs){
     'trialReminder_'+trialEndsMs
   ).then(function(ok){
     if(ok) localStorage.setItem(flagKey,'1');
+  });
+}
+
+/* Reminder H-3 & H-1 sebelum langganan BERBAYAR habis — memakai sistem push yang sama
+   dengan reminder trial. Dijadwalkan sekali per tanggal habis; kalau diperpanjang,
+   tanggal habis berubah sehingga reminder baru ikut dijadwalkan. */
+function scheduleSubEndReminders(subEndsMs){
+  if(!subEndsMs) return;
+  const now=Date.now(), DAY=24*60*60*1000;
+  [[3,'Langganan Pro kamu berakhir 3 hari lagi. Perpanjang sekarang supaya aplikasi tidak terkunci dan absensi tetap lancar.'],
+   [1,'Besok langganan Pro LesLesanKu berakhir. Perpanjang hari ini supaya tidak ada jeda mencatat absensi & progres murid.']]
+  .forEach(function(r){
+    const flagKey='llk_sub_reminder_'+r[0]+'_'+subEndsMs;
+    if(localStorage.getItem(flagKey)) return;
+    const atMs=subEndsMs-r[0]*DAY;
+    if(atMs<=now) return; // sudah lewat — banner di aplikasi yang mengingatkan
+    scheduleReminderPush('⏳ Langganan LesLesanKu akan berakhir', r[1], new Date(atMs).toISOString(), 'subReminder'+r[0]+'_'+subEndsMs)
+      .then(function(ok){ if(ok) localStorage.setItem(flagKey,'1'); });
   });
 }
 
