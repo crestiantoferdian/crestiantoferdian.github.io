@@ -48,9 +48,11 @@ function nextSubscription(current, planKey, nowMs) {
   return { tier: plan.tier, plan: planKey, subscriptionEndsMs: base + DURATION_MS[plan.period] };
 }
 
-// Naik paket (pelanggan BERBAYAR yang masih aktif pindah ke tingkat lebih tinggi) → diskon 50%.
-// HARUS sama dengan LLK_UPGRADE_DISCOUNT di index.html.
-const UPGRADE_DISCOUNT = 0.5;
+// Naik paket (pelanggan BERBAYAR yang masih aktif pindah ke tingkat lebih tinggi):
+//   langganan sekarang BULANAN → paket bulanan diskon 50%, paket tahunan diskon 10%
+//   langganan sekarang TAHUNAN → diskon 50%
+// HARUS sama dengan llkUpgradeDiscount() di index.html.
+const UPGRADE_DISCOUNT = { monthly: { monthly: 0.5, yearly: 0.1 }, yearly: { monthly: 0.5, yearly: 0.5 } };
 const TIER_RANK = { basic: 0, up: 1, unlimited: 2 };
 
 /**
@@ -64,7 +66,11 @@ function priceFor(current, planKey, nowMs) {
   const paidActive = !!current && current.status === 'active' && !current.isTester && curEnds > nowMs;
   const curTier = paidActive ? current.tier || 'unlimited' : null;
   const upgrade = !!curTier && TIER_RANK[plan.tier] > TIER_RANK[curTier];
-  return { price: upgrade ? Math.round(plan.price * (1 - UPGRADE_DISCOUNT)) : plan.price, fullPrice: plan.price, upgrade };
+  if (!upgrade) return { price: plan.price, fullPrice: plan.price, upgrade: false, discount: 0 };
+  const curPlan = resolvePlan(current.plan);
+  const curPeriod = curPlan ? curPlan.period : 'monthly';
+  const discount = UPGRADE_DISCOUNT[curPeriod][plan.period];
+  return { price: Math.round(plan.price * (1 - discount)), fullPrice: plan.price, upgrade: true, discount };
 }
 
 // Kunci dokumen trialUsage: hash email (bukan email mentah) supaya koleksi
