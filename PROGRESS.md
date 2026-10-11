@@ -9,6 +9,13 @@ _Terakhir diperbarui: 10 Okt 2026 (SEO: meta, robots.txt, sitemap.xml)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## 🏪 Play Console: akun developer dibuat (11 Okt 2026)
+- Akun **FerTune Studio** (akun pribadi, pemilik `ferdiancrestianto@gmail.com`) sudah dibuat; profil pembayaran Perorangan Indonesia sudah diperbarui alamatnya. **Tahap 1 selesai** (daftar & bayar).
+- Dokumen identitas sudah diunggah, **menunggu Google menyetujui** (beberapa hari, kabar lewat email). Setelah itu: verifikasi nomor telepon kontak (SMS/panggilan) → tombol "Buat aplikasi" aktif.
+- Catatan pemilik: nama resmi (Ferdian Crestianto) tampil di profil publik; karena akan menghasilkan uang (langganan), alamat lengkap resmi kemungkinan tampil publik juga.
+- Draf listing (judul, deskripsi singkat/panjang, jawaban Data Safety, App access) sudah disusun Claude; belum ditempel ke Play Console. Sebelum rilis: perbarui `privacy-policy.html` (tambah Google Play Billing, bukan hanya Midtrans) dan siapkan akun Google khusus reviewer.
+- Yang bisa dikerjakan selagi menunggu: cari ≥12 penguji closed testing, screenshot 1080×1920 + feature graphic 1024×500 baru, sembunyikan pembayaran Midtrans di aplikasi Play (Tahap 0).
+
 ## 🔎 SEO: agar leslesanku.com muncul di Google (10 Okt 2026)
 - Ditambah di `<head>` `index.html` (hanya meta, tidak menyentuh data/skrip): judul "LesLesanKu (LLK) — Aplikasi Jadwal, Absensi & Tagihan untuk Guru Les", `meta description`, `canonical`, Open Graph, JSON-LD `WebApplication`. File baru `robots.txt` & `sitemap.xml` (halaman utama + privacy-policy).
 - **Langkah pemilik (tidak bisa dilakukan lewat kode):** daftarkan `leslesanku.com` di Google Search Console (properti Domain, verifikasi lewat TXT DNS) → kirim `https://leslesanku.com/sitemap.xml` → "Inspeksi URL" `https://leslesanku.com/` → "Minta pengindeksan". Biasanya muncul beberapa hari–beberapa minggu; mencari "LesLesanKu" lebih dulu muncul daripada "LLK".
