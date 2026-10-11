@@ -1308,6 +1308,12 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
       </button>
       <div id="loginGateStatus" style="margin-top:14px;font-size:0.82rem;color:var(--muted)"></div>
       <button id="loginGateSkipBtn" onclick="skipLoginForNow()" style="margin-top:8px;background:none;border:none;color:var(--text2);font-size:0.86rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border);padding:10px 12px">Lihat-lihat dulu, login nanti</button>
+      <a id="loginGateV2" href="v2/" style="display:flex;align-items:center;gap:10px;margin:14px 0 4px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--text);text-decoration:none;text-align:left">
+        <svg class="ico" aria-hidden="true" style="width:22px;height:22px;color:var(--red-text);flex-shrink:0"><use href="#i-users"/></svg>
+        <span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:0.88rem">Pemilik lembaga / Guru Mitra?</span><span style="display:block;font-size:0.78rem;color:var(--muted);margin-top:1px">Masuk LLK Lembaga (V2)</span></span>
+        <svg class="ico" aria-hidden="true" style="width:18px;height:18px;color:var(--muted);flex-shrink:0"><use href="#i-chevron-right"/></svg>
+      </a>
+      <script>try{ if(window.llkIsPlayApp&&window.llkIsPlayApp()) document.getElementById('loginGateV2').style.display='none'; }catch(e){}</script>
       <div class="llk-login-foot"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg>Data tersimpan aman di akun Google-mu</div>
     </div>
   </div>
