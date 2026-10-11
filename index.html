@@ -14,6 +14,11 @@
 window.llkIsPlayApp=function(){ try{ return sessionStorage.getItem('llk_play_app')==='1'; }catch(e){ return false; } };
 (function(){try{
   if(document.referrer.indexOf('android-app://')===0) sessionStorage.setItem('llk_play_app','1');
+  // Cadangan: aplikasi Play (TWA) dibuka dengan alamat awal leslesanku.com/?src=play (diatur di PWABuilder)
+  if(/[?&]src=play(&|$)/.test(location.search)){
+    sessionStorage.setItem('llk_play_app','1');
+    try{ var q0=location.search.replace(/([?&])src=play(&|$)/,function(m,a,b){ return b?a:''; }); history.replaceState(history.state,'',location.pathname+(q0==='?'?'':q0)+location.hash); }catch(e){}
+  }
   if(/[?&]v1=1/.test(location.search)){
     sessionStorage.setItem('llk_v1_tab','1'); localStorage.setItem('llk_v2_choice','lepas');
     // Rapikan alamat: buang "?v1=1" (parameter lain tetap) supaya yang terlihat leslesanku.com saja
@@ -22,6 +27,7 @@ window.llkIsPlayApp=function(){ try{ return sessionStorage.getItem('llk_play_app
   }
   if(window.matchMedia&&matchMedia('(display-mode: standalone)').matches) return;
   if(navigator.standalone||document.referrer.indexOf('android-app://')===0) return;
+  if(sessionStorage.getItem('llk_play_app')==='1') return; // aplikasi Play Store: langsung login V1
   if(sessionStorage.getItem('llk_v1_tab')==='1') return;
   if(localStorage.getItem('llk_v1_login')==='1') return;
   var st=localStorage.getItem('rms4_s'); if(st&&st!=='[]'&&st!=='null') return;
@@ -10665,7 +10671,24 @@ function llkHidePayLoadingWhenSnapReady(){
   scan();
   setTimeout(function(){ if(!done){ done=true; llkHidePayLoading(); } },20000);
 }
+/* Aplikasi dari Play Store: aturan Google melarang pembayaran Midtrans di dalam aplikasi.
+   Sampai Google Play Billing siap, tombol beli hanya menampilkan pemberitahuan ini
+   (penguji closed testing memakai trial 31 hari). Di website, Midtrans tetap jalan. */
+function llkPlayPayNotice(){
+  let el=document.getElementById('llkPlayPay'); if(el) el.remove();
+  el=document.createElement('div'); el.id='llkPlayPay';
+  el.style.cssText='position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(43,36,32,0.45);font-family:inherit';
+  el.innerHTML='<div style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:24px 20px 18px;text-align:center;box-shadow:var(--shadow-lg)">'
+    +'<div class="llk-dialog-ic">'+llkI('crown')+'</div>'
+    +'<div style="font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--text);margin-bottom:8px">Segera hadir di aplikasi</div>'
+    +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.6;margin-bottom:18px">Pembelian langganan lewat Google Play sedang disiapkan. Selama masa uji coba, semua fitur Pro bisa kamu pakai gratis.</div>'
+    +'<button class="llk-btn ink" style="width:100%" onclick="document.getElementById(\'llkPlayPay\').remove()">Mengerti</button></div>';
+  el.addEventListener('click',function(e){ if(e.target===el) el.remove(); });
+  document.body.appendChild(el);
+}
+
 async function mulaiLangganan(plan){
+  if(window.llkIsPlayApp&&window.llkIsPlayApp()){ llkPlayPayNotice(); return; }
   // Cegah tombol tertekan dua kali (snap.pay kedua ditolak Midtrans: "not allowed in this state")
   if(_llkPayBusy) return;
   _llkPayBusy=true; setTimeout(function(){ _llkPayBusy=false; },4000);
