@@ -8129,16 +8129,12 @@ function showBackupText(json, tgl){
     '</div>'+
     '<div style="padding:10px 20px 20px;display:flex;flex-direction:column;gap:10px">'+
 
-      '<button onclick="downloadBackup()" class="llk-btn primary block" style="height:52px">'+
-        llkI('download')+' Download File Backup (.txt)'+
+      '<button onclick="shareBackupFile()" class="llk-btn primary block" style="height:52px">'+
+        llkI('share')+' Kirim File Backup'+
       '</button>'+
 
-      '<button onclick="backupToWA()" class="llk-btn wa block" style="height:52px">'+
-        llkI('chat')+' Kirim ke WA (chat diri sendiri)'+
-      '</button>'+
-
-      '<button onclick="copyBackup()" id="copyBackupBtn" class="llk-btn secondary block" style="height:52px">'+
-        llkI('copy')+' Salin Teks Backup'+
+      '<button onclick="saveBackupFile()" class="llk-btn secondary block" style="height:52px">'+
+        llkI('download')+' Download File Backup'+
       '</button>'+
 
       '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;margin-top:4px">'+
@@ -8146,9 +8142,8 @@ function showBackupText(json, tgl){
         '<textarea readonly id="backupText" class="llk-textarea" style="height:160px;font-family:var(--font-mono);font-size:0.74rem;resize:none">'+json+'</textarea>'+
       '</div>'+
       '<div class="llk-callout" style="flex-direction:column;gap:6px;font-size:0.84rem">'+
-        '<div class="llk-ic-inline">'+llkI('download')+'<span><b>Download</b> \u2192 file tersimpan di folder Downloads (di HP bisa muncul menu Bagikan → pilih Simpan/Files)</span></div>'+
-        '<div class="llk-ic-inline">'+llkI('chat')+'<span><b>Kirim WA</b> \u2192 pilih chat diri sendiri \u2192 kirim</span></div>'+
-        '<div class="llk-ic-inline">'+llkI('copy')+'<span><b>Salin</b> \u2192 tempel di Google Keep / Notes / Drive</span></div>'+
+        '<div class="llk-ic-inline">'+llkI('share')+'<span><b>Kirim File</b> \u2192 pilih WhatsApp (chat diri sendiri), Google Drive, atau email</span></div>'+
+        '<div class="llk-ic-inline">'+llkI('download')+'<span><b>Download</b> \u2192 file langsung tersimpan di folder Downloads</span></div>'+
       '</div>'+
     '</div>';
 }
@@ -8161,6 +8156,41 @@ function llkIsMobileDevice(){
   // iPadOS menyamar sebagai Mac: Mac + layar sentuh = iPad
   return /Macintosh/.test(ua) && (navigator.maxTouchPoints||0)>1;
 }
+// Tombol "Kirim File Backup": menu Bagikan (WA, Drive, email…). Kalau perangkat tidak
+// bisa membagikan file (mis. sebagian PC), file diunduh biasa.
+function shareBackupFile(){
+  var json = window._backupJson || '';
+  var tgl = window._backupTgl || 'backup';
+  var filename = 'LLK-Backup-'+tgl+'.txt';
+  try{
+    var f1 = new File([new Blob([json],{type:'text/plain;charset=utf-8'})], filename, {type:'text/plain'});
+    if(navigator.canShare && navigator.canShare({files:[f1]})){
+      navigator.share({files:[f1], title:'LLK Backup '+tgl})
+        .then(function(){toast('✅ File backup berhasil dikirim');})
+        .catch(function(e){ if(e.name!=='AbortError') saveBackupFile(); });
+      return;
+    }
+  }catch(e){}
+  toast('Perangkat ini tidak bisa membagikan file — file diunduh saja.');
+  saveBackupFile();
+}
+// Tombol "Download File Backup": selalu unduhan biasa ke folder Downloads.
+function saveBackupFile(){
+  var json = window._backupJson || '';
+  var tgl = window._backupTgl || 'backup';
+  var filename = 'LLK-Backup-'+tgl+'.txt';
+  try{
+    var url = URL.createObjectURL(new Blob([json],{type:'text/plain;charset=utf-8'}));
+    var a = document.createElement('a');
+    a.href = url; a.download = filename; a.style.display='none';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ if(a.parentNode) document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+    toast('✅ File backup diunduh — cek folder Downloads.');
+    return;
+  }catch(e){}
+  showBackupInline(json);
+}
+
 function downloadBackup(){
   var json = window._backupJson || '';
   var tgl = window._backupTgl || 'backup';
