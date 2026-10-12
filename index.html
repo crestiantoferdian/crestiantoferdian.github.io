@@ -9522,65 +9522,58 @@ function openSheetLink(idx){
   window._sheetDateKey=null;
   window._sheetAttKey=null;
   const sentKey='sheet_sent_'+dateKey+'_'+(s.name||idx).replace(/[^a-zA-Z0-9]/g,'_');
-  const alreadySent=localStorage.getItem(sentKey);
-
-  const old=document.getElementById('sheetPopup');
-  if(old){old.remove();return;}
 
   // Teks disusun sesuai field yang dicentang di Pengaturan Progres Siswa
   const text=buildProgressText(attKey, s.name, dateKey);
   window._sheetLastText=text;
-  window._sheetCtx={idx:idx, sentKey:sentKey, name:s.name}; // dipakai Kirim ke WA / Buka Sheet untuk menandai terkirim
-
-  // Otomatis tersalin ke clipboard begitu popup dibuka
+  // Otomatis tersalin ke clipboard (cadangan kalau teks tidak ikut terisi di WA/Sheet)
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(()=>fallbackCopyPlain(text));
   else fallbackCopyPlain(text);
 
-  const waBtn=phone?`<button onclick="goToWAProgress('${phone}')" class="llk-btn wa" style="flex:1;height:52px">${llkI('chat')} Kirim ke WA</button>`:'';
-  const sheetBtn=link?`<button onclick="goToSheet('${jsAttr(link)}')" class="llk-btn ${phone?'secondary':'primary'}" style="flex:1;height:52px">${llkI('external')} Buka Sheet</button>`:'';
-  const actionBtn=primary==='wa'?waBtn+sheetBtn:sheetBtn+waBtn;
-
-  const popup=document.createElement('div');
-  popup.id='sheetPopup';
-  popup.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-end;justify-content:center;background:rgba(43,36,32,0.42);';
-  popup.innerHTML=`
-    <div style="background:var(--card);border-radius:var(--r-xl) var(--r-xl) 0 0;padding:12px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;box-shadow:var(--shadow-float);animation:llkSheetUp var(--d3) var(--ease-out) both">
-      <div style="width:40px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 18px"></div>
-      <div class="modal-title" style="margin-bottom:10px">${llkI('mail')} Kirim Progres — ${escapeHtml(s.name)}</div>
-      <div class="kirim-preview" style="margin-bottom:10px">${text.replace(/</g,'&lt;')}</div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:0.84rem;color:var(--hadir);margin-bottom:14px;font-weight:600">${llkI('copy','sm')} Teks sudah tersalin ke clipboard</div>
-      ${alreadySent?`<div style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;font-size:0.84rem;color:var(--hadir);margin-bottom:12px;font-weight:600">${llkI('check-circle','sm')} Sudah dikirim untuk tanggal ini · <button onclick="unmarkSheetSent(${idx},'${sentKey}')" style="background:none;border:none;color:var(--text2);font-family:inherit;font-size:0.82rem;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px">Tandai belum terkirim</button></div>`:''}
-      <div style="display:flex;gap:10px;margin-bottom:10px">${actionBtn}</div>
-      <button onclick="markSheetSent(${idx},'${sentKey}')" class="llk-btn outline-success block" style="height:52px;margin-bottom:10px">${llkI('check')} Sudah Terkirim</button>
-      <button onclick="document.getElementById('sheetPopup').remove()" class="llk-btn soft block">Batal</button>
-      <div style="margin-top:10px;text-align:center">
-        <button onclick="document.getElementById('sheetPopup').remove();renderProgressSettings()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--blue);font-family:inherit;font-size:0.84rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:10px">${llkI('sliders','sm')} Atur format & tujuan kirim</button>
-      </div>
-    </div>`;
-  popup.addEventListener('click',e=>{if(e.target===popup) popup.remove();});
-  document.body.appendChild(popup);
-  history.pushState({tab:currentTab, view:'modal'},'');
+  // Tombol amplop langsung membuka halaman pengiriman (WA / Google Sheet).
+  // TIDAK langsung ditandai terkirim: saat kembali ke LLK guru ditanya dulu (llkAskProgressSent).
+  llkSetPendingSent({idx:idx, sentKey:sentKey, name:s.name, at:Date.now()});
+  if(primary==='wa'){
+    const wa=phone.startsWith('62')?phone:'62'+phone.replace(/^0/,'');
+    window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(text),'_blank');
+  } else {
+    window.open(link,'_blank');
+    toast('Teks progres sudah tersalin — tempel di Sheet');
+  }
 }
 
-// BUGFIX: dulu membuka WA/Sheet TIDAK menandai terkirim — progres yang sudah
-// dikirim lewat WA tetap tampil "belum terkirim" kalau lupa menekan "Sudah
-// Terkirim". Sekarang langsung ditandai (bisa dibatalkan: "Tandai belum terkirim").
-function llkAutoMarkSent(){
-  const c=window._sheetCtx; if(!c) return;
-  window._sheetCtx=null;
-  markSheetSent(c.idx, c.sentKey, true);
+// ── Konfirmasi "sudah mengirim progres?" setelah kembali dari WA / Sheet ──
+// Disimpan di sessionStorage juga, supaya tetap ditanyakan walau halaman dimuat ulang.
+function llkSetPendingSent(p){
+  window._llkPendingSent=p;
+  try{ sessionStorage.setItem('llk_pending_sent',JSON.stringify(p)); }catch(e){}
 }
-function goToSheet(link){
-  window.open(link,'_blank');
-  llkAutoMarkSent();
+function llkClearPendingSent(){
+  window._llkPendingSent=null;
+  try{ sessionStorage.removeItem('llk_pending_sent'); }catch(e){}
 }
-
-function goToWAProgress(phone){
-  const msg=encodeURIComponent(window._sheetLastText||'');
-  const wa=phone.startsWith('62')?phone:'62'+phone.replace(/^0/,'');
-  window.open(`https://wa.me/${wa}?text=${msg}`,'_blank');
-  llkAutoMarkSent();
+function llkAskProgressSent(){
+  let p=window._llkPendingSent;
+  if(!p){ try{ p=JSON.parse(sessionStorage.getItem('llk_pending_sent')||'null'); }catch(e){ p=null; } }
+  if(!p||document.getElementById('llkSentAsk')) return;
+  if(Date.now()-(p.at||0)<800) return; // baru saja ditekan, belum benar-benar pindah ke WA/Sheet
+  const el=document.createElement('div');
+  el.id='llkSentAsk';
+  // Tidak bisa ditutup dengan ketuk di luar / tombol kembali — harus memilih jawaban
+  el.style.cssText='position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(43,36,32,0.5);font-family:inherit';
+  el.innerHTML='<div role="dialog" aria-modal="true" style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:24px 20px 18px;text-align:center;box-shadow:var(--shadow-lg)">'
+    +'<div class="llk-dialog-ic info">'+llkI('mail')+'</div>'
+    +'<div style="font-family:var(--font-display);font-size:1.2rem;font-weight:600;color:var(--text);margin-bottom:8px">Apakah Anda sudah mengirim progres siswa?</div>'
+    +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.55;margin-bottom:18px">Progres <b>'+escapeHtml(p.name||'')+'</b></div>'
+    +'<div style="display:flex;gap:10px"><button id="llkSentLater" class="llk-btn soft" style="flex:1;height:50px">Nanti</button>'
+    +'<button id="llkSentYes" class="llk-btn primary" style="flex:1;height:50px">'+llkI('check')+' Sudah</button></div></div>';
+  document.body.appendChild(el);
+  document.getElementById('llkSentLater').onclick=function(){ llkClearPendingSent(); el.remove(); };
+  document.getElementById('llkSentYes').onclick=function(){ llkClearPendingSent(); el.remove(); markSheetSent(p.idx, p.sentKey, true); };
 }
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') setTimeout(llkAskProgressSent,400); });
+window.addEventListener('focus',function(){ setTimeout(llkAskProgressSent,400); });
+window.addEventListener('pageshow',function(){ setTimeout(llkAskProgressSent,800); });
 
 function unmarkSheetSent(idx,sentKey){
   localStorage.removeItem(sentKey);
