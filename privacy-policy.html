@@ -91,7 +91,7 @@
   </div>
 
   <main>
-    <p class="updated">Terakhir diperbarui: 27 September 2026</p>
+    <p class="updated">Terakhir diperbarui: 12 Oktober 2026</p>
 
     <div class="card">
       <p style="margin:0">LesLesanKu ("<strong>Aplikasi</strong>") dikembangkan dan dikelola secara independen oleh tutor pemilik aplikasi ini ("<strong>Pengembang</strong>", "<strong>kami</strong>"). Kebijakan ini menjelaskan data apa saja yang dikumpulkan Aplikasi, bagaimana data itu disimpan dan digunakan, serta hak yang kamu miliki atas data tersebut.</p>
@@ -136,6 +136,21 @@
     </ul>
     <p>Data ini tersimpan di server (bukan di perangkat) dan hanya bisa diubah lewat proses pembayaran yang sah, untuk mencegah manipulasi masa aktif langganan.</p>
 
+    <p><strong>e. Email layanan & pengingat</strong></p>
+    <p>Alamat email akun Google-mu dipakai untuk mengirim email layanan dari <em>no-reply@leslesanku.com</em>, yaitu:</p>
+    <ul>
+      <li>Email selamat datang saat pertama kali login</li>
+      <li>Invoice/bukti pembayaran setelah langganan berhasil dibayar</li>
+      <li>Pengingat menjelang berakhirnya masa uji coba atau langganan</li>
+    </ul>
+    <p>Pengingat menjelang berakhirnya langganan juga bisa dikirim sebagai notifikasi ke perangkatmu (kalau notifikasi diaktifkan). Email ini bukan email promosi dan tidak dikirim ke pihak lain.</p>
+
+    <p><strong>f. Pemberitahuan internal ke Pengembang</strong></p>
+    <p>Supaya Pengembang bisa memantau layanan dan membantu bila ada kendala pembayaran, saat ada <strong>akun baru</strong>, <strong>lembaga baru</strong>, atau <strong>pembayaran berhasil</strong>, sistem mengirim pemberitahuan singkat ke akun Telegram pribadi milik Pengembang. Isinya terbatas pada: nama dan email akun, nama lembaga (bila ada), paket, jumlah pembayaran, nomor order, dan waktu kejadian. Pemberitahuan ini hanya dibaca oleh Pengembang dan tidak berisi data siswa.</p>
+
+    <p><strong>g. LLK Lembaga (versi uji coba)</strong></p>
+    <p>Selain aplikasi untuk tutor perorangan, tersedia <strong>LLK Lembaga</strong> di <em>leslesanku.com/v2</em> — saat ini masih <strong>versi uji coba</strong> dan belum tersedia di aplikasi Google Play. LLK Lembaga dipakai pemilik lembaga les ("Guru Admin") bersama guru-guru yang diundangnya ("Guru Mitra"). Data yang disimpan di cloud untuk lembaga tersebut meliputi: nama & logo lembaga; nama, email, dan nomor WhatsApp para guru; <strong>nomor rekening bank Guru Mitra</strong> (diisi sendiri oleh guru, untuk pembayaran honor); data siswa, jadwal, absensi, progres, tagihan, dan pembayaran les; serta catatan penggajian guru (termasuk foto bukti transfer bila diunggah Guru Admin). Data lembaga hanya bisa diakses anggota lembaga itu sendiri, dan Guru Mitra hanya melihat data yang diperlukan untuk mengajar (tidak melihat tarif maupun nomor orang tua). Penjelasan lengkap LLK Lembaga akan ditambahkan ke kebijakan ini saat versi resminya dirilis.</p>
+
     <h2>3. Bagaimana dan di mana data disimpan</h2>
     <table>
       <tr><th>Kondisi</th><th>Tempat penyimpanan</th></tr>
@@ -148,9 +163,11 @@
     <p>Aplikasi memakai beberapa layanan pihak ketiga untuk menjalankan fiturnya. Kami tidak menjual atau membagikan data ke pihak lain untuk kepentingan iklan atau komersial.</p>
     <table>
       <tr><th>Layanan</th><th>Fungsi</th></tr>
-      <tr><td>Google Firebase</td><td>Login akun (Authentication), penyimpanan data cadangan cloud (Firestore), dan pemrosesan langganan berbayar (Cloud Functions)</td></tr>
+      <tr><td>Google Firebase</td><td>Login akun (Authentication), penyimpanan data cadangan cloud (Firestore), pemrosesan langganan berbayar, pengiriman email layanan & pengingat terjadwal (Cloud Functions)</td></tr>
       <tr><td>Midtrans</td><td>Pemroses pembayaran (payment gateway) untuk langganan berbayar Aplikasi. Saat bertransaksi, email akun Google-mu diteruskan ke Midtrans untuk keperluan pencatatan transaksi. Detail kartu/rekening/e-wallet diproses langsung oleh Midtrans, tidak melalui atau tersimpan di server kami.</td></tr>
-      <tr><td>OneSignal</td><td>Pengiriman notifikasi pengingat jadwal</td></tr>
+      <tr><td>OneSignal</td><td>Pengiriman notifikasi pengingat jadwal & pengingat langganan</td></tr>
+      <tr><td>Resend</td><td>Pengiriman email layanan (selamat datang, invoice, pengingat) dari no-reply@leslesanku.com. Menerima alamat email tujuan dan isi email tersebut.</td></tr>
+      <tr><td>Telegram</td><td>Pemberitahuan internal ke Pengembang saat ada akun/lembaga baru atau pembayaran berhasil (lihat bagian 2.f)</td></tr>
       <tr><td>Cloudflare Workers</td><td>Perantara teknis yang meneruskan permintaan notifikasi ke OneSignal secara aman</td></tr>
       <tr><td>GitHub Pages</td><td>Hosting/penyedia halaman web Aplikasi</td></tr>
     </table>
