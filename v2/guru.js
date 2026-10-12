@@ -1,3 +1,4 @@
+// LesLesanKu (LLK) · Hak Cipta © 2026 FerTune Studio. Seluruh hak dilindungi. Dilarang menyalin, mengubah, atau menerbitkan ulang tanpa izin tertulis.
 // ══════════════════════════════════════════════════════════════════════
 // LesLesanKu V2 — tampilan GURU MITRA (Tahap 3)
 // Tampilan sengaja SAMA dengan LLK V1 (CSS & ikon disalin dari index.html,
