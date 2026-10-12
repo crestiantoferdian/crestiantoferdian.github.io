@@ -1,3 +1,4 @@
+// LesLesanKu (LLK) · Hak Cipta © 2026 FerTune Studio. Seluruh hak dilindungi. Dilarang menyalin, mengubah, atau menerbitkan ulang tanpa izin tertulis.
 // ══════════════════════════════════════════════════════════════════════
 // LesLesanKu V2 — Lembaga (Guru Admin + Guru Mitra)
 // Tahap 1: pilih peran, buat lembaga, undang & gabung Guru Mitra,
