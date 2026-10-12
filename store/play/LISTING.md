@@ -75,11 +75,11 @@ Jenis data yang **dikumpulkan** (semua: *tidak dibagikan*, *wajib untuk fungsi a
 | Kategori | Jenis | Keterangan |
 |---|---|---|
 | Info pribadi | **Nama** | Nama akun Google guru; nama murid & orang tua yang diketik guru |
-| Info pribadi | **Alamat email** | Email akun Google untuk login & invoice |
+| Info pribadi | **Alamat email** | Email akun Google untuk login, invoice & pengingat (dikirim lewat Resend) |
 | Info pribadi | **Nomor telepon** | Nomor WA orang tua murid yang diketik guru |
-| Foto & video | **Foto** | Foto progres opsional yang dilampirkan guru |
 | Info keuangan | **Riwayat pembelian** | Riwayat langganan aplikasi |
 | Aktivitas aplikasi | **Konten buatan pengguna lainnya** | Jadwal, absensi, catatan progres, PR, kurikulum |
 | ID perangkat atau ID lain | **ID perangkat atau ID lain** | ID langganan notifikasi push (OneSignal) untuk pengingat jadwal |
 
 Yang **tidak** dikumpulkan: lokasi, kontak HP, SMS, riwayat browser, data kesehatan, data analitik/iklan.
+**Foto progres TIDAK dicentang**: foto hanya disimpan di HP (IndexedDB) dan tidak pernah dikirim ke server — menurut aturan Google, data yang tidak meninggalkan perangkat tidak termasuk "dikumpulkan".
