@@ -7028,14 +7028,43 @@ function llkBulletLines(text){
   return String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
     .map(l=>/^\d+[.)]\s/.test(l)?l:'• '+l.replace(/^[*\-•·]+\s*/,'')).join('\n');
 }
-// Pertemuan ke-berapa pada tanggal ini: semua sesi terhitung (Hadir/Alpa,
-// termasuk Pertemuan Awal & tambahan kelas) sampai tanggal itu.
-function llkMeetingNumber(name, attKey, dateKey){
+// Pertemuan ke-berapa SEJAK AWAL pada tanggal ini: semua sesi terhitung
+// (Hadir/Alpa, termasuk Pertemuan Awal & tambahan kelas) sampai tanggal itu.
+function llkMeetingNumberAll(name, attKey, dateKey){
   const list=countedSessionList(name);
   const before=list.filter(x=>!x.date||x.date<dateKey).length;
   const sameDay=list.filter(x=>x.date===dateKey).length;
   if(!sameDay) return before+1;
   return before+(attKey===name?1:sameDay);
+}
+// Pertemuan ke-berapa DALAM SIKLUS PEMBAYARAN yang sedang berjalan (dipakai di
+// pesan progres ke orang tua). Setelah ditandai "Sudah Bayar", hitungan kembali
+// ke pertemuan ke-1. Hanya untuk tampilan — tidak mengubah data/tagihan.
+//  - Per pertemuan, bayar di belakang: n − sesi yang sudah dibayar (lastPaidAt).
+//  - Per pertemuan, bayar di depan: posisi di dalam paket yang sedang dipakai.
+//  - Bulanan: pertemuan ke-berapa di bulan itu.
+// Sesi lama yang sudah tercakup pembayaran → posisi di dalam siklusnya (n mod siklus).
+function llkMeetingNumber(name, attKey, dateKey){
+  const n=llkMeetingNumberAll(name, attKey, dateKey);
+  const s=students.find(x=>x.name===name);
+  if(!s) return n;
+  const cycle=Math.max(1, s.payCycle||4);
+  const inCycle=k=>((k-1)%cycle)+1;
+  if(paymentMode==='monthly'){
+    const mk=String(dateKey).slice(0,7);
+    const list=countedSessionList(name).filter(x=>x.date&&x.date.slice(0,7)===mk);
+    const before=list.filter(x=>x.date<dateKey).length;
+    const sameDay=list.filter(x=>x.date===dateKey).length;
+    return sameDay ? before+(attKey===name?1:sameDay) : before+1;
+  }
+  if(getPayTiming(s)==='depan'){
+    const covered=(s.prepaidThrough!=null)?s.prepaidThrough:(s.lastPaidAt||0);
+    if(n>covered) return n-covered;                       // sudah lewat paket yang dibayar
+    const start=Math.max(0, covered-cycle);
+    return n>start ? n-start : inCycle(n);                 // di dalam paket terakhir
+  }
+  const paid=s.lastPaidAt||0;
+  return n>paid ? n-paid : inCycle(n);
 }
 function fallbackCopyPlain(text){
   const ta=document.createElement('textarea');
