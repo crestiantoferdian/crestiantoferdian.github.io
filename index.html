@@ -3703,6 +3703,9 @@ function computeIsDue(s){
         total=llkMonthlyUnpaidCount(s, billingMonth, false);
         isDue=total>0;
       }
+      // BUGFIX: bulan yang ditagih tanpa pertemuan sama sekali (mis. murid baru
+      // mulai bulan ini) dulu tetap muncul "Waktunya Bayar! (Akhir Bulan · 0x)".
+      if(isDue && total===0) isDue=false;
     }
   } else if(timing==='depan'){
     // Sisa "saldo" pertemuan yang sudah dibayar di depan. prepaidThrough =
