@@ -19,7 +19,8 @@
       "namespace": "android_app",
       "package_name": "com.leslesanku.app",
       "sha256_cert_fingerprints": [
-        "CA:67:8F:6C:E9:F8:83:56:70:C7:68:34:C8:25:BC:A2:21:B2:7B:EA:E2:3F:34:CB:B9:53:8F:2E:16:02:8B:1B"
+        "CA:67:8F:6C:E9:F8:83:56:70:C7:68:34:C8:25:BC:A2:21:B2:7B:EA:E2:3F:34:CB:B9:53:8F:2E:16:02:8B:1B",
+        "BE:51:75:58:02:F8:DC:70:60:D3:7C:29:D5:C2:84:24:E6:C1:34:D9:5A:AB:93:00:F5:8A:46:3F:FF:ED:AB:4F"
       ]
     }
   }
