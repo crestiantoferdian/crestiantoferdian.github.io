@@ -149,7 +149,8 @@ const SEED = { rms4_s: students, rms4_a: att, rms4_n: notes, rms4_curriculum: cu
   await gp.evaluate(() => document.fonts.ready); await sleep(300);
   await gp.screenshot({ path: path.join(OUT, 'feature-graphic-1024x500.png') });
   // Ikon aplikasi 512x512 (salinan ikon yang sudah ada)
-  fs.copyFileSync(path.join(__dirname, '../icon-512.png'), path.join(OUT, 'app-icon-512.png'));
+  // Ikon Play Store = pilihan A (lingkaran timbul berkilau, lihat store/make-icon.cjs)
+  fs.copyFileSync(path.join(__dirname, 'play/icon-opsi/ikon-A.png'), path.join(OUT, 'app-icon-512.png'));
   console.log('selesai:', fs.readdirSync(OUT).filter(x => x.endsWith('.png')).join(', '));
   await b.close();
 })();
