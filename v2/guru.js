@@ -11,7 +11,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/fireba
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, writeBatch, collection, query, where, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
-import { ICONS, LLK_SUBJECT_ICON } from './v1-shared.js';
+import { ICONS, LLK_SUBJECT_ICON, llkFlagHtml } from './v1-shared.js';
 import { renderSlipCanvas, canvasToBlob, slipNo, fmtKey, slipPdfBlob } from './slip.js';
 import { orgEndsMs } from './billing.js';
 
@@ -94,7 +94,7 @@ function subjectIcon(instrument) {
   if (!n && /\uD83C[\uDDE6-\uDDFF]/.test(e)) n = 'lang';
   if (!n && e && e.indexOf('‍') >= 0) n = 'users';
   n = n || 'music';
-  if (document.documentElement.getAttribute('data-theme') === 'happy') return `<span class="llk-subj llk-subj-emo" style="${subjectStyle(n)}">${esc(e || '🎵')}</span>`;
+  if (document.documentElement.getAttribute('data-theme') === 'happy') return `<span class="llk-subj llk-subj-emo" style="${subjectStyle(n)}">${llkFlagHtml(e) || esc(e || '🎵')}</span>`;
   return `<span class="llk-subj" style="${subjectStyle(n)}">${I(n)}</span>`;
 }
 const isVokal = (s) => String(s || '').toLowerCase().includes('vok');

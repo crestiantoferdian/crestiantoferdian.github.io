@@ -7,7 +7,7 @@ Jalankan dari root repo setiap kali CSS/ikon V1 berubah:
 Yang disalin (V1 tidak diubah sama sekali):
   - <style> utama V1            -> v2/v1.css
   - sprite ikon SVG V1          -> v2/guru.html (di antara penanda V1-SPRITE)
-  - peta ikon mata pelajaran    -> v2/v1-shared.js (ICONS & LLK_SUBJECT_ICON)
+  - peta ikon mata pelajaran    -> v2/v1-shared.js (ICONS, LLK_SUBJECT_ICON, bendera SVG)
 """
 import re, pathlib, sys
 root = pathlib.Path(__file__).resolve().parent.parent
@@ -28,8 +28,10 @@ g.write_text(html2, encoding='utf-8')
 
 ic = re.search(r'\nconst ICONS=\{.*?\n\};\n', v1, re.S)
 si = re.search(r'\nconst LLK_SUBJECT_ICON=\{.*?\};\n', v1, re.S)
-if not ic or not si: sys.exit('ICONS / LLK_SUBJECT_ICON tidak ditemukan')
+fl = re.search(r'\nconst LLK_FLAG_SVG=\{.*?\n\};\nfunction llkFlagHtml\(e\)\{.*?\n\}\n', v1, re.S)
+if not ic or not si or not fl: sys.exit('ICONS / LLK_SUBJECT_ICON / LLK_FLAG_SVG tidak ditemukan')
 (root / 'v2' / 'v1-shared.js').write_text('// SALINAN OTOMATIS dari index.html (LLK V1) — jalankan tools/sync-v1-to-v2.py\n'
   + 'export' + ic.group(0).lstrip('\n').replace('const ICONS=', ' const ICONS=', 1)
-  + 'export' + si.group(0).lstrip('\n').replace('const LLK_SUBJECT_ICON=', ' const LLK_SUBJECT_ICON=', 1), encoding='utf-8')
+  + 'export' + si.group(0).lstrip('\n').replace('const LLK_SUBJECT_ICON=', ' const LLK_SUBJECT_ICON=', 1)
+  + fl.group(0).lstrip('\n').replace('const LLK_FLAG_SVG=', 'export const LLK_FLAG_SVG=', 1).replace('function llkFlagHtml', 'export function llkFlagHtml', 1), encoding='utf-8')
 print('OK: v1.css, sprite guru.html, v1-shared.js diperbarui')
