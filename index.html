@@ -1116,6 +1116,29 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
   .lainnya-wrap>#accountSectionSlot,.lainnya-wrap>:last-child:not(.menu-card){column-span:all}
 }
 
+/* ── Pemilih jam bulat buatan sendiri (menggantikan pemilih jam bawaan browser) ── */
+input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transparent;font-variant-numeric:tabular-nums;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%237f7369' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;background-size:18px;padding-right:38px!important}
+#llkClockOv{position:fixed;inset:0;z-index:10050;background:rgba(43,36,32,0.45);display:flex;align-items:center;justify-content:center;padding:16px;animation:llkCkFade .16s ease-out}
+@keyframes llkCkFade{from{opacity:0}to{opacity:1}}
+@keyframes llkCkPop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.llk-ck{width:100%;max-width:330px;background:var(--card);color:var(--text);border-radius:var(--r-xl);box-shadow:0 24px 60px rgba(43,36,32,0.35);padding:18px 18px 14px;animation:llkCkPop .2s cubic-bezier(.2,.8,.2,1)}
+.llk-ck-ttl{font-size:0.8rem;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;text-align:center;margin-bottom:6px}
+.llk-ck-hd{display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:14px}
+.llk-ck-seg{font-family:var(--font-display);font-size:3rem;line-height:1;font-weight:600;padding:8px 12px;border-radius:var(--r-md);border:none;background:var(--paper-2);color:var(--text2);cursor:pointer;font-variant-numeric:tabular-nums;min-width:86px}
+.llk-ck-seg.on{background:var(--accent-soft);color:var(--red-text);box-shadow:inset 0 0 0 2px var(--accent-line)}
+.llk-ck-col{font-family:var(--font-display);font-size:2.6rem;font-weight:600;color:var(--muted)}
+.llk-ck-face{position:relative;width:264px;height:264px;margin:0 auto;border-radius:50%;background:var(--paper-2);touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;box-shadow:inset 0 2px 6px rgba(43,36,32,0.08)}
+.llk-ck-face svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.llk-ck-n{position:absolute;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.98rem;font-weight:600;color:var(--text);pointer-events:none;font-variant-numeric:tabular-nums;transition:color .12s}
+.llk-ck-n.in{width:32px;height:32px;margin:-16px 0 0 -16px;font-size:0.8rem;color:var(--muted)}
+.llk-ck-n.sel{color:var(--on-red)}
+.llk-ck-hint{text-align:center;font-size:0.78rem;color:var(--muted);margin:10px 0 2px;min-height:1.1em}
+.llk-ck-act{display:flex;gap:8px;margin-top:12px}
+.llk-ck-act .mbtn{flex:1;min-height:46px}
+.llk-ck-clear{display:block;margin:10px auto 0;background:none;border:none;color:var(--alpa-text);font-size:0.84rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+
 /* ── Hormati prefers-reduced-motion ── */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important;scroll-behavior:auto!important}
@@ -3026,6 +3049,7 @@ window.addEventListener('popstate',function(e){
   const state=e.state||{};
   // Pop yang dipicu tombol tutup lembar (invoice / Pembayaran Custom): sudah ditutup, jangan navigasi
   if(window._llkSkipPop){ window._llkSkipPop=false; return; }
+  if(window.llkClockOnPop&&window.llkClockOnPop()) return;
   const cpov=document.getElementById('customPayOverlay');
   if(cpov){ cpov.remove(); window._cp=null; return; }
   const invov=document.getElementById('invoiceOverlay');
@@ -11679,6 +11703,133 @@ async function performAccountDeletion(){
 }
 
 initFirebase();
+</script>
+
+<script>
+/* ── Pemilih jam bulat (LLK) ─────────────────────────────────────────
+   Semua <input type="time"> diubah jadi kolom teks read-only "HH:MM" (format
+   nilainya tetap sama), lalu saat diketuk muncul jam bulat buatan sendiri —
+   tampilan sama di semua HP/browser. Nilai disimpan lewat event input+change
+   biasa, jadi kode lama (jam selesai otomatis +45 menit, onchange) tetap jalan. */
+(function(){
+  const NOCLEAR={f_time:1,f_time2:1};
+  function enhance(el){
+    if(el.dataset.llkClock) return;
+    el.dataset.llkClock='1';
+    const v=el.value;
+    try{ el.type='text'; }catch(e){}
+    el.value=v; el.readOnly=true; el.setAttribute('inputmode','none');
+    el.classList.add('llk-time'); if(!el.placeholder) el.placeholder='--:--';
+    el.setAttribute('aria-haspopup','dialog');
+  }
+  function scan(root){ (root.querySelectorAll?root:document).querySelectorAll('input[type=time]').forEach(enhance); }
+  window.llkClockScan=scan;
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>scan(document)); else scan(document);
+  new MutationObserver(ms=>{ for(const m of ms) for(const n of m.addedNodes){ if(n.nodeType!==1) continue;
+    if(n.matches&&n.matches('input[type=time]')) enhance(n); else if(n.querySelector&&n.querySelector('input[type=time]')) scan(n); } })
+    .observe(document.documentElement,{childList:true,subtree:true});
+
+  const pad=n=>String(n).padStart(2,'0');
+  let st=null; // {el,h,m,mode,drag}
+  function labelOf(el){
+    const f=el.closest('.mfield'); const l=f&&f.querySelector('label');
+    if(l) return l.textContent.trim();
+    const prev=el.previousElementSibling; return prev&&prev.textContent.trim().length<40?prev.textContent.trim():'Pilih Jam';
+  }
+  function open(el){
+    if(st) return;
+    const m=/^(\d{1,2}):(\d{2})/.exec(el.value||'');
+    let h,mi;
+    if(m){ h=Math.min(23,+m[1]); mi=Math.min(59,+m[2]); } else { const d=new Date(); h=(d.getHours()+1)%24; mi=0; }
+    st={el,h,m:mi,mode:'h',drag:false};
+    const ov=document.createElement('div'); ov.id='llkClockOv';
+    ov.innerHTML='<div class="llk-ck" role="dialog" aria-modal="true" aria-label="Pilih jam">'
+      +'<div class="llk-ck-ttl"></div>'
+      +'<div class="llk-ck-hd"><button type="button" class="llk-ck-seg" data-ck="h"></button><span class="llk-ck-col">:</span><button type="button" class="llk-ck-seg" data-ck="m"></button></div>'
+      +'<div class="llk-ck-face"></div><div class="llk-ck-hint"></div>'
+      +'<div class="llk-ck-act"><button type="button" class="mbtn mbtn-cancel" data-ck="x">Batal</button><button type="button" class="mbtn mbtn-save" data-ck="ok">Pilih</button></div>'
+      +((el.value&&!NOCLEAR[el.id]&&!el.closest('.llk-rem'))?'<button type="button" class="llk-ck-clear" data-ck="clr">Kosongkan jam</button>':'')
+      +'</div>';
+    ov.querySelector('.llk-ck-ttl').textContent=labelOf(el);
+    document.body.appendChild(ov);
+    try{ history.pushState({llkClock:1},''); }catch(e){}
+    let downOnBg=false;
+    ov.addEventListener('pointerdown',e=>{ downOnBg=e.target===ov; });
+    ov.addEventListener('click',e=>{
+      if(e.target===ov){ if(downOnBg) close(false); return; }
+      const b=e.target.closest('[data-ck]'); if(!b) return;
+      const k=b.dataset.ck;
+      if(k==='h'||k==='m'){ st.mode=k; draw(); }
+      else if(k==='x') close(false);
+      else if(k==='ok') close(true);
+      else if(k==='clr') close(true,'');
+    });
+    const face=ov.querySelector('.llk-ck-face');
+    face.addEventListener('pointerdown',e=>{ st.drag=true; try{face.setPointerCapture(e.pointerId);}catch(_){} pick(e,face); e.preventDefault(); });
+    face.addEventListener('pointermove',e=>{ if(st&&st.drag) pick(e,face); });
+    const up=()=>{ if(!st||!st.drag) return; st.drag=false; if(st.mode==='h'){ setTimeout(()=>{ if(st){ st.mode='m'; draw(); } },180); } };
+    face.addEventListener('pointerup',up); face.addEventListener('pointercancel',up);
+    ov.addEventListener('keydown',e=>{ if(e.key==='Escape') close(false); });
+    draw();
+    setTimeout(()=>{ const b=ov.querySelector('[data-ck="ok"]'); b&&b.focus({preventScroll:true}); },30);
+  }
+  function pick(e,face){
+    const r=face.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const dx=e.clientX-cx, dy=e.clientY-cy, dist=Math.hypot(dx,dy), R=r.width/2;
+    let ang=Math.atan2(dx,-dy)*180/Math.PI; if(ang<0) ang+=360;
+    if(st.mode==='h'){
+      let n=Math.round(ang/30)%12;                 // 0 = posisi angka 12
+      const inner=dist<R*0.62;
+      st.h=inner?(n===0?0:n+12):(n===0?12:n);
+    }else{
+      st.m=(Math.round(ang/30)%12)*5;
+    }
+    draw();
+  }
+  function draw(){
+    const ov=document.getElementById('llkClockOv'); if(!ov||!st) return;
+    const [hb,mb]=ov.querySelectorAll('.llk-ck-seg');
+    hb.textContent=pad(st.h); mb.textContent=pad(st.m);
+    hb.classList.toggle('on',st.mode==='h'); mb.classList.toggle('on',st.mode==='m');
+    ov.querySelector('.llk-ck-hint').textContent=st.mode==='h'?'Lingkar dalam = jam 13 sampai 00':'Ketuk atau geser untuk pilih menit';
+    const face=ov.querySelector('.llk-ck-face'), S=264, C=S/2, Ro=C-30, Ri=C-68;
+    let items=[], selR, selA;
+    if(st.mode==='h'){
+      for(let i=0;i<12;i++){ const a=i*30, out=i===0?12:i, inn=i===0?0:i+12;
+        items.push({t:pad(out),a,r:Ro,in:false,sel:st.h===out},{t:pad(inn),a,r:Ri,in:true,sel:st.h===inn}); }
+      const isIn=st.h===0||st.h>12; selR=isIn?Ri:Ro; selA=(st.h%12)*30;
+    }else{
+      for(let i=0;i<12;i++) items.push({t:pad(i*5),a:i*30,r:Ro,in:false,sel:st.m===i*5});
+      selR=Ro; selA=st.m*6;
+    }
+    const rad=selA*Math.PI/180, sx=C+selR*Math.sin(rad), sy=C-selR*Math.cos(rad);
+    const bub=st.mode==='h'&&selR===Ri?16:18;
+    let html='<svg viewBox="0 0 '+S+' '+S+'" aria-hidden="true"><circle cx="'+C+'" cy="'+C+'" r="4" fill="var(--red)"/>'
+      +'<line x1="'+C+'" y1="'+C+'" x2="'+sx.toFixed(1)+'" y2="'+sy.toFixed(1)+'" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"/>'
+      +'<circle cx="'+sx.toFixed(1)+'" cy="'+sy.toFixed(1)+'" r="'+bub+'" fill="var(--red)"/>'
+      +(st.mode==='m'&&st.m%5?'<circle cx="'+sx.toFixed(1)+'" cy="'+sy.toFixed(1)+'" r="3" fill="var(--on-red)"/>':'')
+      +'</svg>';
+    items.forEach(it=>{ const rr=it.a*Math.PI/180; const x=C+it.r*Math.sin(rr), y=C-it.r*Math.cos(rr);
+      html+='<span class="llk-ck-n'+(it.in?' in':'')+(it.sel?' sel':'')+'" style="left:'+(x/S*100).toFixed(2)+'%;top:'+(y/S*100).toFixed(2)+'%">'+it.t+'</span>'; });
+    face.innerHTML=html;
+  }
+  function close(save,forced){
+    const ov=document.getElementById('llkClockOv'); if(!ov||!st) return;
+    const el=st.el, val=forced!==undefined?forced:pad(st.h)+':'+pad(st.m);
+    st=null; ov.remove();
+    if(history.state&&history.state.llkClock){ window._llkSkipPop=true; history.back(); }
+    if(save&&el.value!==val){
+      el.value=val;
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      el.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    try{ el.focus({preventScroll:true}); }catch(e){}
+  }
+  // Tombol back HP menutup jam dulu (dipanggil dari handler popstate utama)
+  window.llkClockOnPop=function(){ const ov=document.getElementById('llkClockOv'); if(!ov) return false; st=null; ov.remove(); return true; };
+  document.addEventListener('click',e=>{ const el=e.target.closest&&e.target.closest('input.llk-time'); if(el&&!el.disabled){ e.preventDefault(); open(el); } });
+  document.addEventListener('keydown',e=>{ const el=e.target; if(el&&el.classList&&el.classList.contains('llk-time')&&(e.key==='Enter'||e.key===' '||e.key==='ArrowDown')){ e.preventDefault(); open(el); } });
+})();
 </script>
 
 </body>
