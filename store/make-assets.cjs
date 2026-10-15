@@ -25,22 +25,28 @@ const DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const dk = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const today = new Date(); const TODAY = DAYS[today.getDay()];
 const add45 = t => { const [h, m] = t.split(':').map(Number); const x = h * 60 + m + 45; return String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(x % 60).padStart(2, '0'); };
-// Murid contoh: 5 les hari ini, sisanya tersebar di hari lain
+// Murid contoh: 5 les hari ini, sisanya tersebar di hari lain — sengaja campuran mapel (musik, bahasa, akademik, mengaji)
 const DEMO = [
-  ['Alya Putri', 'Piano', '13:00', 0], ['Bima Saputra', 'Gitar', '14:00', 0], ['Citra Lestari', 'Vokal', '15:00', 0],
-  ['Dafa Pratama', 'Drum', '16:00', 0], ['Elsa Maharani', 'Biola', '17:00', 0],
-  ['Farel Akbar', 'Piano', '15:30', 1], ['Gita Ayu', 'Gitar', '16:30', 2], ['Hana Safira', 'Vokal', '14:30', 3],
-  ['Ilham Ramadhan', 'Drum', '18:00', 4], ['Jasmine Aulia', 'Piano', '13:30', 5], ['Kenzo Wijaya', 'Gitar', '19:00', 1], ['Laras Wening', 'Biola', '16:00', 3],
+  ['Alya Putri', 'Matematika', '13:00', 0], ['Bima Saputra', 'Bahasa Inggris', '14:00', 0], ['Citra Lestari', 'Piano', '15:00', 0],
+  ['Dafa Pratama', 'Mengaji', '16:00', 0], ['Elsa Maharani', 'Calistung', '17:00', 0],
+  ['Farel Akbar', 'Fisika', '15:30', 1], ['Gita Ayu', 'Gitar', '16:30', 2], ['Hana Safira', 'Bahasa Inggris', '14:30', 3],
+  ['Ilham Ramadhan', 'Matematika', '18:00', 4], ['Jasmine Aulia', 'Bahasa Jepang', '13:30', 5], ['Kenzo Wijaya', 'Coding', '19:00', 1], ['Laras Wening', 'Vokal', '16:00', 3],
 ];
+const RATE = { Matematika: 75000, Fisika: 80000, 'Bahasa Inggris': 70000, 'Bahasa Jepang': 80000, Coding: 100000, Piano: 60000, Gitar: 50000, Vokal: 50000, Mengaji: 40000, Calistung: 45000 };
 const dayOff = off => DAYS[(today.getDay() + off) % 7];
-const students = DEMO.map(([name, ins, t, off], i) => ({ name, instrument: ins, day: dayOff(off), time: t, time2: add45(t), rate: ins === 'Piano' ? 60000 : 50000,
+const students = DEMO.map(([name, ins, t, off], i) => ({ name, instrument: ins, day: dayOff(off), time: t, time2: add45(t), rate: RATE[ins] || 50000,
   phone: '0812' + String(34500000 + i * 1111), parent: 'Ortu ' + name.split(' ')[0], extraDates: [], payCycle: i === 0 ? 4 : 8 }));
 const PROG = {
+  Matematika: ['Pecahan campuran & penjumlahan pecahan', 'Soal cerita perbandingan — 8 dari 10 benar', 'Persamaan linear satu variabel'],
+  'Bahasa Inggris': ['Simple present tense + 10 kosakata baru', 'Speaking: memperkenalkan diri dengan lancar', 'Reading comprehension teks pendek'],
   Piano: ['Tangga nada C mayor 2 oktaf, tempo 80', 'Lagu "Twinkle" tangan kanan & kiri', 'Latihan arpeggio & dinamika piano-forte'],
+  Mengaji: ['Iqro 4 hal. 12–15, makhraj huruf bagus', 'Hafalan surat An-Naba ayat 1–10', 'Tajwid: hukum nun mati & tanwin'],
+  Calistung: ['Membaca suku kata "ba-bi-bu-be-bo"', 'Menulis huruf a–m dengan rapi', 'Berhitung 1–20 dengan benda'],
+  Fisika: ['Gerak lurus beraturan — rumus & latihan', 'Hukum Newton I & II', 'Latihan soal UTS bab gaya'],
   Gitar: ['Kunci C, G, Am, F — pindah kunci lancar', 'Strumming pola 8 ketukan', 'Intro lagu pilihan, petikan jari'],
+  'Bahasa Jepang': ['Hiragana baris a–ta', 'Perkenalan diri: "Watashi wa…"', 'Angka & menyebut jam'],
+  Coding: ['Scratch: membuat animasi karakter', 'Logika perulangan (loop)', 'Membuat game tebak angka sederhana'],
   Vokal: ['Pernapasan diafragma & pemanasan 10 menit', 'Latihan interval terts & kwint', 'Lagu "Bunda" — artikulasi bagus'],
-  Drum: ['Rudiment single & double stroke', 'Groove 8-beat dasar + fill sederhana', 'Latihan tempo 90 dengan metronom'],
-  Biola: ['Posisi busur & senar kosong', 'Tangga nada D mayor', 'Lagu "Ode to Joy" bagian A'],
 };
 // Riwayat 4 minggu terakhir (hari ini: 3 sudah hadir, sisanya belum)
 const att = {}, notes = {};
@@ -52,26 +58,27 @@ for (let back = 28; back >= 0; back--) {
     else if ((i + back) % 9 === 4) st = 'izin';
     att[key] = att[key] || {}; att[key][s.name] = st;
     const k = (back / 7) % 3 | 0;
-    notes[key + '_' + s.name] = st === 'hadir' ? { progress: PROG[s.instrument][k] || PROG[s.instrument][0], prSiswa: back === 0 ? 'Ulangi latihan 15 menit tiap hari' : '' } : { reason: 'Sakit' };
+    notes[key + '_' + s.name] = st === 'hadir' ? { progress: (PROG[s.instrument] || PROG.Matematika)[k], prSiswa: back === 0 ? 'Ulangi latihan 15 menit tiap hari' : '' } : { reason: 'Sakit' };
   });
 }
 const T0 = Date.now();
 const topics = (pre, arr) => arr.map((x, i) => typeof x === 'string' ? { id: pre + 'h' + i, type: 'header', label: x } : { id: pre + 't' + i, type: 'topic', label: x[0] });
 const curriculum = {
-  Piano: topics('p', ['Tingkat Dasar', ['Posisi duduk & jari'], ['Not balok kunci G'], ['Tangga nada C mayor'], ['Lagu "Twinkle Twinkle"'], 'Tingkat Menengah', ['Tangga nada G & F mayor'], ['Arpeggio 2 oktaf'], ['Dinamika piano & forte'], ['Lagu "Für Elise" bagian A']]),
-  Gitar: topics('g', ['Dasar', ['Kunci C, G, Am, F'], ['Strumming 8 ketukan'], 'Lanjutan', ['Petikan jari'], ['Barre chord F & Bm']]),
+  Matematika: topics('m', ['Kelas 5 SD', ['Pecahan & desimal'], ['Perbandingan & skala'], ['Bangun ruang: kubus & balok'], ['Soal cerita campuran'], 'Kelas 6 SD', ['Bilangan bulat negatif'], ['Lingkaran: keliling & luas'], ['Statistika: mean, median, modus'], ['Latihan soal ujian sekolah']]),
+  'Bahasa Inggris': topics('e', ['Basic', ['Greetings & introductions'], ['Simple present tense'], 'Intermediate', ['Past tense & storytelling'], ['Reading comprehension']]),
+  Piano: topics('p', ['Tingkat Dasar', ['Posisi duduk & jari'], ['Not balok kunci G'], ['Tangga nada C mayor']]),
 };
 const links = [
-  { id: 'l1', type: 'link', name: 'Partitur Piano Dasar', url: 'https://example.com/partitur', icon: 'music' },
-  { id: 'l2', type: 'link', name: 'Video Strumming Gitar', url: 'https://example.com/strumming', icon: 'play' },
-  { id: 'l3', type: 'link', name: 'Metronom Online', url: 'https://example.com/metronom', icon: 'clock' },
+  { id: 'l1', type: 'link', name: 'Bank Soal Matematika SD', url: 'https://example.com/soal', icon: 'book' },
+  { id: 'l2', type: 'link', name: 'Video Grammar Bahasa Inggris', url: 'https://example.com/grammar', icon: 'play' },
+  { id: 'l3', type: 'link', name: 'Partitur Piano Dasar', url: 'https://example.com/partitur', icon: 'music' },
 ];
 const tasks = [
-  { id: 't1', text: 'Siapkan partitur lagu pilihan Dafa', done: false, createdAt: T0 },
-  { id: 't2', text: 'Cetak lembar latihan tangga nada untuk Alya', done: false, createdAt: T0 - 864e5 },
-  { id: 't3', text: 'Rekam contoh vokal untuk Citra', done: true, createdAt: T0 - 2 * 864e5 },
+  { id: 't1', text: 'Siapkan lembar latihan Iqro 5 untuk Dafa', done: false, createdAt: T0 },
+  { id: 't2', text: 'Cetak soal pecahan untuk Alya', done: false, createdAt: T0 - 864e5 },
+  { id: 't3', text: 'Buat kartu kosakata untuk Bima', done: true, createdAt: T0 - 2 * 864e5 },
 ];
-const SEED = { rms4_s: students, rms4_a: att, rms4_n: notes, rms4_curriculum: curriculum, rms4_links: links, rms4_tasks: tasks, rms_school_name: 'Studio Musik Harmoni', rms_school_sub: 'Les Musik Privat', llk_theme: 'default' };
+const SEED = { rms4_s: students, rms4_a: att, rms4_n: notes, rms4_curriculum: curriculum, rms4_links: links, rms4_tasks: tasks, rms_school_name: 'Rumah Belajar Pelangi', rms_school_sub: 'Les Privat Akademik, Bahasa & Musik', llk_theme: 'default' };
 
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
@@ -88,12 +95,12 @@ const SEED = { rms4_s: students, rms4_a: att, rms4_n: notes, rms4_curriculum: cu
   await shot('2-siswa', () => setTab('siswa'));
   await shot('3-track', () => setTab('track'));
   await shot('4-kirim', () => setTab('kirim'));
-  await shot('5-materi', () => { setTab('links'); if (typeof renderCurriculumSubjectPage === 'function') renderCurriculumSubjectPage('Piano'); });
-  // Layar catat progres (murid ke-4 hari ini)
+  await shot('5-materi', () => { setTab('links'); if (typeof renderCurriculumSubjectPage === 'function') renderCurriculumSubjectPage('Matematika'); });
+  // Layar catat progres (murid ke-4 hari ini, Mengaji — belum diabsen)
   await shot('6-progres', () => { setTab('absensi'); const n = 'Dafa Pratama', d = new Date(); const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     openNoteModal(n, 'hadir', n, k, '16:00', '16:45');
     const set = (id, v) => { const e = document.getElementById(id); if (e) { e.value = v; e.dispatchEvent(new Event('input')); } };
-    set('noteProgress', 'Groove 8-beat lancar di tempo 90. Mulai latihan fill tom sederhana.'); set('notePrSiswa', 'Latihan fill 4 ketuk dengan metronom, 15 menit/hari'); set('notePrGuru', 'Siapkan partitur lagu pilihan Dafa'); });
+    set('noteProgress', 'Iqro 4 hal. 12–15 lancar, makhraj huruf ha & kha sudah tepat.'); set('notePrSiswa', 'Murojaah surat An-Naba ayat 1–10, 2× sehari'); set('notePrGuru', 'Siapkan lembar latihan Iqro 5 untuk Dafa'); });
   console.log('errors:', errs.slice(0, 3));
 
   // ── Bingkai screenshot 1080x1920 + feature graphic 1024x500 ──
