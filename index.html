@@ -1117,6 +1117,8 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
   .lainnya-wrap>#accountSectionSlot,.lainnya-wrap>:last-child:not(.menu-card){column-span:all}
 }
 
+/* Tab Kirim: kolom Nama terkunci di kiri saat tabel digeser ke kanan (seperti freeze di Excel) */
+.llk-kirim-sticky{position:sticky;left:0;z-index:1;background:var(--card);min-width:96px;max-width:150px;box-shadow:1px 0 0 var(--border2),6px 0 8px -6px rgba(43,36,32,0.18)}
 /* ── Pemilih jam bulat buatan sendiri (menggantikan pemilih jam bawaan browser) ── */
 input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transparent;font-variant-numeric:tabular-nums;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%237f7369' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
@@ -6806,9 +6808,7 @@ function renderKirim(){
   const thS='padding:9px 12px;font-size:0.72rem;font-weight:700;color:var(--muted);text-align:left;white-space:nowrap';
   const rowsHtml=rows.length?rows.map(({s,st,progress,pr})=>`
     <tr style="border-top:1px solid var(--border2)">
-      <td style="padding:11px 12px;font-size:0.86rem;color:var(--muted);white-space:nowrap">${hariName}</td>
-      <td style="padding:11px 12px;font-size:0.86rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums">${tgl}</td>
-      <td style="padding:11px 12px;font-size:0.92rem;font-weight:600;color:var(--text)">${escapeHtml(s.name)}</td>
+      <td class="llk-kirim-sticky" style="padding:11px 12px;font-size:0.92rem;font-weight:600;color:var(--text)">${escapeHtml(s.name)}</td>
       <td style="padding:11px 12px;font-size:0.86rem;color:var(--muted)">${escapeHtml(s.instrument||'—')}</td>
       <td style="padding:11px 10px;text-align:center">
         <span style="display:inline-flex;align-items:center;gap:4px;font-size:0.74rem;font-weight:700;padding:3px 9px;border-radius:var(--r-pill);
@@ -6823,7 +6823,7 @@ function renderKirim(){
         ?`<button onclick="openSheetLinkByName('${jsAttr(s.name)}','${s._extraDate||dateKey}','${jsAttr(s._attKey||s.name)}')" class="llk-icon-btn sm" aria-label="Kirim progres ${escapeHtml(s.name)}" title="Kirim progres" style="color:${localStorage.getItem('sheet_sent_'+(s._extraDate||dateKey)+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'var(--hadir)':'var(--wa)'}">${llkI(localStorage.getItem('sheet_sent_'+(s._extraDate||dateKey)+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'mail-check':'chat')}</button>`
         :''}</div></td>
     </tr>`).join('')
-  :`<tr><td colspan="6">
+  :`<tr><td colspan="4">
     <div class="empty" style="padding:28px 20px">
       ${llkIll('notebook')}
       <div class="empty-t">Belum ada data ${isToday?'hari ini':'di tanggal ini'}</div>
@@ -6860,9 +6860,7 @@ function renderKirim(){
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="background:var(--card2);border-top:1px solid var(--border2)">
-                <th style="${thS}">Hari</th>
-                <th style="${thS}">Tanggal</th>
-                <th style="${thS}">Nama</th>
+                <th class="llk-kirim-sticky" style="${thS};background:var(--card2)">Nama</th>
                 <th style="${thS}">Mata Pelajaran</th>
                 <th style="${thS};text-align:center">Status</th>
                 <th style="${thS}">Progres & PR</th>
@@ -6878,7 +6876,7 @@ function renderKirim(){
       </button>`:''}
 
       <div style="margin-top:12px;display:flex;gap:10px;align-items:flex-start;background:var(--blue-bg);border-radius:var(--r-md);padding:13px 15px;font-size:0.84rem;color:var(--blue);line-height:1.6">
-        ${llkI('bulb')}<div><b>Cara pakai:</b> Tap tombol Salin → buka Google Sheets → klik sel pertama → Paste. Kolom yang tersalin: Hari, Tanggal, Nama, Mata Pelajaran, Progres, PR.</div>
+        ${llkI('bulb')}<div><b>Cara pakai:</b> Tap tombol Salin → buka Google Sheets → klik sel pertama → Paste. Kolom yang tersalin: Hari, Tanggal, Nama, Mata Pelajaran, Progres, PR — Hari & Tanggal tetap ikut tersalin.</div>
       </div>
     </div>`;
 
