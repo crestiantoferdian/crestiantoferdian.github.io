@@ -1437,6 +1437,11 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
       </select>
     </div>
     <!-- JADWAL RUTIN 1 - selalu tampil -->
+    <div class="mfield" id="startDateWrap" style="margin-top:2px">
+      <label><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Mulai Les Tanggal</label>
+      <input type="date" id="f_startDate"/>
+      <div class="llk-hint">Jadwal rutin murid ini baru muncul mulai tanggal ini — tanggal sebelumnya tidak ikut terjadwal. Kosongkan kalau murid sudah les sejak lama.</div>
+    </div>
     <div style="padding:14px 0 4px;border-top:1px dashed var(--border);margin-top:4px" id="tut-step-jadwal">
       <button type="button" onclick="toggleJadwal(1)" id="jadwal-header-1" class="llk-acc" style="background:var(--blue-bg);border-color:transparent">
         <span class="llk-acc-label" style="color:var(--blue)"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Jadwal Rutin 1 <small>(opsional)</small></span>
@@ -3535,7 +3540,10 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
       return;
     }
 
-    const isRegular=s.day===dayName;
+    // Sebelum tanggal mulai les: jadwal rutin (hari 1–4) belum berlaku.
+    // Reschedule & Tambahan Kelas tetap tampil karena diisi per tanggal secara sengaja.
+    const beforeStart=!!(s.startDate&&dateKey&&dateKey<s.startDate);
+    const isRegular=s.day===dayName&&!beforeStart;
     if(isRegular){
       result.push(Object.assign({},s,{
         _originalIdx:originalIdx,
@@ -3547,7 +3555,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
     }
 
     // Jadwal hari ke-2
-    if(s.day2&&s.day2===dayName&&!rsForToday){
+    if(s.day2&&s.day2===dayName&&!rsForToday&&!beforeStart){
       const rs2=(s.reschedules||[]).find(r=>r.day===s.day2&&r.date>=todayISO);
       result.push(Object.assign({},s,{
         time:s.time2a||s.time,
@@ -3558,7 +3566,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
       }));
     }
     // Jadwal hari ke-3
-    if(s.day3&&s.day3===dayName&&!rsForToday){
+    if(s.day3&&s.day3===dayName&&!rsForToday&&!beforeStart){
       const rs3=(s.reschedules||[]).find(r=>r.day===s.day3&&r.date>=todayISO);
       result.push(Object.assign({},s,{
         time:s.time3a||s.time,
@@ -3569,7 +3577,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
       }));
     }
     // Jadwal hari ke-4
-    if(s.day4&&s.day4===dayName&&!rsForToday){
+    if(s.day4&&s.day4===dayName&&!rsForToday&&!beforeStart){
       const rs4=(s.reschedules||[]).find(r=>r.day===s.day4&&r.date>=todayISO);
       result.push(Object.assign({},s,{
         time:s.time4a||s.time,
@@ -5322,7 +5330,7 @@ function siswaCardHtml(s,total,cycle,isDue){
     html+='<div class="track-avatar'+(isVokal?' vocal':'')+'">'+llkSubjectIcon(s.instrument)+'</div>';
     html+='<div style="flex:1;min-width:0">';
     html+='<div style="font-weight:700;font-size:0.98rem;letter-spacing:-0.01em">'+escapeHtml(s.name)+'</div>';
-    html+='<div style="font-size:0.8rem;color:var(--muted);margin-top:2px;line-height:1.4">'+s.day+' '+s.time+(s.time2?'–'+s.time2:'')+(s.day2?' & '+s.day2+' '+s.time2a+(s.time2b?'–'+s.time2b:''):'')+(s.day3?' & '+s.day3+' '+s.time3a+(s.time3b?'–'+s.time3b:''):'')+(s.day4?' & '+s.day4+' '+s.time4a+(s.time4b?'–'+s.time4b:''):'')+(s.instrument?' · '+escapeHtml(s.instrument):'')+'</div>';
+    html+='<div style="font-size:0.8rem;color:var(--muted);margin-top:2px;line-height:1.4">'+s.day+' '+s.time+(s.time2?'–'+s.time2:'')+(s.day2?' & '+s.day2+' '+s.time2a+(s.time2b?'–'+s.time2b:''):'')+(s.day3?' & '+s.day3+' '+s.time3a+(s.time3b?'–'+s.time3b:''):'')+(s.day4?' & '+s.day4+' '+s.time4a+(s.time4b?'–'+s.time4b:''):'')+(s.instrument?' · '+escapeHtml(s.instrument):'')+(s.startDate&&s.startDate>todayStr()?' · <b>mulai '+escapeHtml(fmtInvDate(s.startDate))+'</b>':'')+'</div>';
     if(!paymentOff){
       html+='<div style="margin-top:6px"><span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--r-pill);font-size:0.74rem;font-weight:700;background:'+pillBg+';color:'+pillColor+'">'+llkI(isDue?'card':'check','sm')+pillText+'</span></div>';
     }
@@ -8580,6 +8588,7 @@ function openAdd(){
   document.getElementById('f_day').value=selectedDay||DAYS[0];
   document.getElementById('f_time').value='09:00';
   document.getElementById('f_time2').value='09:45';
+  document.getElementById('f_startDate').value=todayStr();
   populateCurriculumSelect('');
   document.getElementById('overlay').classList.add('open');
   setTimeout(()=>document.getElementById('f_name').focus(),300);
@@ -8695,6 +8704,7 @@ function openEdit(idx){
   document.getElementById('f_inst').value=s.instrument||'';
   populateCurriculumSelect(s.curriculumSubject||'');
   document.getElementById('f_day').value=s.day;
+  document.getElementById('f_startDate').value=s.startDate||'';
   document.getElementById('f_time').value=s.time;
   document.getElementById('f_time2').value=s.time2||'';
   document.getElementById('f_day2').value=s.day2||'';
@@ -8950,6 +8960,9 @@ function doSave(){
     initialSessions:parseInt(document.getElementById('f_initial_sessions').value)||0,
     sheetLink:document.getElementById('f_sheet_link').value.trim(),
   };
+  // Tanggal mulai les: jadwal rutin tidak muncul di tanggal sebelum ini (kosong = sejak dulu)
+  const startDk=document.getElementById('f_startDate').value||'';
+  if(startDk) s.startDate=startDk;
   if(!s.name){toast('❌ Nama wajib diisi!');return}
   // Semua riwayat absensi/catatan/tagihan disimpan pakai NAMA murid sebagai
   // kunci — jadi 2 murid dengan nama sama akan riwayatnya tercampur. Tolak
@@ -9011,6 +9024,11 @@ function doSave(){
       if(prev.initialDates) s.initialDates=prev.initialDates;
       s.initialSessions=prev.initialSessions||0;
     }
+  }
+  // Pertemuan awal ditandai di tanggal sebelum "Mulai Les" → mundurkan tanggal mulai supaya tetap konsisten
+  if(s.startDate&&s.initialDates&&s.initialDates.length){
+    const firstInit=s.initialDates.slice().sort()[0];
+    if(firstInit<s.startDate) s.startDate=firstInit;
   }
   save();closeModal();render();
   toast((editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`)+(initMarked?` · ${initMarked} pertemuan awal ditandai Hadir`:''));
