@@ -9,6 +9,11 @@ _Terakhir diperbarui: 19 Okt 2026 (Play Store: pengujian tertutup berjalan)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## 💳 Paywall: teks beda untuk langganan yang sudah berakhir (19 Okt 2026)
+- Permintaan pemilik: akun yang **pernah berlangganan** lalu masanya habis tidak boleh lagi diberi tulisan "Trial 31 Hari Kamu Sudah Selesai".
+- `applySubscriptionDoc` mengisi `_subWasPaid` (`!subActive && subscriptionEndsAt>0`), `showPaywall` memilih teks: **trial ditolak** → "Trial Gratis Sudah Pernah Dipakai"; **pernah berlangganan** → "Langganan Pro Kamu Sudah Berakhir" + "Terima kasih sudah berlangganan… Perpanjang supaya…"; **selain itu** → teks trial lama. Hanya teks layar paywall; logika akses/langganan/data tidak berubah. Teruji 6 kasus (trial habis, langganan habis, trial ditolak, langganan aktif, trial jalan, tester).
+- Catatan: `status:"active"` di Firestore tidak otomatis berubah saat `subscriptionEndsAt` lewat; aplikasi mengecek keduanya, jadi akun seperti itu kena paywall (benar). Akun keluarga/tester dibuka lewat kolom `isTester:true` (boolean) di `subscriptions/{uid}` lewat Firebase Console.
+
 ## 🏪 Play Console: pengujian tertutup berjalan (19 Okt 2026)
 - Status lengkap & langkah berikutnya: **`store/play/STATUS-RILIS.md`** (sumber utama; jangan tulis email penguji/kata sandi di repo publik).
 - Akun **FerTune Studio** (pribadi) terverifikasi 14 Okt. Rilis **1 (1.0.0.0)** ada di **Pengujian tertutup - Alpha**; **Pengiriman 1** (14 perubahan: rilis, listing, konten aplikasi, kategori Pendidikan) berstatus **Diterbitkan** sejak 17 Okt 2026, 11.43.
