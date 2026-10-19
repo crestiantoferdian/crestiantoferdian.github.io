@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+<!-- LesLesanKu (LLK) · Hak Cipta © 2026 FerTune Studio. Seluruh hak dilindungi. Dilarang menyalin, mengubah, atau menerbitkan ulang tanpa izin tertulis. -->
 <head>
 <meta charset="UTF-8"/>
 <script>
@@ -14,6 +15,11 @@
 window.llkIsPlayApp=function(){ try{ return sessionStorage.getItem('llk_play_app')==='1'; }catch(e){ return false; } };
 (function(){try{
   if(document.referrer.indexOf('android-app://')===0) sessionStorage.setItem('llk_play_app','1');
+  // Cadangan: aplikasi Play (TWA) dibuka dengan alamat awal leslesanku.com/?src=play (diatur di PWABuilder)
+  if(/[?&]src=play(&|$)/.test(location.search)){
+    sessionStorage.setItem('llk_play_app','1');
+    try{ var q0=location.search.replace(/([?&])src=play(&|$)/,function(m,a,b){ return b?a:''; }); history.replaceState(history.state,'',location.pathname+(q0==='?'?'':q0)+location.hash); }catch(e){}
+  }
   if(/[?&]v1=1/.test(location.search)){
     sessionStorage.setItem('llk_v1_tab','1'); localStorage.setItem('llk_v2_choice','lepas');
     // Rapikan alamat: buang "?v1=1" (parameter lain tetap) supaya yang terlihat leslesanku.com saja
@@ -22,6 +28,7 @@ window.llkIsPlayApp=function(){ try{ return sessionStorage.getItem('llk_play_app
   }
   if(window.matchMedia&&matchMedia('(display-mode: standalone)').matches) return;
   if(navigator.standalone||document.referrer.indexOf('android-app://')===0) return;
+  if(sessionStorage.getItem('llk_play_app')==='1') return; // aplikasi Play Store: langsung login V1
   if(sessionStorage.getItem('llk_v1_tab')==='1') return;
   if(localStorage.getItem('llk_v1_login')==='1') return;
   var st=localStorage.getItem('rms4_s'); if(st&&st!=='[]'&&st!=='null') return;
@@ -279,6 +286,7 @@ if(window.llkPicking){
 :root[data-theme="happy"] .day-pill.active{background:var(--red);border-color:var(--red);color:var(--on-red);box-shadow:0 4px 14px var(--red-glow)}
 :root[data-theme="happy"] .date-pill{border-radius:18px}
 .llk-subj-emo{font-size:1.45rem;line-height:1}
+.llk-flag{width:1.35em;height:0.9em;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,0.12);display:block}
 :root[data-theme="dark"]{
   color-scheme:dark;
   --bg:#15120f;--paper-2:#27211c;--card:#1e1a16;--card2:#262019;
@@ -1109,6 +1117,31 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
   .lainnya-wrap>#accountSectionSlot,.lainnya-wrap>:last-child:not(.menu-card){column-span:all}
 }
 
+/* Tab Kirim: kolom Nama terkunci di kiri saat tabel digeser ke kanan (seperti freeze di Excel) */
+.llk-kirim-sticky{position:sticky;left:0;z-index:1;background:var(--card);min-width:96px;max-width:150px;box-shadow:1px 0 0 var(--border2),6px 0 8px -6px rgba(43,36,32,0.18)}
+/* ── Pemilih jam bulat buatan sendiri (menggantikan pemilih jam bawaan browser) ── */
+input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transparent;font-variant-numeric:tabular-nums;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%237f7369' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;background-size:18px;padding-right:38px!important}
+#llkClockOv{position:fixed;inset:0;z-index:10050;background:rgba(43,36,32,0.45);display:flex;align-items:center;justify-content:center;padding:16px;animation:llkCkFade .16s ease-out}
+@keyframes llkCkFade{from{opacity:0}to{opacity:1}}
+@keyframes llkCkPop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.llk-ck{width:100%;max-width:330px;background:var(--card);color:var(--text);border-radius:var(--r-xl);box-shadow:0 24px 60px rgba(43,36,32,0.35);padding:18px 18px 14px;animation:llkCkPop .2s cubic-bezier(.2,.8,.2,1)}
+.llk-ck-ttl{font-size:0.8rem;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;text-align:center;margin-bottom:6px}
+.llk-ck-hd{display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:14px}
+.llk-ck-seg{font-family:var(--font-display);font-size:3rem;line-height:1;font-weight:600;padding:8px 12px;border-radius:var(--r-md);border:none;background:var(--paper-2);color:var(--text2);cursor:pointer;font-variant-numeric:tabular-nums;min-width:86px}
+.llk-ck-seg.on{background:var(--accent-soft);color:var(--red-text);box-shadow:inset 0 0 0 2px var(--accent-line)}
+.llk-ck-col{font-family:var(--font-display);font-size:2.6rem;font-weight:600;color:var(--muted)}
+.llk-ck-face{position:relative;width:264px;height:264px;margin:0 auto;border-radius:50%;background:var(--paper-2);touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;box-shadow:inset 0 2px 6px rgba(43,36,32,0.08)}
+.llk-ck-face svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.llk-ck-n{position:absolute;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.98rem;font-weight:600;color:var(--text);pointer-events:none;font-variant-numeric:tabular-nums;transition:color .12s}
+.llk-ck-n.in{width:32px;height:32px;margin:-16px 0 0 -16px;font-size:0.8rem;color:var(--muted)}
+.llk-ck-n.sel{color:var(--on-red)}
+.llk-ck-hint{text-align:center;font-size:0.78rem;color:var(--muted);margin:10px 0 2px;min-height:1.1em}
+.llk-ck-act{display:flex;gap:8px;margin-top:12px}
+.llk-ck-act .mbtn{flex:1;min-height:46px}
+.llk-ck-clear{display:block;margin:10px auto 0;background:none;border:none;color:var(--alpa-text);font-size:0.84rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+
 /* ── Hormati prefers-reduced-motion ── */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important;scroll-behavior:auto!important}
@@ -1406,6 +1439,11 @@ body.llk-limit-reached button[onclick*="reactivateStudent"] .ico{display:none}
       </select>
     </div>
     <!-- JADWAL RUTIN 1 - selalu tampil -->
+    <div class="mfield" id="startDateWrap" style="margin-top:2px">
+      <label><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Mulai Les Tanggal</label>
+      <input type="date" id="f_startDate"/>
+      <div class="llk-hint">Jadwal rutin murid ini baru muncul mulai tanggal ini — tanggal sebelumnya tidak ikut terjadwal. Kosongkan kalau murid sudah les sejak lama.</div>
+    </div>
     <div style="padding:14px 0 4px;border-top:1px dashed var(--border);margin-top:4px" id="tut-step-jadwal">
       <button type="button" onclick="toggleJadwal(1)" id="jadwal-header-1" class="llk-acc" style="background:var(--blue-bg);border-color:transparent">
         <span class="llk-acc-label" style="color:var(--blue)"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Jadwal Rutin 1 <small>(opsional)</small></span>
@@ -1718,6 +1756,23 @@ function llkIll(name){
 const LLK_SUBJECT_ICON={'🎹':'piano','🎸':'guitar','🎻':'violin','🥁':'drum','🎤':'mic','🎵':'music','🎷':'music',
   '🔢':'math','🔬':'microscope','⚛️':'atom','🧪':'flask','🧬':'dna','🌍':'globe','📜':'scroll','💹':'chart','📊':'chart',
   '💻':'laptop','📖':'book-open','✏️':'pencil','⚖️':'scale','🌐':'lang'};
+// Bendera negara digambar sendiri (SVG) — Windows tidak bisa menampilkan emoji bendera
+// (muncul huruf "GB", "JP", dst.), jadi di tema Happy Time emoji bendera diganti gambar ini.
+const LLK_FLAG_SVG={
+  '🇮🇩':'<rect width="30" height="10" fill="#e70011"/><rect y="10" width="30" height="10" fill="#fff"/>',
+  '🇬🇧':'<svg viewBox="0 0 60 30" width="30" height="20" preserveAspectRatio="none"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" stroke-width="2"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></svg>',
+  '🇯🇵':'<rect width="30" height="20" fill="#fff"/><circle cx="15" cy="10" r="6" fill="#bc002d"/>',
+  '🇨🇳':'<rect width="30" height="20" fill="#de2910"/><polygon fill="#ffde00" points="6,2.4 7.1,5.7 10.6,5.7 7.8,7.8 8.8,11.1 6,9.1 3.2,11.1 4.2,7.8 1.4,5.7 4.9,5.7"/><circle cx="11.5" cy="2.6" r="0.9" fill="#ffde00"/><circle cx="13.3" cy="4.6" r="0.9" fill="#ffde00"/><circle cx="13.3" cy="7.4" r="0.9" fill="#ffde00"/><circle cx="11.5" cy="9.4" r="0.9" fill="#ffde00"/>',
+  '🇩🇪':'<rect width="30" height="6.67" fill="#000"/><rect y="6.67" width="30" height="6.67" fill="#dd0000"/><rect y="13.33" width="30" height="6.67" fill="#ffce00"/>',
+  '🇸🇦':'<rect width="30" height="20" fill="#006c35"/><path d="M8 7.5h14M9 9.5h12" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><path d="M8 13.5h13l1.5-1" stroke="#fff" stroke-width="1" fill="none" stroke-linecap="round"/>',
+  '🇰🇷':'<rect width="30" height="20" fill="#fff"/><path d="M15 6a4 4 0 0 1 0 8a2 2 0 0 1 0-4a2 2 0 0 0 0-4z" fill="#003478"/><path d="M15 6a4 4 0 0 0 0 8a2 2 0 0 0 0-4a2 2 0 0 1 0-4z" fill="#cd2e3a" transform="rotate(180 15 10)"/><g stroke="#000" stroke-width="0.9"><path d="M5 4.5l3-2.2M5.7 5.4l3-2.2M6.4 6.3l3-2.2"/><path d="M20.6 13.7l3 2.2M21.3 12.8l3 2.2M22 11.9l3 2.2"/><path d="M20.6 6.3l3-2.2M21.3 7.2l3-2.2M22 8.1l3-2.2"/><path d="M5 15.5l3 2.2M5.7 14.6l3 2.2M6.4 13.7l3 2.2"/></g>',
+  '🇫🇷':'<rect width="10" height="20" fill="#002395"/><rect x="10" width="10" height="20" fill="#fff"/><rect x="20" width="10" height="20" fill="#ed2939"/>',
+  '🇪🇸':'<rect width="30" height="20" fill="#aa151b"/><rect y="5" width="30" height="10" fill="#f1bf00"/>'
+};
+function llkFlagHtml(e){
+  const f=LLK_FLAG_SVG[e]; if(!f) return '';
+  return '<svg class="llk-flag" viewBox="0 0 30 20" aria-hidden="true" focusable="false">'+f+'</svg>';
+}
 function llkSubjectIcon(instrument){
   const e=getInstrumentIcon(instrument);
   let n=LLK_SUBJECT_ICON[e];
@@ -1726,7 +1781,7 @@ function llkSubjectIcon(instrument){
   n=n||'music';
   const theme=document.documentElement.getAttribute('data-theme');
   // Happy Time: ikon emoji seperti tampilan lama
-  if(theme==='happy') return '<span class="llk-subj llk-subj-emo" style="'+llkSubjectStyle(n)+'">'+escapeHtml(e||'🎵')+'</span>';
+  if(theme==='happy') return '<span class="llk-subj llk-subj-emo" style="'+llkSubjectStyle(n)+'">'+(llkFlagHtml(e)||escapeHtml(e||'🎵'))+'</span>';
   // Tiap jenis ikon punya warna sendiri (tidak ada yang sama) — lihat llkSubjectHue
   return '<span class="llk-subj" style="'+llkSubjectStyle(n)+'">'+llkI(n)+'</span>';
 }
@@ -3019,6 +3074,7 @@ window.addEventListener('popstate',function(e){
   const state=e.state||{};
   // Pop yang dipicu tombol tutup lembar (invoice / Pembayaran Custom): sudah ditutup, jangan navigasi
   if(window._llkSkipPop){ window._llkSkipPop=false; return; }
+  if(window.llkClockOnPop&&window.llkClockOnPop()) return;
   const cpov=document.getElementById('customPayOverlay');
   if(cpov){ cpov.remove(); window._cp=null; return; }
   const invov=document.getElementById('invoiceOverlay');
@@ -3486,7 +3542,10 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
       return;
     }
 
-    const isRegular=s.day===dayName;
+    // Sebelum tanggal mulai les: jadwal rutin (hari 1–4) belum berlaku.
+    // Reschedule & Tambahan Kelas tetap tampil karena diisi per tanggal secara sengaja.
+    const beforeStart=!!(s.startDate&&dateKey&&dateKey<s.startDate);
+    const isRegular=s.day===dayName&&!beforeStart;
     if(isRegular){
       result.push(Object.assign({},s,{
         _originalIdx:originalIdx,
@@ -3498,7 +3557,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
     }
 
     // Jadwal hari ke-2
-    if(s.day2&&s.day2===dayName&&!rsForToday){
+    if(s.day2&&s.day2===dayName&&!rsForToday&&!beforeStart){
       const rs2=(s.reschedules||[]).find(r=>r.day===s.day2&&r.date>=todayISO);
       result.push(Object.assign({},s,{
         time:s.time2a||s.time,
@@ -3509,7 +3568,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
       }));
     }
     // Jadwal hari ke-3
-    if(s.day3&&s.day3===dayName&&!rsForToday){
+    if(s.day3&&s.day3===dayName&&!rsForToday&&!beforeStart){
       const rs3=(s.reschedules||[]).find(r=>r.day===s.day3&&r.date>=todayISO);
       result.push(Object.assign({},s,{
         time:s.time3a||s.time,
@@ -3520,7 +3579,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
       }));
     }
     // Jadwal hari ke-4
-    if(s.day4&&s.day4===dayName&&!rsForToday){
+    if(s.day4&&s.day4===dayName&&!rsForToday&&!beforeStart){
       const rs4=(s.reschedules||[]).find(r=>r.day===s.day4&&r.date>=todayISO);
       result.push(Object.assign({},s,{
         time:s.time4a||s.time,
@@ -3696,6 +3755,9 @@ function computeIsDue(s){
         total=llkMonthlyUnpaidCount(s, billingMonth, false);
         isDue=total>0;
       }
+      // BUGFIX: bulan yang ditagih tanpa pertemuan sama sekali (mis. murid baru
+      // mulai bulan ini) dulu tetap muncul "Waktunya Bayar! (Akhir Bulan · 0x)".
+      if(isDue && total===0) isDue=false;
     }
   } else if(timing==='depan'){
     // Sisa "saldo" pertemuan yang sudah dibayar di depan. prepaidThrough =
@@ -5270,7 +5332,7 @@ function siswaCardHtml(s,total,cycle,isDue){
     html+='<div class="track-avatar'+(isVokal?' vocal':'')+'">'+llkSubjectIcon(s.instrument)+'</div>';
     html+='<div style="flex:1;min-width:0">';
     html+='<div style="font-weight:700;font-size:0.98rem;letter-spacing:-0.01em">'+escapeHtml(s.name)+'</div>';
-    html+='<div style="font-size:0.8rem;color:var(--muted);margin-top:2px;line-height:1.4">'+s.day+' '+s.time+(s.time2?'–'+s.time2:'')+(s.day2?' & '+s.day2+' '+s.time2a+(s.time2b?'–'+s.time2b:''):'')+(s.day3?' & '+s.day3+' '+s.time3a+(s.time3b?'–'+s.time3b:''):'')+(s.day4?' & '+s.day4+' '+s.time4a+(s.time4b?'–'+s.time4b:''):'')+(s.instrument?' · '+escapeHtml(s.instrument):'')+'</div>';
+    html+='<div style="font-size:0.8rem;color:var(--muted);margin-top:2px;line-height:1.4">'+s.day+' '+s.time+(s.time2?'–'+s.time2:'')+(s.day2?' & '+s.day2+' '+s.time2a+(s.time2b?'–'+s.time2b:''):'')+(s.day3?' & '+s.day3+' '+s.time3a+(s.time3b?'–'+s.time3b:''):'')+(s.day4?' & '+s.day4+' '+s.time4a+(s.time4b?'–'+s.time4b:''):'')+(s.instrument?' · '+escapeHtml(s.instrument):'')+(s.startDate&&s.startDate>todayStr()?' · <b>mulai '+escapeHtml(fmtInvDate(s.startDate))+'</b>':'')+'</div>';
     if(!paymentOff){
       html+='<div style="margin-top:6px"><span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--r-pill);font-size:0.74rem;font-weight:700;background:'+pillBg+';color:'+pillColor+'">'+llkI(isDue?'card':'check','sm')+pillText+'</span></div>';
     }
@@ -6746,9 +6808,7 @@ function renderKirim(){
   const thS='padding:9px 12px;font-size:0.72rem;font-weight:700;color:var(--muted);text-align:left;white-space:nowrap';
   const rowsHtml=rows.length?rows.map(({s,st,progress,pr})=>`
     <tr style="border-top:1px solid var(--border2)">
-      <td style="padding:11px 12px;font-size:0.86rem;color:var(--muted);white-space:nowrap">${hariName}</td>
-      <td style="padding:11px 12px;font-size:0.86rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums">${tgl}</td>
-      <td style="padding:11px 12px;font-size:0.92rem;font-weight:600;color:var(--text)">${escapeHtml(s.name)}</td>
+      <td class="llk-kirim-sticky" style="padding:11px 12px;font-size:0.92rem;font-weight:600;color:var(--text)">${escapeHtml(s.name)}</td>
       <td style="padding:11px 12px;font-size:0.86rem;color:var(--muted)">${escapeHtml(s.instrument||'—')}</td>
       <td style="padding:11px 10px;text-align:center">
         <span style="display:inline-flex;align-items:center;gap:4px;font-size:0.74rem;font-weight:700;padding:3px 9px;border-radius:var(--r-pill);
@@ -6763,7 +6823,7 @@ function renderKirim(){
         ?`<button onclick="openSheetLinkByName('${jsAttr(s.name)}','${s._extraDate||dateKey}','${jsAttr(s._attKey||s.name)}')" class="llk-icon-btn sm" aria-label="Kirim progres ${escapeHtml(s.name)}" title="Kirim progres" style="color:${localStorage.getItem('sheet_sent_'+(s._extraDate||dateKey)+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'var(--hadir)':'var(--wa)'}">${llkI(localStorage.getItem('sheet_sent_'+(s._extraDate||dateKey)+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'mail-check':'chat')}</button>`
         :''}</div></td>
     </tr>`).join('')
-  :`<tr><td colspan="6">
+  :`<tr><td colspan="4">
     <div class="empty" style="padding:28px 20px">
       ${llkIll('notebook')}
       <div class="empty-t">Belum ada data ${isToday?'hari ini':'di tanggal ini'}</div>
@@ -6800,9 +6860,7 @@ function renderKirim(){
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="background:var(--card2);border-top:1px solid var(--border2)">
-                <th style="${thS}">Hari</th>
-                <th style="${thS}">Tanggal</th>
-                <th style="${thS}">Nama</th>
+                <th class="llk-kirim-sticky" style="${thS};background:var(--card2)">Nama</th>
                 <th style="${thS}">Mata Pelajaran</th>
                 <th style="${thS};text-align:center">Status</th>
                 <th style="${thS}">Progres & PR</th>
@@ -6818,7 +6876,7 @@ function renderKirim(){
       </button>`:''}
 
       <div style="margin-top:12px;display:flex;gap:10px;align-items:flex-start;background:var(--blue-bg);border-radius:var(--r-md);padding:13px 15px;font-size:0.84rem;color:var(--blue);line-height:1.6">
-        ${llkI('bulb')}<div><b>Cara pakai:</b> Tap tombol Salin → buka Google Sheets → klik sel pertama → Paste. Kolom yang tersalin: Hari, Tanggal, Nama, Mata Pelajaran, Progres, PR.</div>
+        ${llkI('bulb')}<div><b>Cara pakai:</b> Tap tombol Salin → buka Google Sheets → klik sel pertama → Paste. Kolom yang tersalin: Hari, Tanggal, Nama, Mata Pelajaran, Progres, PR — Hari & Tanggal tetap ikut tersalin.</div>
       </div>
     </div>`;
 
@@ -7021,14 +7079,43 @@ function llkBulletLines(text){
   return String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
     .map(l=>/^\d+[.)]\s/.test(l)?l:'• '+l.replace(/^[*\-•·]+\s*/,'')).join('\n');
 }
-// Pertemuan ke-berapa pada tanggal ini: semua sesi terhitung (Hadir/Alpa,
-// termasuk Pertemuan Awal & tambahan kelas) sampai tanggal itu.
-function llkMeetingNumber(name, attKey, dateKey){
+// Pertemuan ke-berapa SEJAK AWAL pada tanggal ini: semua sesi terhitung
+// (Hadir/Alpa, termasuk Pertemuan Awal & tambahan kelas) sampai tanggal itu.
+function llkMeetingNumberAll(name, attKey, dateKey){
   const list=countedSessionList(name);
   const before=list.filter(x=>!x.date||x.date<dateKey).length;
   const sameDay=list.filter(x=>x.date===dateKey).length;
   if(!sameDay) return before+1;
   return before+(attKey===name?1:sameDay);
+}
+// Pertemuan ke-berapa DALAM SIKLUS PEMBAYARAN yang sedang berjalan (dipakai di
+// pesan progres ke orang tua). Setelah ditandai "Sudah Bayar", hitungan kembali
+// ke pertemuan ke-1. Hanya untuk tampilan — tidak mengubah data/tagihan.
+//  - Per pertemuan, bayar di belakang: n − sesi yang sudah dibayar (lastPaidAt).
+//  - Per pertemuan, bayar di depan: posisi di dalam paket yang sedang dipakai.
+//  - Bulanan: pertemuan ke-berapa di bulan itu.
+// Sesi lama yang sudah tercakup pembayaran → posisi di dalam siklusnya (n mod siklus).
+function llkMeetingNumber(name, attKey, dateKey){
+  const n=llkMeetingNumberAll(name, attKey, dateKey);
+  const s=students.find(x=>x.name===name);
+  if(!s) return n;
+  const cycle=Math.max(1, s.payCycle||4);
+  const inCycle=k=>((k-1)%cycle)+1;
+  if(paymentMode==='monthly'){
+    const mk=String(dateKey).slice(0,7);
+    const list=countedSessionList(name).filter(x=>x.date&&x.date.slice(0,7)===mk);
+    const before=list.filter(x=>x.date<dateKey).length;
+    const sameDay=list.filter(x=>x.date===dateKey).length;
+    return sameDay ? before+(attKey===name?1:sameDay) : before+1;
+  }
+  if(getPayTiming(s)==='depan'){
+    const covered=(s.prepaidThrough!=null)?s.prepaidThrough:(s.lastPaidAt||0);
+    if(n>covered) return n-covered;                       // sudah lewat paket yang dibayar
+    const start=Math.max(0, covered-cycle);
+    return n>start ? n-start : inCycle(n);                 // di dalam paket terakhir
+  }
+  const paid=s.lastPaidAt||0;
+  return n>paid ? n-paid : inCycle(n);
 }
 function fallbackCopyPlain(text){
   const ta=document.createElement('textarea');
@@ -7822,16 +7909,9 @@ function renderLainnya(){
           <div class="menu-text"><div class="menu-label">Pulihkan dari File</div><div class="menu-desc">Import dari file backup .txt atau .json</div></div>
           <span class="menu-arrow">${llkI('chevron-right')}</span>
         </div>
-        <div class="menu-item" onclick="llkPageEnter();renderImportRiwayat()">
-          <div class="menu-icon plum">${llkI('table')}</div>
-          <div class="menu-text"><div class="menu-label">Impor Riwayat dari Spreadsheet</div><div class="menu-desc">Masukkan absensi & materi lama (sebelum pakai LesLesanKu)</div></div>
-          <span class="menu-arrow">${llkI('chevron-right')}</span>
-        </div>
-        ${localStorage.getItem('rms4_emergency_backup')?`<div class="menu-item" onclick="restoreEmergencyBackup()">
-          <div class="menu-icon" style="background:var(--alpa-bg);color:var(--alpa)">${llkI('shield')}</div>
-          <div class="menu-text"><div class="menu-label">Pulihkan Cadangan Darurat</div><div class="menu-desc">Backup otomatis sesaat sebelum data ditimpa cloud</div></div>
-          <span class="menu-arrow">${llkI('chevron-right')}</span>
-        </div>`:''}
+        <!-- Menu "Impor Riwayat dari Spreadsheet" & "Pulihkan Cadangan Darurat" disembunyikan (11 Okt 2026, permintaan pemilik:
+             fitur percobaan). Fungsinya (renderImportRiwayat, restoreEmergencyBackup) & pembuatan cadangan darurat otomatis TETAP ada
+             sebagai jaring pengaman — kalau perlu dipulihkan, panggil restoreEmergencyBackup() atau tampilkan lagi menunya. -->
       </div>
       <div class="menu-card">
         <div class="menu-item" onclick="llkPageEnter();renderNotifSettings()">
@@ -8130,26 +8210,17 @@ function showBackupText(json, tgl){
     '</div>'+
     '<div style="padding:10px 20px 20px;display:flex;flex-direction:column;gap:10px">'+
 
-      '<button onclick="downloadBackup()" class="llk-btn primary block" style="height:52px">'+
-        llkI('download')+' Download File Backup (.txt)'+
+      '<button onclick="shareBackupFile()" class="llk-btn primary block" style="height:52px">'+
+        llkI('share')+' Kirim File Backup'+
       '</button>'+
 
-      '<button onclick="backupToWA()" class="llk-btn wa block" style="height:52px">'+
-        llkI('chat')+' Kirim ke WA (chat diri sendiri)'+
+      '<button onclick="saveBackupFile()" class="llk-btn secondary block" style="height:52px">'+
+        llkI('download')+' Download File Backup'+
       '</button>'+
 
-      '<button onclick="copyBackup()" id="copyBackupBtn" class="llk-btn secondary block" style="height:52px">'+
-        llkI('copy')+' Salin Teks Backup'+
-      '</button>'+
-
-      '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;margin-top:4px">'+
-        '<div class="llk-section-label" style="padding-top:0">'+llkI('note')+'Preview data ('+tgl+')</div>'+
-        '<textarea readonly id="backupText" class="llk-textarea" style="height:160px;font-family:var(--font-mono);font-size:0.74rem;resize:none">'+json+'</textarea>'+
-      '</div>'+
       '<div class="llk-callout" style="flex-direction:column;gap:6px;font-size:0.84rem">'+
-        '<div class="llk-ic-inline">'+llkI('download')+'<span><b>Download</b> \u2192 file tersimpan di folder Downloads (di HP bisa muncul menu Bagikan → pilih Simpan/Files)</span></div>'+
-        '<div class="llk-ic-inline">'+llkI('chat')+'<span><b>Kirim WA</b> \u2192 pilih chat diri sendiri \u2192 kirim</span></div>'+
-        '<div class="llk-ic-inline">'+llkI('copy')+'<span><b>Salin</b> \u2192 tempel di Google Keep / Notes / Drive</span></div>'+
+        '<div class="llk-ic-inline">'+llkI('share')+'<span><b>Kirim File</b> \u2192 pilih WhatsApp (chat diri sendiri), Google Drive, atau email</span></div>'+
+        '<div class="llk-ic-inline">'+llkI('download')+'<span><b>Download</b> \u2192 file langsung tersimpan di folder Downloads</span></div>'+
       '</div>'+
     '</div>';
 }
@@ -8162,6 +8233,41 @@ function llkIsMobileDevice(){
   // iPadOS menyamar sebagai Mac: Mac + layar sentuh = iPad
   return /Macintosh/.test(ua) && (navigator.maxTouchPoints||0)>1;
 }
+// Tombol "Kirim File Backup": menu Bagikan (WA, Drive, email…). Kalau perangkat tidak
+// bisa membagikan file (mis. sebagian PC), file diunduh biasa.
+function shareBackupFile(){
+  var json = window._backupJson || '';
+  var tgl = window._backupTgl || 'backup';
+  var filename = 'LLK-Backup-'+tgl+'.txt';
+  try{
+    var f1 = new File([new Blob([json],{type:'text/plain;charset=utf-8'})], filename, {type:'text/plain'});
+    if(navigator.canShare && navigator.canShare({files:[f1]})){
+      navigator.share({files:[f1], title:'LLK Backup '+tgl})
+        .then(function(){toast('✅ File backup berhasil dikirim');})
+        .catch(function(e){ if(e.name!=='AbortError') saveBackupFile(); });
+      return;
+    }
+  }catch(e){}
+  toast('Perangkat ini tidak bisa membagikan file — file diunduh saja.');
+  saveBackupFile();
+}
+// Tombol "Download File Backup": selalu unduhan biasa ke folder Downloads.
+function saveBackupFile(){
+  var json = window._backupJson || '';
+  var tgl = window._backupTgl || 'backup';
+  var filename = 'LLK-Backup-'+tgl+'.txt';
+  try{
+    var url = URL.createObjectURL(new Blob([json],{type:'text/plain;charset=utf-8'}));
+    var a = document.createElement('a');
+    a.href = url; a.download = filename; a.style.display='none';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ if(a.parentNode) document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+    toast('✅ File backup diunduh — cek folder Downloads.');
+    return;
+  }catch(e){}
+  showBackupInline(json);
+}
+
 function downloadBackup(){
   var json = window._backupJson || '';
   var tgl = window._backupTgl || 'backup';
@@ -8286,7 +8392,7 @@ function confirmImportOverwrite(data){
     '📱 Data di HP sekarang: '+curCount+' murid\n'+
     '📂 Data di file backup: '+newCount+' murid'+(data.exportedAt?' (dibuat '+new Date(data.exportedAt).toLocaleString('id-ID')+')':'')+'\n\n'+
     'Data di HP sekarang akan DITIMPA (dan ikut tersinkron ke cloud kalau sedang login). '+
-    'Data lama dicadangkan otomatis & bisa dikembalikan lewat "Pulihkan Cadangan Darurat" di tab Lainnya.';
+    'Data lama dicadangkan otomatis di HP ini sebelum ditimpa.';
   if(newCount<curCount) msg+='\n\n⚠️ PERHATIAN: jumlah murid di file LEBIH SEDIKIT dari data sekarang.';
   if(!confirm(msg)) return false;
   const bakOk=(typeof saveEmergencyBackup==='function')?saveEmergencyBackup():false;
@@ -8480,6 +8586,7 @@ function openAdd(){
   document.getElementById('f_day').value=selectedDay||DAYS[0];
   document.getElementById('f_time').value='09:00';
   document.getElementById('f_time2').value='09:45';
+  document.getElementById('f_startDate').value=todayStr();
   populateCurriculumSelect('');
   document.getElementById('overlay').classList.add('open');
   setTimeout(()=>document.getElementById('f_name').focus(),300);
@@ -8595,6 +8702,7 @@ function openEdit(idx){
   document.getElementById('f_inst').value=s.instrument||'';
   populateCurriculumSelect(s.curriculumSubject||'');
   document.getElementById('f_day').value=s.day;
+  document.getElementById('f_startDate').value=s.startDate||'';
   document.getElementById('f_time').value=s.time;
   document.getElementById('f_time2').value=s.time2||'';
   document.getElementById('f_day2').value=s.day2||'';
@@ -8850,6 +8958,9 @@ function doSave(){
     initialSessions:parseInt(document.getElementById('f_initial_sessions').value)||0,
     sheetLink:document.getElementById('f_sheet_link').value.trim(),
   };
+  // Tanggal mulai les: jadwal rutin tidak muncul di tanggal sebelum ini (kosong = sejak dulu)
+  const startDk=document.getElementById('f_startDate').value||'';
+  if(startDk) s.startDate=startDk;
   if(!s.name){toast('❌ Nama wajib diisi!');return}
   // Semua riwayat absensi/catatan/tagihan disimpan pakai NAMA murid sebagai
   // kunci — jadi 2 murid dengan nama sama akan riwayatnya tercampur. Tolak
@@ -8911,6 +9022,11 @@ function doSave(){
       if(prev.initialDates) s.initialDates=prev.initialDates;
       s.initialSessions=prev.initialSessions||0;
     }
+  }
+  // Pertemuan awal ditandai di tanggal sebelum "Mulai Les" → mundurkan tanggal mulai supaya tetap konsisten
+  if(s.startDate&&s.initialDates&&s.initialDates.length){
+    const firstInit=s.initialDates.slice().sort()[0];
+    if(firstInit<s.startDate) s.startDate=firstInit;
   }
   save();closeModal();render();
   toast((editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`)+(initMarked?` · ${initMarked} pertemuan awal ditandai Hadir`:''));
@@ -9497,65 +9613,58 @@ function openSheetLink(idx){
   window._sheetDateKey=null;
   window._sheetAttKey=null;
   const sentKey='sheet_sent_'+dateKey+'_'+(s.name||idx).replace(/[^a-zA-Z0-9]/g,'_');
-  const alreadySent=localStorage.getItem(sentKey);
-
-  const old=document.getElementById('sheetPopup');
-  if(old){old.remove();return;}
 
   // Teks disusun sesuai field yang dicentang di Pengaturan Progres Siswa
   const text=buildProgressText(attKey, s.name, dateKey);
   window._sheetLastText=text;
-  window._sheetCtx={idx:idx, sentKey:sentKey, name:s.name}; // dipakai Kirim ke WA / Buka Sheet untuk menandai terkirim
-
-  // Otomatis tersalin ke clipboard begitu popup dibuka
+  // Otomatis tersalin ke clipboard (cadangan kalau teks tidak ikut terisi di WA/Sheet)
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(()=>fallbackCopyPlain(text));
   else fallbackCopyPlain(text);
 
-  const waBtn=phone?`<button onclick="goToWAProgress('${phone}')" class="llk-btn wa" style="flex:1;height:52px">${llkI('chat')} Kirim ke WA</button>`:'';
-  const sheetBtn=link?`<button onclick="goToSheet('${jsAttr(link)}')" class="llk-btn ${phone?'secondary':'primary'}" style="flex:1;height:52px">${llkI('external')} Buka Sheet</button>`:'';
-  const actionBtn=primary==='wa'?waBtn+sheetBtn:sheetBtn+waBtn;
-
-  const popup=document.createElement('div');
-  popup.id='sheetPopup';
-  popup.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-end;justify-content:center;background:rgba(43,36,32,0.42);';
-  popup.innerHTML=`
-    <div style="background:var(--card);border-radius:var(--r-xl) var(--r-xl) 0 0;padding:12px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:480px;box-shadow:var(--shadow-float);animation:llkSheetUp var(--d3) var(--ease-out) both">
-      <div style="width:40px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 18px"></div>
-      <div class="modal-title" style="margin-bottom:10px">${llkI('mail')} Kirim Progres — ${escapeHtml(s.name)}</div>
-      <div class="kirim-preview" style="margin-bottom:10px">${text.replace(/</g,'&lt;')}</div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:0.84rem;color:var(--hadir);margin-bottom:14px;font-weight:600">${llkI('copy','sm')} Teks sudah tersalin ke clipboard</div>
-      ${alreadySent?`<div style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;font-size:0.84rem;color:var(--hadir);margin-bottom:12px;font-weight:600">${llkI('check-circle','sm')} Sudah dikirim untuk tanggal ini · <button onclick="unmarkSheetSent(${idx},'${sentKey}')" style="background:none;border:none;color:var(--text2);font-family:inherit;font-size:0.82rem;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px">Tandai belum terkirim</button></div>`:''}
-      <div style="display:flex;gap:10px;margin-bottom:10px">${actionBtn}</div>
-      <button onclick="markSheetSent(${idx},'${sentKey}')" class="llk-btn outline-success block" style="height:52px;margin-bottom:10px">${llkI('check')} Sudah Terkirim</button>
-      <button onclick="document.getElementById('sheetPopup').remove()" class="llk-btn soft block">Batal</button>
-      <div style="margin-top:10px;text-align:center">
-        <button onclick="document.getElementById('sheetPopup').remove();renderProgressSettings()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--blue);font-family:inherit;font-size:0.84rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:10px">${llkI('sliders','sm')} Atur format & tujuan kirim</button>
-      </div>
-    </div>`;
-  popup.addEventListener('click',e=>{if(e.target===popup) popup.remove();});
-  document.body.appendChild(popup);
-  history.pushState({tab:currentTab, view:'modal'},'');
+  // Tombol amplop langsung membuka halaman pengiriman (WA / Google Sheet).
+  // TIDAK langsung ditandai terkirim: saat kembali ke LLK guru ditanya dulu (llkAskProgressSent).
+  llkSetPendingSent({idx:idx, sentKey:sentKey, name:s.name, at:Date.now()});
+  if(primary==='wa'){
+    const wa=phone.startsWith('62')?phone:'62'+phone.replace(/^0/,'');
+    window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(text),'_blank');
+  } else {
+    window.open(link,'_blank');
+    toast('Teks progres sudah tersalin — tempel di Sheet');
+  }
 }
 
-// BUGFIX: dulu membuka WA/Sheet TIDAK menandai terkirim — progres yang sudah
-// dikirim lewat WA tetap tampil "belum terkirim" kalau lupa menekan "Sudah
-// Terkirim". Sekarang langsung ditandai (bisa dibatalkan: "Tandai belum terkirim").
-function llkAutoMarkSent(){
-  const c=window._sheetCtx; if(!c) return;
-  window._sheetCtx=null;
-  markSheetSent(c.idx, c.sentKey, true);
+// ── Konfirmasi "sudah mengirim progres?" setelah kembali dari WA / Sheet ──
+// Disimpan di sessionStorage juga, supaya tetap ditanyakan walau halaman dimuat ulang.
+function llkSetPendingSent(p){
+  window._llkPendingSent=p;
+  try{ sessionStorage.setItem('llk_pending_sent',JSON.stringify(p)); }catch(e){}
 }
-function goToSheet(link){
-  window.open(link,'_blank');
-  llkAutoMarkSent();
+function llkClearPendingSent(){
+  window._llkPendingSent=null;
+  try{ sessionStorage.removeItem('llk_pending_sent'); }catch(e){}
 }
-
-function goToWAProgress(phone){
-  const msg=encodeURIComponent(window._sheetLastText||'');
-  const wa=phone.startsWith('62')?phone:'62'+phone.replace(/^0/,'');
-  window.open(`https://wa.me/${wa}?text=${msg}`,'_blank');
-  llkAutoMarkSent();
+function llkAskProgressSent(){
+  let p=window._llkPendingSent;
+  if(!p){ try{ p=JSON.parse(sessionStorage.getItem('llk_pending_sent')||'null'); }catch(e){ p=null; } }
+  if(!p||document.getElementById('llkSentAsk')) return;
+  if(Date.now()-(p.at||0)<800) return; // baru saja ditekan, belum benar-benar pindah ke WA/Sheet
+  const el=document.createElement('div');
+  el.id='llkSentAsk';
+  // Tidak bisa ditutup dengan ketuk di luar / tombol kembali — harus memilih jawaban
+  el.style.cssText='position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(43,36,32,0.5);font-family:inherit';
+  el.innerHTML='<div role="dialog" aria-modal="true" style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:24px 20px 18px;text-align:center;box-shadow:var(--shadow-lg)">'
+    +'<div class="llk-dialog-ic info">'+llkI('mail')+'</div>'
+    +'<div style="font-family:var(--font-display);font-size:1.2rem;font-weight:600;color:var(--text);margin-bottom:8px">Apakah Anda sudah mengirim progres siswa?</div>'
+    +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.55;margin-bottom:18px">Progres <b>'+escapeHtml(p.name||'')+'</b></div>'
+    +'<div style="display:flex;gap:10px"><button id="llkSentLater" class="llk-btn soft" style="flex:1;height:50px">Nanti</button>'
+    +'<button id="llkSentYes" class="llk-btn primary" style="flex:1;height:50px">'+llkI('check')+' Sudah</button></div></div>';
+  document.body.appendChild(el);
+  document.getElementById('llkSentLater').onclick=function(){ llkClearPendingSent(); el.remove(); };
+  document.getElementById('llkSentYes').onclick=function(){ llkClearPendingSent(); el.remove(); markSheetSent(p.idx, p.sentKey, true); };
 }
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') setTimeout(llkAskProgressSent,400); });
+window.addEventListener('focus',function(){ setTimeout(llkAskProgressSent,400); });
+window.addEventListener('pageshow',function(){ setTimeout(llkAskProgressSent,800); });
 
 function unmarkSheetSent(idx,sentKey){
   localStorage.removeItem(sentKey);
@@ -10674,7 +10783,24 @@ function llkHidePayLoadingWhenSnapReady(){
   scan();
   setTimeout(function(){ if(!done){ done=true; llkHidePayLoading(); } },20000);
 }
+/* Aplikasi dari Play Store: aturan Google melarang pembayaran Midtrans di dalam aplikasi.
+   Sampai Google Play Billing siap, tombol beli hanya menampilkan pemberitahuan ini
+   (penguji closed testing memakai trial 31 hari). Di website, Midtrans tetap jalan. */
+function llkPlayPayNotice(){
+  let el=document.getElementById('llkPlayPay'); if(el) el.remove();
+  el=document.createElement('div'); el.id='llkPlayPay';
+  el.style.cssText='position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(43,36,32,0.45);font-family:inherit';
+  el.innerHTML='<div style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:24px 20px 18px;text-align:center;box-shadow:var(--shadow-lg)">'
+    +'<div class="llk-dialog-ic">'+llkI('crown')+'</div>'
+    +'<div style="font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--text);margin-bottom:8px">Segera hadir di aplikasi</div>'
+    +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.6;margin-bottom:18px">Pembelian langganan lewat Google Play sedang disiapkan. Selama masa uji coba, semua fitur Pro bisa kamu pakai gratis.</div>'
+    +'<button class="llk-btn ink" style="width:100%" onclick="document.getElementById(\'llkPlayPay\').remove()">Mengerti</button></div>';
+  el.addEventListener('click',function(e){ if(e.target===el) el.remove(); });
+  document.body.appendChild(el);
+}
+
 async function mulaiLangganan(plan){
+  if(window.llkIsPlayApp&&window.llkIsPlayApp()){ llkPlayPayNotice(); return; }
   // Cegah tombol tertekan dua kali (snap.pay kedua ditolak Midtrans: "not allowed in this state")
   if(_llkPayBusy) return;
   _llkPayBusy=true; setTimeout(function(){ _llkPayBusy=false; },4000);
@@ -11611,6 +11737,133 @@ async function performAccountDeletion(){
 }
 
 initFirebase();
+</script>
+
+<script>
+/* ── Pemilih jam bulat (LLK) ─────────────────────────────────────────
+   Semua <input type="time"> diubah jadi kolom teks read-only "HH:MM" (format
+   nilainya tetap sama), lalu saat diketuk muncul jam bulat buatan sendiri —
+   tampilan sama di semua HP/browser. Nilai disimpan lewat event input+change
+   biasa, jadi kode lama (jam selesai otomatis +45 menit, onchange) tetap jalan. */
+(function(){
+  const NOCLEAR={f_time:1,f_time2:1};
+  function enhance(el){
+    if(el.dataset.llkClock) return;
+    el.dataset.llkClock='1';
+    const v=el.value;
+    try{ el.type='text'; }catch(e){}
+    el.value=v; el.readOnly=true; el.setAttribute('inputmode','none');
+    el.classList.add('llk-time'); if(!el.placeholder) el.placeholder='--:--';
+    el.setAttribute('aria-haspopup','dialog');
+  }
+  function scan(root){ (root.querySelectorAll?root:document).querySelectorAll('input[type=time]').forEach(enhance); }
+  window.llkClockScan=scan;
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>scan(document)); else scan(document);
+  new MutationObserver(ms=>{ for(const m of ms) for(const n of m.addedNodes){ if(n.nodeType!==1) continue;
+    if(n.matches&&n.matches('input[type=time]')) enhance(n); else if(n.querySelector&&n.querySelector('input[type=time]')) scan(n); } })
+    .observe(document.documentElement,{childList:true,subtree:true});
+
+  const pad=n=>String(n).padStart(2,'0');
+  let st=null; // {el,h,m,mode,drag}
+  function labelOf(el){
+    const f=el.closest('.mfield'); const l=f&&f.querySelector('label');
+    if(l) return l.textContent.trim();
+    const prev=el.previousElementSibling; return prev&&prev.textContent.trim().length<40?prev.textContent.trim():'Pilih Jam';
+  }
+  function open(el){
+    if(st) return;
+    const m=/^(\d{1,2}):(\d{2})/.exec(el.value||'');
+    let h,mi;
+    if(m){ h=Math.min(23,+m[1]); mi=Math.min(59,+m[2]); } else { const d=new Date(); h=(d.getHours()+1)%24; mi=0; }
+    st={el,h,m:mi,mode:'h',drag:false};
+    const ov=document.createElement('div'); ov.id='llkClockOv';
+    ov.innerHTML='<div class="llk-ck" role="dialog" aria-modal="true" aria-label="Pilih jam">'
+      +'<div class="llk-ck-ttl"></div>'
+      +'<div class="llk-ck-hd"><button type="button" class="llk-ck-seg" data-ck="h"></button><span class="llk-ck-col">:</span><button type="button" class="llk-ck-seg" data-ck="m"></button></div>'
+      +'<div class="llk-ck-face"></div><div class="llk-ck-hint"></div>'
+      +'<div class="llk-ck-act"><button type="button" class="mbtn mbtn-cancel" data-ck="x">Batal</button><button type="button" class="mbtn mbtn-save" data-ck="ok">Pilih</button></div>'
+      +((el.value&&!NOCLEAR[el.id]&&!el.closest('.llk-rem'))?'<button type="button" class="llk-ck-clear" data-ck="clr">Kosongkan jam</button>':'')
+      +'</div>';
+    ov.querySelector('.llk-ck-ttl').textContent=labelOf(el);
+    document.body.appendChild(ov);
+    try{ history.pushState({llkClock:1},''); }catch(e){}
+    let downOnBg=false;
+    ov.addEventListener('pointerdown',e=>{ downOnBg=e.target===ov; });
+    ov.addEventListener('click',e=>{
+      if(e.target===ov){ if(downOnBg) close(false); return; }
+      const b=e.target.closest('[data-ck]'); if(!b) return;
+      const k=b.dataset.ck;
+      if(k==='h'||k==='m'){ st.mode=k; draw(); }
+      else if(k==='x') close(false);
+      else if(k==='ok') close(true);
+      else if(k==='clr') close(true,'');
+    });
+    const face=ov.querySelector('.llk-ck-face');
+    face.addEventListener('pointerdown',e=>{ st.drag=true; try{face.setPointerCapture(e.pointerId);}catch(_){} pick(e,face); e.preventDefault(); });
+    face.addEventListener('pointermove',e=>{ if(st&&st.drag) pick(e,face); });
+    const up=()=>{ if(!st||!st.drag) return; st.drag=false; if(st.mode==='h'){ setTimeout(()=>{ if(st){ st.mode='m'; draw(); } },180); } };
+    face.addEventListener('pointerup',up); face.addEventListener('pointercancel',up);
+    ov.addEventListener('keydown',e=>{ if(e.key==='Escape') close(false); });
+    draw();
+    setTimeout(()=>{ const b=ov.querySelector('[data-ck="ok"]'); b&&b.focus({preventScroll:true}); },30);
+  }
+  function pick(e,face){
+    const r=face.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const dx=e.clientX-cx, dy=e.clientY-cy, dist=Math.hypot(dx,dy), R=r.width/2;
+    let ang=Math.atan2(dx,-dy)*180/Math.PI; if(ang<0) ang+=360;
+    if(st.mode==='h'){
+      let n=Math.round(ang/30)%12;                 // 0 = posisi angka 12
+      const inner=dist<R*0.62;
+      st.h=inner?(n===0?0:n+12):(n===0?12:n);
+    }else{
+      st.m=(Math.round(ang/30)%12)*5;
+    }
+    draw();
+  }
+  function draw(){
+    const ov=document.getElementById('llkClockOv'); if(!ov||!st) return;
+    const [hb,mb]=ov.querySelectorAll('.llk-ck-seg');
+    hb.textContent=pad(st.h); mb.textContent=pad(st.m);
+    hb.classList.toggle('on',st.mode==='h'); mb.classList.toggle('on',st.mode==='m');
+    ov.querySelector('.llk-ck-hint').textContent=st.mode==='h'?'Lingkar dalam = jam 13 sampai 00':'Ketuk atau geser untuk pilih menit';
+    const face=ov.querySelector('.llk-ck-face'), S=264, C=S/2, Ro=C-30, Ri=C-68;
+    let items=[], selR, selA;
+    if(st.mode==='h'){
+      for(let i=0;i<12;i++){ const a=i*30, out=i===0?12:i, inn=i===0?0:i+12;
+        items.push({t:pad(out),a,r:Ro,in:false,sel:st.h===out},{t:pad(inn),a,r:Ri,in:true,sel:st.h===inn}); }
+      const isIn=st.h===0||st.h>12; selR=isIn?Ri:Ro; selA=(st.h%12)*30;
+    }else{
+      for(let i=0;i<12;i++) items.push({t:pad(i*5),a:i*30,r:Ro,in:false,sel:st.m===i*5});
+      selR=Ro; selA=st.m*6;
+    }
+    const rad=selA*Math.PI/180, sx=C+selR*Math.sin(rad), sy=C-selR*Math.cos(rad);
+    const bub=st.mode==='h'&&selR===Ri?16:18;
+    let html='<svg viewBox="0 0 '+S+' '+S+'" aria-hidden="true"><circle cx="'+C+'" cy="'+C+'" r="4" fill="var(--red)"/>'
+      +'<line x1="'+C+'" y1="'+C+'" x2="'+sx.toFixed(1)+'" y2="'+sy.toFixed(1)+'" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"/>'
+      +'<circle cx="'+sx.toFixed(1)+'" cy="'+sy.toFixed(1)+'" r="'+bub+'" fill="var(--red)"/>'
+      +(st.mode==='m'&&st.m%5?'<circle cx="'+sx.toFixed(1)+'" cy="'+sy.toFixed(1)+'" r="3" fill="var(--on-red)"/>':'')
+      +'</svg>';
+    items.forEach(it=>{ const rr=it.a*Math.PI/180; const x=C+it.r*Math.sin(rr), y=C-it.r*Math.cos(rr);
+      html+='<span class="llk-ck-n'+(it.in?' in':'')+(it.sel?' sel':'')+'" style="left:'+(x/S*100).toFixed(2)+'%;top:'+(y/S*100).toFixed(2)+'%">'+it.t+'</span>'; });
+    face.innerHTML=html;
+  }
+  function close(save,forced){
+    const ov=document.getElementById('llkClockOv'); if(!ov||!st) return;
+    const el=st.el, val=forced!==undefined?forced:pad(st.h)+':'+pad(st.m);
+    st=null; ov.remove();
+    if(history.state&&history.state.llkClock){ window._llkSkipPop=true; history.back(); }
+    if(save&&el.value!==val){
+      el.value=val;
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      el.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    try{ el.focus({preventScroll:true}); }catch(e){}
+  }
+  // Tombol back HP menutup jam dulu (dipanggil dari handler popstate utama)
+  window.llkClockOnPop=function(){ const ov=document.getElementById('llkClockOv'); if(!ov) return false; st=null; ov.remove(); return true; };
+  document.addEventListener('click',e=>{ const el=e.target.closest&&e.target.closest('input.llk-time'); if(el&&!el.disabled){ e.preventDefault(); open(el); } });
+  document.addEventListener('keydown',e=>{ const el=e.target; if(el&&el.classList&&el.classList.contains('llk-time')&&(e.key==='Enter'||e.key===' '||e.key==='ArrowDown')){ e.preventDefault(); open(el); } });
+})();
 </script>
 
 </body>
