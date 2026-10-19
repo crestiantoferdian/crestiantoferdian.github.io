@@ -29,16 +29,24 @@ Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
    - Kategori: **Pendidikan** · Kontak: `fertunestudio@gmail.com`, situs `https://leslesanku.com` (telepon dikosongkan / format +62)
 4. **Pengujian tertutup (Alpha)**: negara **Indonesia**, daftar penguji **"Tim LLK"**, email masukan `fertunestudio@gmail.com`. Rilis **1 (1.0.0.0)** dibuat dari "Tambahkan dari koleksi" (AAB yang sama dengan internal), catatan rilis `<id>Versi pertama</id>`.
 5. **Dikirim & disetujui Google** (17 Okt 2026): **Pengiriman 1** berisi 14 perubahan (rilis Alpha, negara, penguji, listingan, rating konten, audiens 18+, kebijakan privasi, pernyataan iklan, Keamanan Data, aplikasi kesehatan, kategori Pendidikan) → status **Diterbitkan** hanya ±11 menit setelah dikirim (11.32 → 11.43). Lihat di **Ringkasan publikasi → Aktivitas pengiriman**.
-6. **Penguji terkumpul** (kabar pemilik, 19 Okt): sekitar **21 akun** di Tim LLK (13 baru + 8 lama), syarat ≥12 terpenuhi di daftar. Dasbor masih menampilkan **"0 penguji saat ini ikut serta"** karena yang dihitung hanya yang sudah menekan "Jadi penguji" lewat link.
+6. **Sumber penguji sekarang = 2 Google Grup** (19 Okt 2026). Di tab Penguji, **"Daftar email" dan "Google Grup" adalah pilihan tunggal (radio)**, jadi daftar email "Tim LLK" **tidak lagi aktif**. Kolom Google Grup berbentuk chip dan menerima **lebih dari satu grup**:
+   - **Grup milik pemilik** (dibuat 19 Okt): pemilik + 5 anggota dewasa (saudara/kenalan), ditambahkan langsung, langganan "tanpa email", daftar anggota hanya terlihat pemilik/manajer, hanya bisa bergabung lewat undangan. Anggota baru ditambah lewat groups.google.com → Anggota → Tambahkan anggota, tanpa mengubah Play Console.
+   - **Grup dari layanan tester berbayar** (dibeli pemilik di Shopee, ±13 akun, mereka sendiri yang memasang & mengisi laporan). **Tidak bisa diverifikasi**; dasbor layanan itu laporan sepihak, bukan data Google. Ada risiko kebijakan Google Play (penguji harus orang sungguhan); jangan bergantung padanya, dan jawab kuesioner Produksi dengan jujur.
+   - **Pengiriman 2 dan 3** (19 Okt 11.38 & 20.30) juga berstatus **Diterbitkan**, jadi kedua grup aktif. Email masukan: `fertunestudio@gmail.com` (tanpa titik di belakang).
+7. **Dasbor (19 Okt)**: "9 penguji saat ini ikut serta" dari target ≥12. Yang dihitung hanya yang sudah menekan "Jadi penguji" lewat link, bukan jumlah anggota grup. Orang nyata di grup pemilik baru ±6, jadi **cari ±6 orang dewasa lagi** supaya syarat terpenuhi tanpa mengandalkan layanan berbayar.
 
 ### Pelajaran dari proses ini (supaya tidak terulang)
 - Membuat rilis tertutup: **jangan klik Upload** untuk AAB yang sama → muncul "Kode versi 1 sudah digunakan". Pakai **Tambahkan dari koleksi** lalu pilih versi 1.
 - Ringkasan publikasi sempat memblokir pengiriman: **"Pernyataan ID iklan tidak lengkap"** → Konten aplikasi → ID Iklan → **Tidak** → Simpan, baru tombol "Kirim … perubahan untuk ditinjau" bisa dipakai.
 - Halaman Dasbor "2 dari 5" tidak langsung berarti email masukan terisi; cek tab Penguji.
 - Syarat 12 penguji dihitung dari yang **ikut serta**, bukan dari jumlah email di daftar. Jangan memakai emulator/akun buatan; penguji harus orang sungguhan dengan HP Android.
+- Pindah dari "Daftar email" ke "Google Grup" **menonaktifkan** daftar email (pilihan tunggal) → saudara yang ada di daftar email langsung tidak bisa masuk. Sebelum mengganti sumber penguji, pindahkan dulu semua orangnya ke sumber baru.
+- Email masukan jangan berakhiran titik (`fertunestudio@gmail.com.` salah).
+- Perubahan daftar penguji ikut masuk **Ringkasan publikasi → Kirim perubahan untuk ditinjau**; di akun ini terbit dalam beberapa menit.
+- Akun Google anak (Family Link/terawasi) sering tidak bisa dipakai sebagai anggota grup atau penguji; pakai akun orang tua di HP Android orang tua. Aplikasi target usia 18+.
 
 ## ⏭️ Langkah berikutnya (urut)
-1. Pastikan **Tim LLK** tercentang di tab Penguji dan berisi semua email penguji. Klik **Salin link** (Cara penguji bergabung).
+1. Tab Penguji → **Mengikuti di Android → Salin link** (link yang sama untuk semua orang; "Mengikuti di web" bukan yang dipakai HP Android). Pastikan semua orang sudah jadi anggota grup dengan **Gmail yang sama** dengan yang akan dipakai di HP.
 2. **Uji satu orang dulu** (link bisa berjeda beberapa jam setelah publikasi; "Item tidak ditemukan" → coba lagi besok), lalu kirim lewat WA ke semua penguji: buka di HP Android dengan Gmail terdaftar → "Jadi penguji" → pasang dari Play Store → buka sesekali, **jangan keluar & jangan hapus aplikasi selama 14 hari**.
 3. Pantau Dasbor: "penguji saat ini ikut serta" harus ≥12. Hitungan 14 hari dianggap mulai ketika ≥12 sudah ikut serta (belum dipastikan; anggap begitu supaya aman). Tambah penguji kalau ada yang keluar.
 4. Setelah 12 penguji × 14 hari: Dasbor → **Ajukan permohonan untuk produksi** (jawab jujur kuesioner pengujian) → rilis produksi bertahap.

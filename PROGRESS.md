@@ -12,7 +12,7 @@ _Terakhir diperbarui: 19 Okt 2026 (Play Store: pengujian tertutup berjalan)_
 ## 🏪 Play Console: pengujian tertutup berjalan (19 Okt 2026)
 - Status lengkap & langkah berikutnya: **`store/play/STATUS-RILIS.md`** (sumber utama; jangan tulis email penguji/kata sandi di repo publik).
 - Akun **FerTune Studio** (pribadi) terverifikasi 14 Okt. Rilis **1 (1.0.0.0)** ada di **Pengujian tertutup - Alpha**; **Pengiriman 1** (14 perubahan: rilis, listing, konten aplikasi, kategori Pendidikan) berstatus **Diterbitkan** sejak 17 Okt 2026, 11.43.
-- Penguji sudah terkumpul (kabar pemilik: ±21 akun di Tim LLK), tapi Dasbor masih "0 penguji ikut serta" sampai mereka menekan "Jadi penguji" lewat link. **Berikutnya:** salin link bergabung → kirim ke penguji → ≥12 ikut serta bertahan 14 hari → ajukan akses Produksi.
+- Sumber penguji kini **2 Google Grup** (grup milik pemilik ±6 orang nyata + grup layanan tester berbayar yang tidak bisa diverifikasi); Dasbor 19 Okt: **9 penguji ikut serta** (target ≥12). Pengiriman 2 & 3 juga Diterbitkan. **Berikutnya:** salin link Android di tab Penguji → kirim ke penguji → tambah ±6 orang dewasa nyata ke grup → ≥12 ikut serta bertahan 14 hari → ajukan akses Produksi. Detail & pelajaran: `store/play/STATUS-RILIS.md`.
 - Catatan pemilik: nama resmi tampil di profil publik; karena akan menghasilkan uang (langganan), alamat resmi kemungkinan tampil publik. Sebelum Play Billing aktif: perbarui `privacy-policy.html` (tambah Google Play Billing, bukan hanya Midtrans).
 
 ## 🔎 SEO: agar leslesanku.com muncul di Google (10 Okt 2026)
