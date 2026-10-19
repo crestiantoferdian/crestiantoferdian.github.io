@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 10 Okt 2026 (SEO: meta, robots.txt, sitemap.xml)_
+_Terakhir diperbarui: 19 Okt 2026 (Play Store: pengujian tertutup berjalan)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,17 @@ _Terakhir diperbarui: 10 Okt 2026 (SEO: meta, robots.txt, sitemap.xml)_
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 💳 Paywall: teks beda untuk langganan yang sudah berakhir (19 Okt 2026)
+- Permintaan pemilik: akun yang **pernah berlangganan** lalu masanya habis tidak boleh lagi diberi tulisan "Trial 31 Hari Kamu Sudah Selesai".
+- `applySubscriptionDoc` mengisi `_subWasPaid` (`!subActive && subscriptionEndsAt>0`), `showPaywall` memilih teks: **trial ditolak** → "Trial Gratis Sudah Pernah Dipakai"; **pernah berlangganan** → "Langganan Pro Kamu Sudah Berakhir" + "Terima kasih sudah berlangganan… Perpanjang supaya…"; **selain itu** → teks trial lama. Hanya teks layar paywall; logika akses/langganan/data tidak berubah. Teruji 6 kasus (trial habis, langganan habis, trial ditolak, langganan aktif, trial jalan, tester).
+- Catatan: `status:"active"` di Firestore tidak otomatis berubah saat `subscriptionEndsAt` lewat; aplikasi mengecek keduanya, jadi akun seperti itu kena paywall (benar). Akun keluarga/tester dibuka lewat kolom `isTester:true` (boolean) di `subscriptions/{uid}` lewat Firebase Console.
+
+## 🏪 Play Console: pengujian tertutup berjalan (19 Okt 2026)
+- Status lengkap & langkah berikutnya: **`store/play/STATUS-RILIS.md`** (sumber utama; jangan tulis email penguji/kata sandi di repo publik).
+- Akun **FerTune Studio** (pribadi) terverifikasi 14 Okt. Rilis **1 (1.0.0.0)** ada di **Pengujian tertutup - Alpha**; **Pengiriman 1** (14 perubahan: rilis, listing, konten aplikasi, kategori Pendidikan) berstatus **Diterbitkan** sejak 17 Okt 2026, 11.43.
+- Sumber penguji kini **2 Google Grup** (grup milik pemilik ±6 orang nyata + grup layanan tester berbayar yang tidak bisa diverifikasi); Dasbor 19 Okt: **9 penguji ikut serta** (target ≥12). Pengiriman 2 & 3 juga Diterbitkan. **Berikutnya:** salin link Android di tab Penguji → kirim ke penguji → tambah ±6 orang dewasa nyata ke grup → ≥12 ikut serta bertahan 14 hari → ajukan akses Produksi. Detail & pelajaran: `store/play/STATUS-RILIS.md`.
+- Catatan pemilik: nama resmi tampil di profil publik; karena akan menghasilkan uang (langganan), alamat resmi kemungkinan tampil publik. Sebelum Play Billing aktif: perbarui `privacy-policy.html` (tambah Google Play Billing, bukan hanya Midtrans).
 
 ## 🔎 SEO: agar leslesanku.com muncul di Google (10 Okt 2026)
 - Ditambah di `<head>` `index.html` (hanya meta, tidak menyentuh data/skrip): judul "LesLesanKu (LLK) — Aplikasi Jadwal, Absensi & Tagihan untuk Guru Les", `meta description`, `canonical`, Open Graph, JSON-LD `WebApplication`. File baru `robots.txt` & `sitemap.xml` (halaman utama + privacy-policy).

@@ -10277,6 +10277,7 @@ let _currentPeriod='monthly'; // periode langganan berbayar yang sedang aktif
 function llkUpgradeDiscount(targetPeriod){ return (LLK_UPGRADE_DISCOUNT[_currentPeriod]||LLK_UPGRADE_DISCOUNT.monthly)[targetPeriod]||0; }
 let _currentTier=null;      // 'basic'|'up'|'unlimited'|null (null = belum diketahui → tidak dibatasi)
 let _subTrialDenied=false;  // server menolak trial karena email ini sudah pernah trial
+let _subWasPaid=false;      // pernah berlangganan berbayar & masanya sudah habis (teks paywall: "Langganan berakhir", bukan "Trial selesai")
 function tierInfo(id){ return LLK_TIERS.find(function(t){ return t.id===id; })||null; }
 function activeStudentCount(){ return (students||[]).filter(function(s){ return !s.inactive; }).length; }
 function isStudentLimitReached(){
@@ -10395,6 +10396,7 @@ function applySubscriptionDoc(doc){
     const trialActive=d.status==='trial' && trialEndsMs>now;
     const subActive=d.status==='active' && subEndsMs>now;
     _subPaidActive=subActive;
+    _subWasPaid=!subActive && subEndsMs>0; // punya riwayat langganan berbayar tapi sudah lewat masanya
     const tb=document.getElementById('trialBanner');
     if(subActive){
       _currentTier=tierInfo(d.tier)?d.tier:'unlimited'; // PRO lama tanpa tier = Unlimited
@@ -10472,6 +10474,13 @@ function showPaywall(){
   if(_subTrialDenied){
     if(title) title.textContent='Trial Gratis Sudah Pernah Dipakai';
     if(desc) desc.textContent='Email ini sudah pernah memakai trial 31 hari LesLesanKu. Pilih paket di bawah untuk lanjut memakai aplikasi.';
+  } else if(_subWasPaid){
+    // Sudah pernah berlangganan: jangan bilang "trial selesai"
+    if(title) title.textContent='Langganan Pro Kamu Sudah Berakhir';
+    if(desc) desc.textContent='Terima kasih sudah berlangganan LesLesanKu! Perpanjang supaya semua data absensi, progres, dan jadwal murid tetap aman & bisa terus dipakai.';
+  } else {
+    if(title) title.textContent='Trial 31 Hari Kamu Sudah Selesai';
+    if(desc) desc.textContent='Semoga sebulan ini bantu kelola les kamu lebih rapi! Lanjutkan supaya semua data absensi, progres, dan jadwal murid tetap aman & bisa terus dipakai.';
   }
   const plans=document.getElementById('paywallPlans');
   if(plans) plans.innerHTML=planCardsHtml({minTier:null});
