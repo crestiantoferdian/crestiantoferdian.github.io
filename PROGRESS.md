@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 10 Okt 2026 (SEO: meta, robots.txt, sitemap.xml)_
+_Terakhir diperbarui: 19 Okt 2026 (Play Store: pengujian tertutup berjalan)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -9,12 +9,11 @@ _Terakhir diperbarui: 10 Okt 2026 (SEO: meta, robots.txt, sitemap.xml)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
-## 🏪 Play Console: akun developer dibuat (11 Okt 2026)
-- Akun **FerTune Studio** (akun pribadi, pemilik `ferdiancrestianto@gmail.com`) sudah dibuat; profil pembayaran Perorangan Indonesia sudah diperbarui alamatnya. **Tahap 1 selesai** (daftar & bayar).
-- Dokumen identitas sudah diunggah, **menunggu Google menyetujui** (beberapa hari, kabar lewat email). Setelah itu: verifikasi nomor telepon kontak (SMS/panggilan) → tombol "Buat aplikasi" aktif.
-- Catatan pemilik: nama resmi (Ferdian Crestianto) tampil di profil publik; karena akan menghasilkan uang (langganan), alamat lengkap resmi kemungkinan tampil publik juga.
-- Draf listing (judul, deskripsi singkat/panjang, jawaban Data Safety, App access) sudah disusun Claude; belum ditempel ke Play Console. Sebelum rilis: perbarui `privacy-policy.html` (tambah Google Play Billing, bukan hanya Midtrans) dan siapkan akun Google khusus reviewer.
-- Yang bisa dikerjakan selagi menunggu: cari ≥12 penguji closed testing, screenshot 1080×1920 + feature graphic 1024×500 baru, sembunyikan pembayaran Midtrans di aplikasi Play (Tahap 0).
+## 🏪 Play Console: pengujian tertutup berjalan (19 Okt 2026)
+- Status lengkap & langkah berikutnya: **`store/play/STATUS-RILIS.md`** (sumber utama; jangan tulis email penguji/kata sandi di repo publik).
+- Akun **FerTune Studio** (pribadi) terverifikasi 14 Okt. Rilis **1 (1.0.0.0)** ada di **Pengujian tertutup - Alpha**; **Pengiriman 1** (14 perubahan: rilis, listing, konten aplikasi, kategori Pendidikan) berstatus **Diterbitkan** sejak 17 Okt 2026, 11.43.
+- Penguji sudah terkumpul (kabar pemilik: ±21 akun di Tim LLK), tapi Dasbor masih "0 penguji ikut serta" sampai mereka menekan "Jadi penguji" lewat link. **Berikutnya:** salin link bergabung → kirim ke penguji → ≥12 ikut serta bertahan 14 hari → ajukan akses Produksi.
+- Catatan pemilik: nama resmi tampil di profil publik; karena akan menghasilkan uang (langganan), alamat resmi kemungkinan tampil publik. Sebelum Play Billing aktif: perbarui `privacy-policy.html` (tambah Google Play Billing, bukan hanya Midtrans).
 
 ## 🔎 SEO: agar leslesanku.com muncul di Google (10 Okt 2026)
 - Ditambah di `<head>` `index.html` (hanya meta, tidak menyentuh data/skrip): judul "LesLesanKu (LLK) — Aplikasi Jadwal, Absensi & Tagihan untuk Guru Les", `meta description`, `canonical`, Open Graph, JSON-LD `WebApplication`. File baru `robots.txt` & `sitemap.xml` (halaman utama + privacy-policy).

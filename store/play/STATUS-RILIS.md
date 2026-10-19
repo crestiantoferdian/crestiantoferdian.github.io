@@ -1,4 +1,4 @@
-# Status Rilis Google Play — LesLesanKu (per 17 Okt 2026)
+# Status Rilis Google Play — LesLesanKu (per 19 Okt 2026)
 
 Ringkasan untuk melanjutkan di chat baru. Panduan langkah lengkap: `store/play/PANDUAN-RILIS.md`.
 Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
@@ -27,15 +27,21 @@ Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
    - Keamanan data: 7 jenis data dikumpulkan (Nama, Email, ID pengguna, Nomor telepon[opsional], Riwayat pembelian, Konten buatan pengguna, ID perangkat[opsional]); tidak ada yang dibagikan; terenkripsi; link hapus akun `https://leslesanku.com/hapus-akun.html`. Foto progres TIDAK (hanya di HP)
    - Aplikasi pemerintah: tidak · Fitur keuangan: tidak ada · Kesehatan: tidak ada
    - Kategori: **Pendidikan** · Kontak: `fertunestudio@gmail.com`, situs `https://leslesanku.com` (telepon dikosongkan / format +62)
-4. **Pengujian tertutup (Alpha)**: negara **Indonesia**, daftar penguji **"Tim LLK" berisi 7 email** (perlu ≥12, target 15).
+4. **Pengujian tertutup (Alpha)**: negara **Indonesia**, daftar penguji **"Tim LLK"**, email masukan `fertunestudio@gmail.com`. Rilis **1 (1.0.0.0)** dibuat dari "Tambahkan dari koleksi" (AAB yang sama dengan internal), catatan rilis `<id>Versi pertama</id>`.
+5. **Dikirim & disetujui Google** (17 Okt 2026): **Pengiriman 1** berisi 14 perubahan (rilis Alpha, negara, penguji, listingan, rating konten, audiens 18+, kebijakan privasi, pernyataan iklan, Keamanan Data, aplikasi kesehatan, kategori Pendidikan) → status **Diterbitkan** hanya ±11 menit setelah dikirim (11.32 → 11.43). Lihat di **Ringkasan publikasi → Aktivitas pengiriman**.
+6. **Penguji terkumpul** (kabar pemilik, 19 Okt): sekitar **21 akun** di Tim LLK (13 baru + 8 lama), syarat ≥12 terpenuhi di daftar. Dasbor masih menampilkan **"0 penguji saat ini ikut serta"** karena yang dihitung hanya yang sudah menekan "Jadi penguji" lewat link.
+
+### Pelajaran dari proses ini (supaya tidak terulang)
+- Membuat rilis tertutup: **jangan klik Upload** untuk AAB yang sama → muncul "Kode versi 1 sudah digunakan". Pakai **Tambahkan dari koleksi** lalu pilih versi 1.
+- Ringkasan publikasi sempat memblokir pengiriman: **"Pernyataan ID iklan tidak lengkap"** → Konten aplikasi → ID Iklan → **Tidak** → Simpan, baru tombol "Kirim … perubahan untuk ditinjau" bisa dipakai.
+- Halaman Dasbor "2 dari 5" tidak langsung berarti email masukan terisi; cek tab Penguji.
+- Syarat 12 penguji dihitung dari yang **ikut serta**, bukan dari jumlah email di daftar. Jangan memakai emulator/akun buatan; penguji harus orang sungguhan dengan HP Android.
 
 ## ⏭️ Langkah berikutnya (urut)
-1. Tab Penguji pengujian tertutup: centang **Tim LLK**, email masukan `fertunestudio@gmail.com` → Simpan.
-2. **Buat rilis baru** di Pengujian tertutup → pakai AAB yang sama (atau "Tambahkan dari library" / promosikan dari internal) → catatan rilis `<id>Versi pertama</id>` (tag `<id-ID>` ditolak) → Simpan → Tinjau → Mulai peluncuran.
-3. **Ringkasan publikasi → Kirim perubahan untuk ditinjau** (listing + konten aplikasi + rilis tertutup). Review pertama: beberapa jam–beberapa hari.
-4. Setelah disetujui: tab Penguji → **Salin link** opt-in → kirim lewat WA ke semua penguji (buka di HP Android dengan Gmail terdaftar → "Jadi penguji" → pasang dari Play Store → buka sesekali, **jangan keluar 14 hari**).
-5. Tambah penguji sampai **≥12 (target 15)** — orang lain yang berbeda, jangan kebanyakan akun milik sendiri.
-6. Setelah 12 penguji × 14 hari: Dasbor → **Ajukan permohonan untuk produksi** (jawab jujur kuesioner pengujian) → rilis produksi bertahap.
+1. Pastikan **Tim LLK** tercentang di tab Penguji dan berisi semua email penguji. Klik **Salin link** (Cara penguji bergabung).
+2. **Uji satu orang dulu** (link bisa berjeda beberapa jam setelah publikasi; "Item tidak ditemukan" → coba lagi besok), lalu kirim lewat WA ke semua penguji: buka di HP Android dengan Gmail terdaftar → "Jadi penguji" → pasang dari Play Store → buka sesekali, **jangan keluar & jangan hapus aplikasi selama 14 hari**.
+3. Pantau Dasbor: "penguji saat ini ikut serta" harus ≥12. Hitungan 14 hari dianggap mulai ketika ≥12 sudah ikut serta (belum dipastikan; anggap begitu supaya aman). Tambah penguji kalau ada yang keluar.
+4. Setelah 12 penguji × 14 hari: Dasbor → **Ajukan permohonan untuk produksi** (jawab jujur kuesioner pengujian) → rilis produksi bertahap.
 
 ## Setelah itu: Google Play Billing (dikerjakan bersama Claude)
 - Pemilik: payments profile + buat 3 langganan `llk_basic`, `llk_up`, `llk_unlimited` (base plan bulanan/tahunan), aktifkan Play Developer API + service account.
