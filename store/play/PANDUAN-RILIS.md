@@ -114,3 +114,29 @@ browser muncul di atas, itu normal untuk APK uji — hilang setelah langkah C.
 - Langkah Play Billing (dikerjakan bersama Claude): payments profile, buat 3 langganan
   `llk_basic`, `llk_up`, `llk_unlimited` (base plan `bulanan`/`tahunan`), aktifkan Play Developer API +
   service account, lalu Claude memasang tombol beli & verifikasi pembelian.
+
+---
+
+## F. Build ulang aplikasi versi 2 (logo layar pembuka & ikon baru)
+
+Kenapa: layar pembuka versi 1 memakai logo bertumpuk 512 px yang diperbesar Android → pecah & kurang rapi
+(masukan penguji, 20 Okt 2026). Gambar baru sudah ada di repo (`node store/make-twa-assets.cjs`):
+
+| File | Dipakai untuk | Link |
+|---|---|---|
+| `store/play/twa/splash-1024.png` | Layar pembuka: logo mendatar "LLK Les LesanKu", resolusi tinggi | https://leslesanku.com/store/play/twa/splash-1024.png |
+| `store/play/twa/icon-maskable-512.png` | Ikon aplikasi di HP (desain opsi A) | https://leslesanku.com/store/play/twa/icon-maskable-512.png |
+
+Langkah di PWABuilder (sama seperti langkah A, bedanya hanya ini):
+1. **App version** `1.0.1` · **App version code** `2` (wajib lebih besar dari versi 1).
+2. **Start URL** tetap `/?src=play`, **Host** `leslesanku.com`, Package ID tetap `com.leslesanku.app`.
+3. **Icon URL** → `https://leslesanku.com/store/play/twa/splash-1024.png` (PWABuilder memakai gambar ini untuk layar pembuka).
+4. **Maskable icon URL** → `https://leslesanku.com/store/play/twa/icon-maskable-512.png` (ikon di layar HP Android 8+).
+5. **Splash screen background color** → `#F6F1E9`.
+6. **Signing key** → kunci LAMA yang sama (folder 09/09/2026). Jangan buat kunci baru.
+7. Download → ambil file `.aab`.
+
+Di Play Console:
+1. **Pengujian internal → Buat rilis baru** → unggah AAB versi 2 → catatan rilis `<id>Logo layar pembuka & ikon baru</id>` → luncurkan.
+2. Pasang/update di HP sendiri → cek layar pembuka & ikon.
+3. Kalau sudah bagus: **Pengujian tertutup → Buat rilis baru → Tambahkan dari library** (pilih versi 2) → luncurkan. Penguji cukup **update** dari Play Store; hitungan 14 hari **tidak diulang**.
