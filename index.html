@@ -543,6 +543,15 @@ button:disabled{opacity:.55;cursor:default}
 .att-btn.a-alpa.on{background:var(--alpa-solid);border-color:var(--alpa);color:#fff}
 .att-btn.a-off.on{background:var(--off-solid);border-color:var(--off);color:#fff}
 .att-btn.on .ico{animation:llkPop var(--d3) var(--ease-spring)}
+/* Deretan tombol absensi selalu 1 baris: di HP dengan "Ukuran tampilan/huruf" besar
+   (layar jadi lebih sempit), tombol menyusut rata alih-alih turun ke baris kedua. */
+.att-btns{flex-wrap:nowrap}
+.att-btns>.att-btn{flex:1 1 0;min-width:0;max-width:48px;width:auto}
+.att-btns>.att-btn.a-off{flex:1.15 1 0;max-width:54px;padding:0 4px}
+@media (max-width:400px){
+  /* Layar sempit: deretan tombol memakai lebar penuh kartu (mulai di bawah ikon murid) supaya tombol tetap besar */
+  .s-item.expanded .att-btns{margin-left:-58px}
+}
 /* Kirim progres: BELUM = kotak biasa bergaris biru (ikon amplop), SUDAH = biru solid + ikon centang putih */
 .att-btn.is-send{background:var(--card);border:1.5px solid var(--blue);color:var(--blue)}
 .att-btn.is-sent{background:var(--blue-solid);border-color:var(--blue-solid);color:#fff}
