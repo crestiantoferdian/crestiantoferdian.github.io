@@ -54,7 +54,7 @@ Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
 ## Setelah itu: Google Play Billing (dikerjakan bersama Claude)
 - Pemilik: payments profile + buat 3 langganan `llk_basic`, `llk_up`, `llk_unlimited` (base plan bulanan/tahunan), aktifkan Play Developer API + service account.
 - Claude: alur beli via Digital Goods API, verifikasi & acknowledge di server, tombol "Pulihkan Langganan".
-- ⚠️ **Sekalian**: ganti ikon aplikasi di HP ke desain **opsi A** dan build ulang PWABuilder **versi 2** (Version code 2, Start URL `/?src=play`, kunci lama yang sama).
+- ⚠️ **Sekalian (keputusan pemilik 20 Okt 2026)**: build ulang PWABuilder **versi 2** dengan **layar pembuka logo mendatar** + **ikon opsi A** — gambar sudah siap di `store/play/twa/` (Icon URL = `splash-1024.png`, Maskable icon URL = `icon-maskable-512.png`, background `#F6F1E9`, Version code 2, Start URL `/?src=play`, kunci lama). Langkah lengkap: `PANDUAN-RILIS.md` bagian F. Tes di Pengujian internal dulu, baru promosikan ke tertutup.
 
 ## Catatan lain
 - Email Midtrans "Scheduled Maintenance" (16 Okt 2026): tidak perlu perubahan kode. LLK tidak memakai refund API maupun `transaction_id`; URL notifikasi di `cloudfunctions.net` (SSL Google). Hanya downtime 18 Nov 2026 23:00–23:45 WIB.
