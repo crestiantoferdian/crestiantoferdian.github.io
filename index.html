@@ -130,7 +130,8 @@ if(window.llkPicking){
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
 <!-- GANTI ke https://app.midtrans.com/snap/snap.js dan Client Key production saat sudah rilis asli -->
-<script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="Mid-client-otkKdl7AbO8l4lPB"></script>
+<!-- Aplikasi Play Store: snap.js Midtrans tidak dimuat sama sekali (pembayaran di app Play wajib lewat Google Play) -->
+<script>if(!(window.llkIsPlayApp&&window.llkIsPlayApp())) document.write('<script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="Mid-client-otkKdl7AbO8l4lPB"><\/script>');</script>
 
 <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -1373,7 +1374,7 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
   <div style="font-family:var(--font-display);font-size:1.15rem;font-weight:600;color:var(--text);margin:8px 0 14px">Pilih paket kamu</div>
   <div id="paywallPlans" style="width:100%"></div>
   <div id="paywallStatus" style="margin-top:18px;font-size:0.84rem;color:var(--muted)"></div>
-  <button onclick="cekStatusPembayaran(false)" class="llk-btn secondary" style="margin-top:10px;height:auto;min-height:44px;padding:10px 14px;font-size:0.84rem;font-weight:600"><svg class="ico" aria-hidden="true"><use href="#i-refresh"/></svg>Sudah bayar tapi belum aktif? Cek status pembayaran</button>
+  <button id="paywallCheckBtn" onclick="cekStatusPembayaran(false)" class="llk-btn secondary" style="margin-top:10px;height:auto;min-height:44px;padding:10px 14px;font-size:0.84rem;font-weight:600"><svg class="ico" aria-hidden="true"><use href="#i-refresh"/></svg>Sudah bayar tapi belum aktif? Cek status pembayaran</button>
   <button onclick="confirmLogout(this)" style="margin-top:20px;background:none;border:none;color:var(--text2);font-size:0.84rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:10px 12px">
     Logout
   </button>
@@ -10484,7 +10485,9 @@ function showPaywall(){
   el.style.display='flex';
   // Sekali per sesi: kalau ada pembayaran yang sudah lunas tapi notifikasinya
   // belum sampai ke server, aktifkan otomatis tanpa pengguna harus menekan tombol.
-  if(!window._llkAutoPayCheckDone){ window._llkAutoPayCheckDone=true; cekStatusPembayaran(true); }
+  const playApp=window.llkIsPlayApp&&window.llkIsPlayApp();
+  const chk=document.getElementById('paywallCheckBtn'); if(chk) chk.style.display=playApp?'none':'';
+  if(!playApp&&!window._llkAutoPayCheckDone){ window._llkAutoPayCheckDone=true; cekStatusPembayaran(true); }
 }
 
 /* Tanya status pembayaran yang masih tertunda langsung ke Midtrans (lewat
@@ -10660,8 +10663,41 @@ function showUpgradeOffer(fromLimit){
   const upgrade=!isTransfer&&_subPaidActive&&!(_subBadgeInfo&&_subBadgeInfo.isTester);
   el.innerHTML=head+planCardsHtml({minTier:isTransfer?null:_currentTier, upgrade:upgrade})
     +'<div style="font-size:0.8rem;color:var(--muted);max-width:340px;margin:4px auto 18px;line-height:1.55">Paket baru berlaku mulai hari ini. Sisa masa aktif paket lama tidak dibawa ke paket baru.</div>'
-    +'<button onclick="cekStatusPembayaran(false)" class="llk-btn secondary sm" style="margin:0 auto 6px;display:flex">'+llkI('refresh','sm')+' Sudah bayar? Cek status pembayaran</button>'
+    +((window.llkIsPlayApp&&window.llkIsPlayApp())?'':'<button onclick="cekStatusPembayaran(false)" class="llk-btn secondary sm" style="margin:0 auto 6px;display:flex">'+llkI('refresh','sm')+' Sudah bayar? Cek status pembayaran</button>')
     +'<button onclick="closeUpgradeOffer()" style="background:none;border:none;color:var(--text2);font-size:0.9rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:12px">Nanti saja</button>';
+  document.body.appendChild(el);
+}
+/* Status langganan singkat untuk menu "Langganan & Harga Paket" */
+function llkSubStatusText(){
+  const b=_subBadgeInfo;
+  if(!b) return 'Lihat pilihan paket & harga';
+  if(b.label==='TRIAL') return 'Trial gratis · '+b.daysLeft+' hari lagi — lihat paket & harga';
+  if(b.isTester) return 'Akun tester · semua fitur Pro aktif';
+  const t=tierInfo(b.tier||_currentTier);
+  return 'Paket '+(t?t.name:'Pro')+' aktif — lihat paket & harga';
+}
+/* Halaman Paket & Harga: bisa dibuka kapan saja dari tab Lainnya.
+   Pelanggan berbayar (web) diarahkan ke Naik Paket seperti biasa.
+   Aplikasi Play Store: harga hanya informasi — tombol beli memunculkan
+   "Segera hadir" (llkPlayPayNotice), tanpa Midtrans & tanpa menyebut cara bayar lain. */
+function llkOpenPricing(){
+  const playApp=window.llkIsPlayApp&&window.llkIsPlayApp();
+  const b=_subBadgeInfo;
+  if(!playApp&&_subPaidActive&&b&&!b.isTester&&_currentTier!=='unlimited'){ showUpgradeOffer(false); return; }
+  closeUpgradeOffer();
+  const el=document.createElement('div');
+  el.id='upgradeOfferOverlay';
+  el.className='llk-pricing-bg';
+  el.style.cssText='position:fixed;inset:0;z-index:9997;overflow-y:auto;padding:36px 18px 44px;font-family:inherit;text-align:center';
+  const status=llkSubStatusText().replace(/ — lihat paket & harga$/,'');
+  el.innerHTML='<div class="llk-dialog-ic">'+llkI('crown')+'</div>'
+    +'<div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:8px">Paket & Harga</div>'
+    +'<div style="display:inline-block;font-size:0.84rem;font-weight:700;color:var(--text2);background:var(--card);border:1px solid var(--border);border-radius:var(--r-pill);padding:6px 14px;margin-bottom:18px">Status kamu: '+escapeHtml(status)+'</div>'
+    +(playApp?'<div class="llk-callout" style="max-width:360px;margin:0 auto 18px;text-align:left;font-size:0.86rem">'+llkI('bulb')+'<div>Pembelian langganan di aplikasi <b>segera hadir lewat Google Play</b>. Selama masa uji coba, semua fitur Pro bisa dipakai gratis.</div></div>':'')
+    +planCardsHtml({minTier:null})
+    +proFeaturesHtml()
+    +(playApp?'':'<button onclick="cekStatusPembayaran(false)" class="llk-btn secondary sm" style="margin:4px auto 6px;display:flex">'+llkI('refresh','sm')+' Sudah bayar? Cek status pembayaran</button>')
+    +'<button onclick="closeUpgradeOffer()" class="llk-btn ink" style="margin:10px auto 0;display:flex;min-width:180px;justify-content:center">Tutup</button>';
   document.body.appendChild(el);
 }
 function closeUpgradeOffer(){
@@ -11543,7 +11579,20 @@ function renderAccountSection(){
         '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:0.96rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(currentUser.displayName||'')+'</div>'+
         '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0;margin-top:2px"><span style="font-size:0.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:100%">'+escapeHtml(currentUser.email||'')+'</span>'+badgeHtml+upgradeBtnHtml+'</div>'+
         '<div id="cloudSyncStatus" style="font-size:0.76rem;color:var(--hadir);margin-top:4px">Tersinkron otomatis</div></div>'+
-        '<button onclick="confirmLogout(this)" class="llk-icon-btn sm llk-logout-btn" aria-label="Logout" title="Logout" style="color:var(--alpa)">'+llkI('logout')+'</button>'+
+        '<button onclick="confirmLogout(this)" class="llk-icon-btn sm llk-logout-btn" aria-label="Keluar (Logout)" title="Keluar (Logout)" style="color:var(--alpa)">'+llkI('logout')+'</button>'+
+      '</div>'+
+      // Menu jelas untuk langganan & keluar (masukan penguji: tombol logout & harga paket sulit ditemukan)
+      '<div class="menu-card" style="margin-top:14px">'+
+        '<div class="menu-item" onclick="llkOpenPricing()">'+
+          '<div class="menu-icon gold">'+llkI('crown')+'</div>'+
+          '<div class="menu-text"><div class="menu-label">Langganan & Harga Paket</div><div class="menu-desc">'+escapeHtml(llkSubStatusText())+'</div></div>'+
+          '<span class="menu-arrow">'+llkI('chevron-right')+'</span>'+
+        '</div>'+
+        '<div class="menu-item" onclick="confirmLogout(this)">'+
+          '<div class="menu-icon red">'+llkI('logout')+'</div>'+
+          '<div class="menu-text"><div class="menu-label" style="color:var(--alpa-text)">Keluar dari Akun (Logout)</div><div class="menu-desc">Data tetap aman di cloud — login lagi kapan saja</div></div>'+
+          '<span class="menu-arrow">'+llkI('chevron-right')+'</span>'+
+        '</div>'+
       '</div>';
     const delSlot=document.getElementById('deleteAccountSlot');
     if(delSlot) delSlot.innerHTML='<button onclick="startDeleteAccount()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--alpa);font-size:0.84rem;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:10px">'+llkI('trash','sm')+' Hapus Akun & Semua Data</button>';
