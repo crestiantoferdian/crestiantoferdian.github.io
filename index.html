@@ -10358,6 +10358,7 @@ function syncServerTime(){
 
 let _lastSubDoc=null;
 let _subPaidActive=false;   // langganan berbayar aktif (bukan trial)
+let _subDates={trialEndsMs:0,subEndsMs:0,plan:''}; // tanggal dari dokumen subscriptions (untuk halaman Paket & Harga)
 let _subRecheckTimer=null;
 function listenSubscriptionStatus(uid){
   if(_subUnsub) _subUnsub();
@@ -10405,6 +10406,7 @@ function applySubscriptionDoc(doc){
     const subEndsMs=d.subscriptionEndsAt?d.subscriptionEndsAt.toMillis():0;
     const trialActive=d.status==='trial' && trialEndsMs>now;
     const subActive=d.status==='active' && subEndsMs>now;
+    _subDates={trialEndsMs:trialEndsMs,subEndsMs:subEndsMs,plan:String(d.plan||'')};
     _subPaidActive=subActive;
     _subWasPaid=!subActive && subEndsMs>0; // punya riwayat langganan berbayar tapi sudah lewat masanya
     const tb=document.getElementById('trialBanner');
@@ -10414,7 +10416,7 @@ function applySubscriptionDoc(doc){
       scheduleSubEndReminders(subEndsMs); // push H-3 & H-1 sebelum langganan berbayar habis (ada dedupe)
       hidePaywall();
       if(tb) tb.style.display='none';
-      _subBadgeInfo={label:'PRO',tier:d.tier||null};
+      _subBadgeInfo={label:'PRO',tier:d.tier||null,endsMs:subEndsMs};
     } else if(trialActive){
       _currentTier='unlimited';
       hidePaywall();
@@ -10425,7 +10427,7 @@ function applySubscriptionDoc(doc){
       }
       scheduleTrialReminder(trialEndsMs); // jadwalkan push H-3, aman dipanggil berkali-kali (ada dedupe)
       maybeShowWelcomePricing(); // tampilkan pilihan paket sekali saja untuk akun baru
-      _subBadgeInfo={label:'TRIAL',daysLeft:daysLeft};
+      _subBadgeInfo={label:'TRIAL',daysLeft:daysLeft,endsMs:trialEndsMs};
     } else {
       _currentTier=null;
       if(tb) tb.style.display='none';
@@ -10692,7 +10694,7 @@ function llkSubStatusText(){
   if(b.label==='TRIAL') return 'Trial gratis · '+b.daysLeft+' hari lagi — lihat paket & harga';
   if(b.isTester) return 'Akun tester · semua fitur Pro aktif';
   const t=tierInfo(b.tier||_currentTier);
-  return 'Paket '+(t?t.name:'Pro')+' aktif — lihat paket & harga';
+  return 'Paket '+(t?t.name:'Pro')+(b.endsMs?' · aktif s/d '+llkFmtDateMs(b.endsMs):' aktif')+' — riwayat & harga';
 }
 /* Halaman Paket & Harga: bisa dibuka kapan saja dari tab Lainnya.
    Pelanggan berbayar (web) diarahkan ke Naik Paket seperti biasa.
@@ -10701,22 +10703,82 @@ function llkSubStatusText(){
 function llkOpenPricing(){
   const playApp=window.llkIsPlayApp&&window.llkIsPlayApp();
   const b=_subBadgeInfo;
-  if(!playApp&&_subPaidActive&&b&&!b.isTester&&_currentTier!=='unlimited'){ showUpgradeOffer(false); return; }
+  const paidWeb=!playApp&&_subPaidActive&&b&&!b.isTester;
   closeUpgradeOffer();
   const el=document.createElement('div');
   el.id='upgradeOfferOverlay';
   el.className='llk-pricing-bg';
   el.style.cssText='position:fixed;inset:0;z-index:9997;overflow-y:auto;padding:36px 18px 44px;font-family:inherit;text-align:center';
-  const status=llkSubStatusText().replace(/ — lihat paket & harga$/,'');
+  const status=llkSubStatusText().replace(/ — (lihat paket & harga|riwayat & harga)$/,'');
   el.innerHTML='<div class="llk-dialog-ic">'+llkI('crown')+'</div>'
     +'<div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:8px">Paket & Harga</div>'
     +'<div style="display:inline-block;font-size:0.84rem;font-weight:700;color:var(--text2);background:var(--card);border:1px solid var(--border);border-radius:var(--r-pill);padding:6px 14px;margin-bottom:18px">Status kamu: '+escapeHtml(status)+'</div>'
+    +llkMySubCardHtml()
     +(playApp?'<div class="llk-callout" style="max-width:360px;margin:0 auto 18px;text-align:left;font-size:0.86rem">'+llkI('bulb')+'<div>Pembelian langganan di aplikasi <b>segera hadir lewat Google Play</b>. Selama masa uji coba, semua fitur Pro bisa dipakai gratis.</div></div>':'')
-    +planCardsHtml({minTier:null})
+    // Pelanggan berbayar (web): naik paket lewat halaman Naik Paket (harga diskon dihitung di sana)
+    +(paidWeb
+      ?(_currentTier!=='unlimited'?'<button onclick="showUpgradeOffer(false)" class="llk-btn ink" style="margin:0 auto 18px;display:flex;min-width:220px;justify-content:center">'+llkI('arrow-up','sm')+' Naik Paket</button>':'')
+       +'<div style="font-family:var(--font-display);font-size:1.1rem;font-weight:600;color:var(--text);margin:4px 0 14px">Perpanjang atau naik paket</div>'
+      :'')
+    // Pelanggan aktif: hanya paket yang sama (perpanjang) & di atasnya — paket lebih rendah
+    // tidak ditawarkan supaya sisa masa aktif tidak hangus karena salah pencet.
+    +planCardsHtml({minTier:paidWeb?(function(){ const i=LLK_TIERS.findIndex(function(t){ return t.id===_currentTier; }); return i>0?LLK_TIERS[i-1].id:null; })():null})
     +proFeaturesHtml()
     +(playApp?'':'<button onclick="cekStatusPembayaran(false)" class="llk-btn secondary sm" style="margin:4px auto 6px;display:flex">'+llkI('refresh','sm')+' Sudah bayar? Cek status pembayaran</button>')
     +'<button onclick="closeUpgradeOffer()" class="llk-btn ink" style="margin:10px auto 0;display:flex;min-width:180px;justify-content:center">Tutup</button>';
   document.body.appendChild(el);
+  llkLoadSubHistory();
+}
+function llkFmtDateMs(ms){ return ms?fmtInvDate(dateKeyOfDate(new Date(ms))):'—'; }
+/* Kartu "Langganan Saya": paket, mulai & berakhir + riwayat pembelian (diisi llkLoadSubHistory) */
+function llkMySubCardHtml(){
+  const b=_subBadgeInfo;
+  if(!currentUser) return '';
+  const row=(k,v)=>'<div style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--border2);font-size:0.88rem"><span style="color:var(--muted)">'+k+'</span><span style="font-weight:700;color:var(--text);text-align:right">'+v+'</span></div>';
+  const daysTo=ms=>Math.max(0,Math.ceil((ms-llkNow())/86400000));
+  let rows='';
+  if(b&&b.isTester){
+    rows=row('Paket','Akun tester (semua fitur Pro)');
+  } else if(b&&b.label==='PRO'){
+    const t=tierInfo(b.tier||_currentTier);
+    const per=/yearly$/.test(_subDates.plan)?'Tahunan':'Bulanan';
+    rows=row('Paket',escapeHtml((t?t.name:'Pro')+' · '+per))
+      +'<div id="llkSubSince">'+row('Berlangganan sejak','<span style="color:var(--muted);font-weight:600">memuat…</span>')+'</div>'
+      +row('Berakhir pada',llkFmtDateMs(b.endsMs)+' <span style="font-weight:600;color:'+(daysTo(b.endsMs)<=3?'var(--alpa-text)':'var(--muted)')+'">('+daysTo(b.endsMs)+' hari lagi)</span>');
+  } else if(b&&b.label==='TRIAL'){
+    rows=row('Paket','Trial gratis (semua fitur Pro)')+row('Trial berakhir',llkFmtDateMs(b.endsMs)+' <span style="font-weight:600;color:var(--muted)">('+b.daysLeft+' hari lagi)</span>');
+  } else {
+    rows=row('Paket','Belum berlangganan')+(_subDates.subEndsMs?row('Langganan terakhir berakhir',llkFmtDateMs(_subDates.subEndsMs)):'');
+  }
+  return '<div style="max-width:360px;margin:0 auto 18px;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 18px 8px;box-shadow:var(--shadow-sm)">'
+    +'<div style="font-family:var(--font-display);font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px">'+llkI('crown','sm')+' Langganan Saya</div>'
+    +rows
+    +'<div style="padding:12px 0 6px;border-top:1px solid var(--border2)"><div style="font-size:0.86rem;font-weight:700;color:var(--text2);margin-bottom:6px">Riwayat pembelian</div><div id="llkSubHistory" style="font-size:0.84rem;color:var(--muted)">Memuat…</div></div>'
+    +'</div>';
+}
+/* Ambil riwayat pembelian dari server (Cloud Function getMySubscriptionHistory) */
+function llkLoadSubHistory(){
+  const box=document.getElementById('llkSubHistory');
+  if(!box) return;
+  if(!currentUser||typeof firebase==='undefined'||!firebase.functions){ box.textContent='Login untuk melihat riwayat pembelian.'; return; }
+  firebase.functions().httpsCallable('getMySubscriptionHistory')({}).then(function(res){
+    const d=(res&&res.data)||{}; const list=d.purchases||[];
+    const since=document.getElementById('llkSubSince');
+    if(since) since.innerHTML=d.sinceMs?'<div style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--border2);font-size:0.88rem"><span style="color:var(--muted)">Berlangganan sejak</span><span style="font-weight:700;color:var(--text)">'+llkFmtDateMs(d.sinceMs)+'</span></div>':'';
+    const b2=document.getElementById('llkSubHistory'); if(!b2) return;
+    if(!list.length){ b2.textContent='Belum ada pembelian.'; return; }
+    b2.innerHTML=list.map(function(p){
+      return '<div style="padding:9px 0;border-bottom:1px dashed var(--border2)">'
+        +'<div style="display:flex;justify-content:space-between;gap:10px"><b style="color:var(--text)">'+escapeHtml(p.label||p.plan)+'</b><b style="color:var(--text);white-space:nowrap">'+formatRpPlan(p.amount||0)+'</b></div>'
+        +'<div style="margin-top:2px">Dibayar '+llkFmtDateMs(p.paidAtMs)+'</div>'
+        +'<div>Aktif '+llkFmtDateMs(p.activeFromMs)+' – '+llkFmtDateMs(p.activeUntilMs)+'</div>'
+        +'<div style="font-size:0.74rem;color:var(--muted2);margin-top:1px">No. '+escapeHtml(p.id)+'</div></div>';
+    }).join('');
+  }).catch(function(e){
+    console.warn('Riwayat pembelian gagal dimuat:',e&&e.message);
+    const b2=document.getElementById('llkSubHistory'); if(b2) b2.textContent='Riwayat belum bisa dimuat. Coba lagi nanti.';
+    const since=document.getElementById('llkSubSince'); if(since) since.innerHTML='';
+  });
 }
 function closeUpgradeOffer(){
   const el=document.getElementById('upgradeOfferOverlay');
@@ -11596,6 +11658,7 @@ function renderAccountSection(){
         (currentUser.photoURL?'<img src="'+currentUser.photoURL+'" style="width:44px;height:44px;border-radius:50%;flex-shrink:0" alt="">':'<div style="width:44px;height:44px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+(currentUser.displayName||'U').charAt(0)+'</div>')+
         '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:0.96rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(currentUser.displayName||'')+'</div>'+
         '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0;margin-top:2px"><span style="font-size:0.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:100%">'+escapeHtml(currentUser.email||'')+'</span>'+badgeHtml+upgradeBtnHtml+'</div>'+
+        (_subBadgeInfo&&_subBadgeInfo.endsMs&&!_subBadgeInfo.isTester?'<div style="font-size:0.78rem;color:var(--text2);margin-top:4px">'+(_subBadgeInfo.label==='TRIAL'?'Trial':'Langganan')+' berakhir <b>'+llkFmtDateMs(_subBadgeInfo.endsMs)+'</b></div>':'')+
         '<div id="cloudSyncStatus" style="font-size:0.76rem;color:var(--hadir);margin-top:4px">Tersinkron otomatis</div></div>'+
         '<button onclick="confirmLogout(this)" class="llk-icon-btn sm llk-logout-btn" aria-label="Keluar (Logout)" title="Keluar (Logout)" style="color:var(--alpa)">'+llkI('logout')+'</button>'+
       '</div>'+
