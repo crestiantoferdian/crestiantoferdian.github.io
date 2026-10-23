@@ -529,3 +529,31 @@ test('pengingat lembaga: H-3 & H-1 (hari WIB), sekali per tanggal berakhir, emai
   const a = store.get('orgs/a'); store.set('orgs/a', Object.assign({}, a, { activeUntil: ts(Date.UTC(2026, 10, 13, 6, 0)) }));
   assert.strictEqual(await R.runOrgEndReminders({ db: firestore(), getUser, N: N2, OP, nowMs: Date.UTC(2026, 10, 10, 1, 0) }), 1);
 });
+
+// ── Riwayat pembelian langganan (halaman Paket & Harga) ───────────
+test('riwayat pembelian: periode tiap order, perpanjangan menyambung, naik paket mulai saat bayar', () => {
+  const P = require('../plans.js');
+  const t0 = Date.UTC(2026, 6, 1);
+  const orders = [
+    { id: 'o2', plan: 'up_monthly', grossAmount: 75000, paidAtMs: t0 + 20 * DAY },          // perpanjang (paket sama) → menyambung
+    { id: 'o1', plan: 'up_monthly', grossAmount: 75000, paidAtMs: t0 },
+    { id: 'o3', plan: 'unlimited_monthly', grossAmount: 50000, label: 'Pro Unlimited Bulanan · diskon naik paket 50%', paidAtMs: t0 + 40 * DAY }, // naik paket → mulai saat bayar
+    { id: 'x', plan: 'tidak_ada', paidAtMs: t0 },                                              // plan tak dikenal diabaikan
+  ];
+  const h = P.purchaseHistory(orders, t0 + 45 * DAY);
+  assert.deepStrictEqual(h.purchases.map(p => p.id), ['o3', 'o2', 'o1']); // terbaru dulu
+  const by = Object.fromEntries(h.purchases.map(p => [p.id, p]));
+  assert.strictEqual(by.o1.activeFromMs, t0); assert.strictEqual(by.o1.activeUntilMs, t0 + 30 * DAY);
+  assert.strictEqual(by.o2.activeFromMs, t0 + 30 * DAY); assert.strictEqual(by.o2.activeUntilMs, t0 + 60 * DAY);
+  assert.strictEqual(by.o3.activeFromMs, t0 + 40 * DAY); assert.strictEqual(by.o3.activeUntilMs, t0 + 70 * DAY);
+  assert.strictEqual(by.o3.label, 'Pro Unlimited Bulanan · diskon naik paket 50%');
+  assert.strictEqual(by.o1.label, 'Pro Up Bulanan');
+  assert.strictEqual(h.sinceMs, t0); // berlangganan tanpa putus sejak pembelian pertama
+  // periode yang tersimpan di order dipakai apa adanya
+  const h2 = P.purchaseHistory([{ id: 'a', plan: 'basic_monthly', paidAtMs: t0, activeFromMs: t0 + 1, activeUntilMs: t0 + 2 }], t0);
+  assert.strictEqual(h2.purchases[0].activeFromMs, t0 + 1);
+  // ada jeda (langganan sempat habis) → "sejak" dihitung dari pembelian setelah jeda; sudah habis → null
+  const h3 = P.purchaseHistory([{ id: 'a', plan: 'basic_monthly', paidAtMs: t0 }, { id: 'b', plan: 'basic_monthly', paidAtMs: t0 + 50 * DAY }], t0 + 55 * DAY);
+  assert.strictEqual(h3.sinceMs, t0 + 50 * DAY);
+  assert.strictEqual(P.purchaseHistory([{ id: 'a', plan: 'basic_monthly', paidAtMs: t0 }], t0 + 31 * DAY).sinceMs, null);
+});

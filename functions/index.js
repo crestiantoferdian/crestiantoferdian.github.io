@@ -1,7 +1,7 @@
 const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
-const { PLANS, resolvePlan, nextSubscription, priceFor, trialKey } = require('./plans');
+const { PLANS, resolvePlan, nextSubscription, priceFor, purchaseHistory, trialKey } = require('./plans');
 const OP = require('./orgPlans');
 const N = require('./notify');
 const R = require('./reminders');
@@ -365,7 +365,9 @@ async function activateOrder(orderId) {
       },
       { merge: true }
     );
-    tx.update(orderRef, { status: 'paid', paidAt: admin.firestore.Timestamp.fromMillis(now) });
+    // Periode aktif order ini disimpan supaya riwayat pembelian di aplikasi akurat
+    tx.update(orderRef, { status: 'paid', paidAt: admin.firestore.Timestamp.fromMillis(now),
+      activeFromMs: next.startsMs, activeUntilMs: next.subscriptionEndsMs });
     return { activated: true, order, paidAtMs: now, subscriptionEndsMs: next.subscriptionEndsMs };
   });
 
@@ -447,6 +449,29 @@ exports.midtransWebhook = functions.https.onRequest(async (req, res) => {
  *    user yang masih 'pending' LANGSUNG ke Midtrans, lalu mengaktifkan yang
  *    sudah lunas. Cadangan kalau notifikasi webhook gagal/terlambat.
  */
+/**
+ * 5) Riwayat pembelian langganan LLK V1 milik user yang login (untuk halaman
+ *    "Paket & Harga" di aplikasi). Order tidak bisa dibaca langsung oleh client,
+ *    jadi dirangkum di sini — hanya order yang sudah dibayar, tanpa data sensitif.
+ */
+exports.getMySubscriptionHistory = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Harus login dulu.');
+  }
+  const snap = await db.collection('orders')
+    .where('uid', '==', context.auth.uid)
+    .where('status', '==', 'paid')
+    .limit(100)
+    .get();
+  const orders = snap.docs.map((d) => {
+    const o = d.data();
+    if (o.type === 'org') return null; // langganan Lembaga (V2) punya halaman sendiri
+    return { id: d.id, plan: o.plan, label: o.label, grossAmount: o.grossAmount,
+      paidAtMs: o.paidAt ? o.paidAt.toMillis() : 0, activeFromMs: o.activeFromMs, activeUntilMs: o.activeUntilMs };
+  }).filter(Boolean);
+  return purchaseHistory(orders, Date.now());
+});
+
 exports.checkMidtransPayment = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Harus login dulu.');

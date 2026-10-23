@@ -45,7 +45,34 @@ function nextSubscription(current, planKey, nowMs) {
   const curActive = !!current && current.status === 'active' && curEnds > nowMs;
   const curTier = curActive ? current.tier || 'unlimited' : null;
   const base = curTier === plan.tier ? curEnds : nowMs;
-  return { tier: plan.tier, plan: planKey, subscriptionEndsMs: base + DURATION_MS[plan.period] };
+  return { tier: plan.tier, plan: planKey, startsMs: base, subscriptionEndsMs: base + DURATION_MS[plan.period] };
+}
+
+/**
+ * Riwayat pembelian langganan untuk ditampilkan ke pengguna.
+ * `orders`: order yang sudah dibayar {id, plan, label, grossAmount, paidAtMs, activeFromMs?, activeUntilMs?}.
+ * Order baru menyimpan activeFromMs/activeUntilMs saat diaktifkan; order lama
+ * dihitung ulang berurutan memakai aturan yang sama (nextSubscription).
+ * sinceMs = awal masa berlangganan tanpa putus yang masih berjalan (null kalau sudah habis).
+ */
+function purchaseHistory(orders, nowMs) {
+  const list = (orders || []).filter((o) => o && o.paidAtMs && resolvePlan(o.plan))
+    .slice().sort((a, b) => a.paidAtMs - b.paidAtMs);
+  let cur = null, chainStart = null, prevUntil = 0;
+  const out = list.map((o) => {
+    const plan = resolvePlan(o.plan);
+    let from = o.activeFromMs, until = o.activeUntilMs;
+    if (!(from && until)) {
+      const next = nextSubscription(cur, o.plan, o.paidAtMs);
+      from = next.startsMs; until = next.subscriptionEndsMs;
+    }
+    if (chainStart === null || from > prevUntil) chainStart = from;
+    prevUntil = Math.max(prevUntil, until);
+    cur = { status: 'active', tier: plan.tier, subscriptionEndsMs: until };
+    return { id: o.id, plan: o.plan, label: o.label || plan.label, amount: o.grossAmount || 0,
+      paidAtMs: o.paidAtMs, activeFromMs: from, activeUntilMs: until };
+  });
+  return { purchases: out.reverse(), sinceMs: prevUntil > nowMs ? chainStart : null };
 }
 
 // Naik paket (pelanggan BERBAYAR yang masih aktif pindah ke tingkat lebih tinggi):
@@ -82,4 +109,4 @@ function trialKey(email) {
   return crypto.createHash('sha256').update(norm).digest('hex');
 }
 
-module.exports = { DAY_MS, DURATION_MS, TIER_LIMITS, PLANS, LEGACY_PLANS, UPGRADE_DISCOUNT, resolvePlan, nextSubscription, priceFor, trialKey };
+module.exports = { DAY_MS, DURATION_MS, TIER_LIMITS, PLANS, LEGACY_PLANS, UPGRADE_DISCOUNT, resolvePlan, nextSubscription, priceFor, purchaseHistory, trialKey };
