@@ -823,7 +823,11 @@ button:disabled{opacity:.55;cursor:default}
 .llk-rem-ctl select,.llk-rem-ctl input{flex:1;min-width:0;height:44px;padding:0 12px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--bg);color:var(--text);font:inherit;font-size:16px}
 .llk-rem.off .llk-rem-ctl{opacity:0.45;pointer-events:none}
 .llk-rem.off .llk-rem-head .menu-icon{filter:grayscale(1);opacity:0.6}
-.llk-kirim-note{flex:1;min-width:0;font-size:0.8rem;line-height:1.45;color:var(--text2);white-space:pre-wrap;word-break:break-word;background:var(--card2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:7px 9px} /* tanpa scroll di dalam kotak: catatan tampil utuh, jadi gesekan jari di atasnya selalu menggulir halaman (dulu kotak bergulir sendiri & menahan scroll halaman di HP) */
+.llk-kirim-note{min-width:0;max-height:84px;overflow:hidden;font-size:0.8rem;line-height:1.45;color:var(--text2);white-space:pre-wrap;word-break:break-word;background:var(--card2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:7px 9px} /* tanpa scroll di dalam kotak (menahan scroll halaman di HP); catatan panjang dipotong ±4 baris (tinggi sama seperti dulu) + tombol Selengkapnya */
+.llk-kirim-note.open{max-height:none}
+.llk-kn-wrap{flex:1;min-width:0}
+.llk-kn-more{display:none;margin-top:3px;padding:2px 0;background:none;border:none;color:var(--blue);font-size:0.76rem;font-weight:700;cursor:pointer}
+.llk-kn-more.show{display:inline-block}
 .llk-switch{position:relative;flex-shrink:0;width:50px;height:30px;border-radius:999px;border:none;background:var(--border);cursor:pointer;padding:0;transition:background-color var(--d2) var(--ease-out)}
 .llk-switch i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.25);transition:transform var(--d2) var(--ease-spring)}
 .llk-switch.on{background:var(--hadir-solid)}
@@ -6828,9 +6832,9 @@ function renderKirim(){
           color:${st==='hadir'?'var(--hadir-text)':'var(--alpa-text)'}">${st==='hadir'?llkI('check','sm')+'Hadir':llkI('x','sm')+'Alpa'}</span>
       </td>
       <td style="padding:6px 10px;min-width:220px;vertical-align:middle"><div style="display:flex;align-items:flex-start;gap:8px">
-        <div class="llk-kirim-note">${progress||pr
+        <div class="llk-kn-wrap"><div class="llk-kirim-note">${progress||pr
           ?(progress?'<div><b>Progres:</b><br>'+escapeHtml(progress)+'</div>':'')+(pr?'<div style="margin-top:'+(progress?6:0)+'px;color:var(--plum)"><b>PR:</b> '+escapeHtml(pr)+'</div>':'')
-          :'<span style="color:var(--muted2)">Belum ada catatan</span>'}</div>
+          :'<span style="color:var(--muted2)">Belum ada catatan</span>'}</div><button type="button" class="llk-kn-more" onclick="llkToggleKirimNote(this)">Selengkapnya</button></div>
         ${(s.phone&&s.phone.replace(/\D/g,''))||(s.sheetLink&&s.sheetLink.trim())
         ?`<button onclick="openSheetLinkByName('${jsAttr(s.name)}','${s._extraDate||dateKey}','${jsAttr(s._attKey||s.name)}')" class="llk-icon-btn sm" aria-label="Kirim progres ${escapeHtml(s.name)}" title="Kirim progres" style="color:${localStorage.getItem('sheet_sent_'+(s._extraDate||dateKey)+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'var(--hadir)':'var(--wa)'}">${llkI(localStorage.getItem('sheet_sent_'+(s._extraDate||dateKey)+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'mail-check':'chat')}</button>`
         :''}</div></td>
@@ -6892,11 +6896,25 @@ function renderKirim(){
       </div>
     </div>`;
 
+  llkKirimClampNotes();
   window._kirimText = copyText;
   window._kirimHtml = copyHtml;
   window._kirimDateKey = dateKey;
 }
 
+// Catatan progres panjang: tampilkan tombol "Selengkapnya" hanya kalau isinya terpotong
+function llkKirimClampNotes(){
+  document.querySelectorAll('.llk-kirim-note').forEach(function(n){
+    const b=n.parentNode&&n.parentNode.querySelector('.llk-kn-more');
+    if(b) b.classList.toggle('show', n.classList.contains('open')||n.scrollHeight>n.clientHeight+2);
+  });
+}
+function llkToggleKirimNote(btn){
+  const n=btn.parentNode.querySelector('.llk-kirim-note');
+  const open=!n.classList.contains('open');
+  n.classList.toggle('open',open);
+  btn.textContent=open?'Tutup':'Selengkapnya';
+}
 function setKirimDate(dateKey){
   kirimSelectedDate=dateKey||null;
   renderKirim();
