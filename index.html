@@ -6658,8 +6658,10 @@ function buildTrackCards(){
     const icon=getInstrumentIcon(s.instrument);
     const isVokal=(s.instrument||'').toLowerCase().includes('vok');
     const {h,i,a}=allTotals(s.name);
-    const total=countSessions(s.name);
-    const showPay=computeIsDue(s).isDue;
+    // Pengingat bayar memakai hitungan siklus yang SAMA dengan tab Siswa (sejak pembayaran terakhir),
+    // bukan total semua pertemuan yang pernah dihadiri.
+    const due=computeIsDue(s);
+    const showPay=due.isDue;
     return `<div class="track-card" onclick="openHistoryDetail('${jsAttr(s.name)}')">
       <div class="track-top">
         <div class="track-avatar ${isVokal?'vocal':''}">${llkSubjectIcon(s.instrument)}</div>
@@ -6670,7 +6672,7 @@ function buildTrackCards(){
           <div class="track-num-col"><div class="track-num a">${a}</div><div class="track-num-label">Alpa</div></div>
         </div>
       </div>
-      ${showPay?`<div class="track-notes"><span class="pay-pill">${llkI('card')} ${paymentMode==='monthly'?'Waktunya bayar (akhir bulan)':total+'x pertemuan — cek pembayaran'}</span></div>`:''}
+      ${showPay?`<div class="track-notes"><span class="pay-pill">${llkI('card')} ${escapeHtml(llkStripLeadEmoji(paymentStatusText(s,due)))}</span></div>`:''}
     </div>`;
   }).join('');
 }
