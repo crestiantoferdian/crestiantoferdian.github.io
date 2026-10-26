@@ -66,12 +66,23 @@ if(window.llkPicking){
       '<div class="lp-foot">Pilihanmu disimpan — layar ini hanya muncul sekali</div>';
     document.body.insertBefore(el,document.body.firstChild);
     document.getElementById('lpLepas').onclick=function(){
+      llkPx('lepas');
       try{ sessionStorage.setItem('llk_v1_tab','1'); localStorage.setItem('llk_v2_choice','lepas'); }catch(e){}
       location.reload();
     };
-    document.getElementById('lpLembaga').onclick=function(){ location.href='v2/?mulai=lembaga'; };
-    document.getElementById('lpMitra').onclick=function(){ location.href='v2/?mulai=mitra'; };
+    document.getElementById('lpLembaga').onclick=function(){ llkPx('lembaga'); location.href='v2/?mulai=lembaga'; };
+    document.getElementById('lpMitra').onclick=function(){ llkPx('mitra'); location.href='v2/?mulai=mitra'; };
   });
+}
+</script>
+<script>
+// Meta Pixel (iklan Facebook/Instagram) — HANYA di halaman pilih peran (pengunjung baru di browser).
+// Tidak dimuat di dalam aplikasi (V1 login/dasbor, aplikasi terpasang, Play Store), jadi data murid/guru tidak terkirim.
+window.llkPx=function(peran){ try{ if(window.fbq) fbq('trackCustom','PilihPeran',{peran:peran}); }catch(e){} };
+if(window.llkPicking){
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init','1587783502657629');
+  fbq('track','PageView');
 }
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>

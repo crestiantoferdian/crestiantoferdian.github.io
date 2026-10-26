@@ -91,7 +91,7 @@
   </div>
 
   <main>
-    <p class="updated">Terakhir diperbarui: 12 Oktober 2026</p>
+    <p class="updated">Terakhir diperbarui: 26 Oktober 2026</p>
 
     <div class="card">
       <p style="margin:0">LesLesanKu ("<strong>Aplikasi</strong>") dikembangkan dan dikelola secara independen oleh tutor pemilik aplikasi ini ("<strong>Pengembang</strong>", "<strong>kami</strong>"). Kebijakan ini menjelaskan data apa saja yang dikumpulkan Aplikasi, bagaimana data itu disimpan dan digunakan, serta hak yang kamu miliki atas data tersebut.</p>
@@ -160,7 +160,7 @@
     <p>Data cloud disimpan di server Google Cloud (Firebase) yang berlokasi di kawasan Asia Tenggara. Data hanya bisa diakses lewat akun Google yang sama dengan yang dipakai untuk login — Aplikasi menerapkan aturan keamanan (security rules) di sisi server yang menolak semua akses selain dari pemilik akun tersebut.</p>
 
     <h2>4. Layanan pihak ketiga yang digunakan</h2>
-    <p>Aplikasi memakai beberapa layanan pihak ketiga untuk menjalankan fiturnya. Kami tidak menjual atau membagikan data ke pihak lain untuk kepentingan iklan atau komersial.</p>
+    <p>Aplikasi memakai beberapa layanan pihak ketiga untuk menjalankan fiturnya. Kami tidak menjual atau membagikan data ke pihak lain untuk kepentingan iklan atau komersial; satu-satunya pengecualian adalah pengukuran iklan LesLesanKu sendiri lewat Meta Pixel (lihat tabel di bawah).</p>
     <table>
       <tr><th>Layanan</th><th>Fungsi</th></tr>
       <tr><td>Google Firebase</td><td>Login akun (Authentication), penyimpanan data cadangan cloud (Firestore), pemrosesan langganan berbayar, pengiriman email layanan & pengingat terjadwal (Cloud Functions)</td></tr>
@@ -169,6 +169,7 @@
       <tr><td>Resend</td><td>Pengiriman email layanan (selamat datang, invoice, pengingat) dari no-reply@leslesanku.com. Menerima alamat email tujuan dan isi email tersebut.</td></tr>
       <tr><td>Telegram</td><td>Pemberitahuan internal ke Pengembang saat ada akun/lembaga baru atau pembayaran berhasil (lihat bagian 2.f)</td></tr>
       <tr><td>Cloudflare Workers</td><td>Perantara teknis yang meneruskan permintaan notifikasi ke OneSignal secara aman</td></tr>
+      <tr><td>Meta Pixel (Facebook/Instagram)</td><td>Hanya aktif di halaman pembuka leslesanku.com (halaman pilih peran untuk pengunjung baru) untuk mengukur kunjungan dan efektivitas iklan LesLesanKu di Facebook/Instagram. Tidak aktif di dalam Aplikasi (login, dasbor, data murid), sehingga data murid, jadwal, progres, dan pembayaran tidak dikirim ke Meta. Pengguna bisa mengatur preferensi iklan lewat akun Meta masing-masing.</td></tr>
       <tr><td>GitHub Pages</td><td>Hosting/penyedia halaman web Aplikasi</td></tr>
     </table>
     <p>Masing-masing layanan di atas punya kebijakan privasinya sendiri sebagai penyedia infrastruktur teknis.</p>
