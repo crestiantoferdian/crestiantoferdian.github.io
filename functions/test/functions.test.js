@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const Module = require('module');
 
 process.env.MIDTRANS_SERVER_KEY = 'SB-TEST-KEY';
+process.env.SIGNUP_SOURCE_WAIT_MS = '0'; // tes: jangan menunggu laporan asal pendaftaran
 
 // ── Firestore tiruan ────────────────────────────────────────────────
 const store = new Map(); // 'koleksi/id' -> data
@@ -26,6 +27,7 @@ function docRef(path) {
     async update(data) {
       store.set(path, { ...store.get(path), ...data });
     },
+    async delete() { store.delete(path); },
   };
 }
 function query(name, filters) {
@@ -75,6 +77,7 @@ const fakeFunctions = {
   firestore: { document: () => ({ onCreate: (fn) => fn }) },
   pubsub: { schedule: () => ({ timeZone: () => ({ onRun: (fn) => fn }) }) },
 };
+fakeFunctions.runWith = () => fakeFunctions;
 const origLoad = Module._load;
 Module._load = function (req, ...rest) {
   if (req === 'firebase-functions/v1') return fakeFunctions;
@@ -556,4 +559,39 @@ test('riwayat pembelian: periode tiap order, perpanjangan menyambung, naik paket
   const h3 = P.purchaseHistory([{ id: 'a', plan: 'basic_monthly', paidAtMs: t0 }, { id: 'b', plan: 'basic_monthly', paidAtMs: t0 + 50 * DAY }], t0 + 55 * DAY);
   assert.strictEqual(h3.sinceMs, t0 + 50 * DAY);
   assert.strictEqual(P.purchaseHistory([{ id: 'a', plan: 'basic_monthly', paidAtMs: t0 }], t0 + 31 * DAY).sinceMs, null);
+});
+
+// ── Asal pendaftaran pengguna baru V1 (Website / Play Store) di Telegram ──
+test('notifikasi: Telegram pengguna baru memuat asal pendaftaran', withNotifyEnv(async () => {
+  store.clear();
+  const sent = captureFetch(async () => ({ ok: true, json: async () => ({}) }));
+  store.set('signupSource/p1', { source: 'play' });
+  await fns.onUserCreate({ uid: 'p1', email: 'p1@gmail.com', displayName: 'Guru Play' });
+  await fns.onUserCreate({ uid: 'w0', email: 'w0@gmail.com', displayName: 'Tanpa Laporan' });
+  assert.match(sent.tg[0].text, /Daftar lewat: 📱 Aplikasi Play Store/);
+  assert.match(sent.tg[1].text, /Daftar lewat: tidak diketahui/);
+}));
+
+test('reportSignupSource: hanya akun baru, sekali, sumber dikenal', async () => {
+  store.clear();
+  const prev = fakeAdmin.auth;
+  let created = new Date().toUTCString();
+  fakeAdmin.auth = () => ({ getUser: async () => ({ metadata: { creationTime: created } }) });
+  try {
+    await assert.rejects(fns.reportSignupSource({ source: 'web' }, {}), /login/);
+    await assert.rejects(fns.reportSignupSource({ source: 'hack' }, { auth: { uid: 'a' } }), /tidak dikenal/);
+    assert.deepStrictEqual(await fns.reportSignupSource({ source: 'web' }, { auth: { uid: 'a' } }), { ok: true });
+    assert.strictEqual(store.get('signupSource/a').source, 'web');
+    // tidak bisa ditimpa
+    assert.deepStrictEqual(await fns.reportSignupSource({ source: 'play' }, { auth: { uid: 'a' } }), { ok: true, already: true });
+    assert.strictEqual(store.get('signupSource/a').source, 'web');
+    // akun lama (dibuat > 1 jam lalu) diabaikan
+    created = new Date(Date.now() - 2 * 3600e3).toUTCString();
+    assert.deepStrictEqual(await fns.reportSignupSource({ source: 'play' }, { auth: { uid: 'b' } }), { ok: false, notNew: true });
+    await assert.rejects(fns.reportSignupSource({ source: 'v2' }, { auth: { uid: 'c' } }), /tidak dikenal/);
+    assert.ok(!store.has('signupSource/b'));
+    // dihapus saat akun dihapus
+    await fns.onUserDelete({ uid: 'a', email: 'a@gmail.com' });
+    assert.ok(!store.has('signupSource/a'));
+  } finally { fakeAdmin.auth = prev; }
 });

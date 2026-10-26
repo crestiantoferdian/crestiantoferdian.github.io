@@ -10258,6 +10258,7 @@ function initFirebase(){
     _cloudReadyToPush=false; // reset tiap kali status login berubah — harus tarik/putuskan dulu sebelum boleh kirim
     if(user){
       try{ localStorage.setItem('llk_v1_login','1'); }catch(e){} // browser ini memakai V1 → leslesanku.com langsung ke V1
+      llkReportSignupSource(user);
       hideLoginGate();
       pullFromCloud();
       listenSubscriptionStatus(user.uid);
@@ -11645,6 +11646,20 @@ function setCloudSyncStatus(msg){
 }
 
 // Dipanggil dari renderLainnya() untuk menampilkan status akun & tombol login/logout
+/* Akun yang BARU dibuat: beri tahu server asal pendaftarannya (Website / aplikasi Play Store)
+   supaya notifikasi Telegram "Pengguna baru" ke pemilik menyebutkannya. Sekali per akun. */
+function llkReportSignupSource(user){
+  try{
+    const created=Date.parse(user&&user.metadata&&user.metadata.creationTime);
+    if(!created||Date.now()-created>30*60*1000) return;
+    const k='llk_src_sent_'+user.uid;
+    if(localStorage.getItem(k)) return;
+    const src=(window.llkIsPlayApp&&window.llkIsPlayApp())?'play':'web';
+    firebase.functions().httpsCallable('reportSignupSource')({source:src})
+      .then(function(){ try{ localStorage.setItem(k,'1'); }catch(e){} })
+      .catch(function(e){ console.warn('reportSignupSource:',e&&e.message); });
+  }catch(e){}
+}
 function renderAccountSection(){
   const el=document.getElementById('accountSectionSlot');
   if(!el) return;

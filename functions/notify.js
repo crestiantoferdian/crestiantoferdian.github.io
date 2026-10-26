@@ -142,8 +142,13 @@ function orgEndingEmail({ name, orgName, paid, daysLeft, endsMs }) {
 }
 
 // ── Pesan Telegram untuk pemilik ────────────────────────────────────
-const tgNewUser = ({ name, email, trialDenied, total }) =>
-  `👤 Pengguna baru LesLesanKu\n\nNama: ${name || '-'}\nEmail: ${email || '-'}\n${trialDenied ? 'Uji coba: ditolak (email sudah pernah trial)' : 'Uji coba gratis dimulai'}${total ? '\nTotal pengguna: ' + total : ''}\nWaktu: ${jam(Date.now())}`;
+// Asal pendaftaran (dilaporkan aplikasi lewat reportSignupSource)
+const SIGNUP_SOURCE_LABEL = {
+  web: '🌐 Website (leslesanku.com)',
+  play: '📱 Aplikasi Play Store',
+};
+const tgNewUser = ({ name, email, trialDenied, total, source }) =>
+  `👤 Pengguna baru LesLesanKu\n\nNama: ${name || '-'}\nEmail: ${email || '-'}\nDaftar lewat: ${SIGNUP_SOURCE_LABEL[source] || 'tidak diketahui'}\n${trialDenied ? 'Uji coba: ditolak (email sudah pernah trial)' : 'Uji coba gratis dimulai'}${total ? '\nTotal pengguna: ' + total : ''}\nWaktu: ${jam(Date.now())}`;
 const tgNewOrg = ({ orgName, name, email }) =>
   `🏫 Lembaga baru di LLK Lembaga\n\nLembaga: ${orgName}\nPemilik: ${name || '-'}\nEmail: ${email || '-'}\nUji coba 14 hari · 2 slot Guru Mitra\nWaktu: ${jam(Date.now())}`;
 const tgPaid = ({ v2, orderId, email, label, amount, orgName, activeUntilMs, env: e }) =>
@@ -152,4 +157,4 @@ const tgPaid = ({ v2, orderId, email, label, amount, orgName, activeUntilMs, env
 const tgOrgEnding = ({ orgName, name, email, paid, daysLeft, endsMs }) =>
   `⏰ ${paid ? 'Langganan' : 'Uji coba'} lembaga berakhir ${daysLeft === 1 ? 'BESOK' : daysLeft + ' hari lagi'}\n\nLembaga: ${orgName}\nPemilik: ${name || '-'}\nEmail: ${email || '-'}\nBerakhir: ${tanggal(endsMs)}\n(Email pengingat sudah dikirim ke pemilik lembaga)`;
 
-module.exports = { sendEmail, sendTelegram, welcomeEmail, orgWelcomeEmail, invoiceEmail, orgEndingEmail, tgNewUser, tgNewOrg, tgPaid, tgOrgEnding, redact };
+module.exports = { SIGNUP_SOURCE_LABEL, sendEmail, sendTelegram, welcomeEmail, orgWelcomeEmail, invoiceEmail, orgEndingEmail, tgNewUser, tgNewOrg, tgPaid, tgOrgEnding, redact };
