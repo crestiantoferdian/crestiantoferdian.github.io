@@ -66,7 +66,7 @@ async function sendInvoiceEmail({ toEmail, orderId, plan, label, grossAmount, pa
  *    trialUsage/{hash email}, yang tidak ikut terhapus saat akun dihapus.
  *    Tanpa ini, "Hapus Akun" lalu login lagi = uid baru = trial baru.
  */
-exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
+exports.onUserCreate = functions.runWith({ timeoutSeconds: 120 }).auth.user().onCreate(async (user) => {
   const now = admin.firestore.Timestamp.now();
   const key = trialKey(user.email);
   let trialAllowed = true;
@@ -109,14 +109,53 @@ exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
   await welcomeNotify(user, { trialEndsMs: trialEnds.toMillis() });
 });
 
-// Email "terima kasih sudah bergabung" ke pengguna baru + chat Telegram ke pemilik
+// Email "terima kasih sudah bergabung" ke pengguna baru + chat Telegram ke pemilik.
+// Telegram menunggu sebentar laporan asal pendaftaran dari aplikasi V1 (Website / Play Store,
+// lihat reportSignupSource); email selamat datang tidak ikut menunggu.
+const SIGNUP_SOURCE_WAIT_MS = Number(process.env.SIGNUP_SOURCE_WAIT_MS || 45000);
+async function waitSignupSource(uid) {
+  const ref = db.collection('signupSource').doc(uid);
+  const until = Date.now() + SIGNUP_SOURCE_WAIT_MS;
+  for (;;) {
+    const snap = await ref.get();
+    if (snap.exists) return snap.data().source || null;
+    if (Date.now() >= until) return null;
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+}
 async function welcomeNotify(user, { trialEndsMs, trialDenied }) {
   const mail = N.welcomeEmail({ name: user.displayName, trialDays: TRIAL_DAYS, trialEndsMs, trialDenied });
+  const emailSent = N.sendEmail({ to: user.email, subject: mail.subject, html: mail.html });
+  const source = await waitSignupSource(user.uid).catch(() => null);
   await Promise.all([
-    N.sendEmail({ to: user.email, subject: mail.subject, html: mail.html }),
-    N.sendTelegram(N.tgNewUser({ name: user.displayName, email: user.email, trialDenied })),
+    emailSent,
+    N.sendTelegram(N.tgNewUser({ name: user.displayName, email: user.email, trialDenied, source })),
   ]);
 }
+
+/**
+ * 1b) Dipanggil aplikasi sekali setelah login pertama: asal pendaftaran
+ *     LLK V1: 'web' = website leslesanku.com, 'play' = aplikasi Play Store.
+ *     Hanya diterima untuk akun yang baru dibuat (≤ 1 jam) dan tidak bisa ditimpa.
+ */
+exports.reportSignupSource = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Harus login dulu.');
+  }
+  const source = data && N.SIGNUP_SOURCE_LABEL[data.source] ? data.source : null;
+  if (!source) throw new functions.https.HttpsError('invalid-argument', 'Sumber tidak dikenal.');
+  const uid = context.auth.uid;
+  const ref = db.collection('signupSource').doc(uid);
+  if ((await ref.get()).exists) return { ok: true, already: true };
+  let createdMs = 0;
+  try {
+    const u = await admin.auth().getUser(uid);
+    createdMs = Date.parse(u.metadata && u.metadata.creationTime) || 0;
+  } catch (e) { /* abaikan */ }
+  if (!createdMs || Date.now() - createdMs > 60 * 60 * 1000) return { ok: false, notNew: true };
+  await ref.set({ source, at: admin.firestore.Timestamp.now() });
+  return { ok: true };
+});
 
 /**
  * 1c) LLK V2: lembaga baru dibuat (oleh pemiliknya dari aplikasi) → email selamat datang
@@ -149,6 +188,7 @@ exports.orgEndReminders = functions.pubsub.schedule('0 8 * * *').timeZone('Asia/
  *     Menutup celah untuk akun lama yang dibuat sebelum trialUsage ada.
  */
 exports.onUserDelete = functions.auth.user().onDelete(async (user) => {
+  await db.collection('signupSource').doc(user.uid).delete().catch(() => {});
   const key = trialKey(user.email);
   if (!key) return;
   const usageRef = db.collection('trialUsage').doc(key);
