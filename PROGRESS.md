@@ -22,6 +22,7 @@ _Terakhir diperbarui: 19 Okt 2026 (Play Store: pengujian tertutup berjalan)_
 
 ## 🔎 SEO: agar leslesanku.com muncul di Google (10 Okt 2026)
 - Ditambah di `<head>` `index.html` (hanya meta, tidak menyentuh data/skrip): judul "LesLesanKu (LLK) — Aplikasi Jadwal, Absensi & Tagihan untuk Guru Les", `meta description`, `canonical`, Open Graph, JSON-LD `WebApplication`. File baru `robots.txt` & `sitemap.xml` (halaman utama + privacy-policy).
+- **Lanjutan 26 Okt 2026:** situs sudah terindeks (cari `leslesanku.com` muncul), tapi ikon masih globe & judul tampil "LLK". Ditambah `rel="icon"` (192/512) + `apple-touch-icon` + JSON-LD `WebSite` (nama "LesLesanKu"). Pencarian kata "leslesanku" masih dikoreksi Google ke "les lesan" — butuh waktu & sinyal merek (tautan/mention).
 - **Langkah pemilik (tidak bisa dilakukan lewat kode):** daftarkan `leslesanku.com` di Google Search Console (properti Domain, verifikasi lewat TXT DNS) → kirim `https://leslesanku.com/sitemap.xml` → "Inspeksi URL" `https://leslesanku.com/` → "Minta pengindeksan". Biasanya muncul beberapa hari–beberapa minggu; mencari "LesLesanKu" lebih dulu muncul daripada "LLK".
 
 ## 🚪 leslesanku.com → halaman pilih peran dulu (9 Okt 2026)
