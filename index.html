@@ -58,7 +58,7 @@ if(window.llkPicking){
     var arrow='<div class="lp-arrow">'+sv('<path d="m9 6 6 6-6 6"/>')+'</div>';
     var el=document.createElement('div'); el.id='llkPick';
     el.innerHTML='<h1>Selamat datang di</h1>'+
-      '<img class="lp-brand" src="logo-leslesanku.png" alt="LLK — Les LesanKu"/>'+
+      '<img class="lp-brand" src="logo-leslesanku.png" alt="LesLesanKu (LLK)"/>'+
       '<div class="lp-sub">Pilih cara kamu memakai aplikasi ini</div>'+
       '<button class="lp-card" id="lpLepas"><div class="lp-ic"><img src="icon-maskable-192.png" alt=""/></div><div><div class="lp-t">Guru Lepas <span class="lp-tag">LLK V1</span></div><div class="lp-d">Saya mengajar sendiri — atur murid, jadwal &amp; tagihan sendiri</div></div>'+arrow+'</button>'+
       '<button class="lp-card" id="lpLembaga"><div class="lp-ic" style="background:rgba(168,55,42,0.10);color:#a8372a">'+sv('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>')+'</div><div><div class="lp-t">Pemilik Lembaga Les</div><div class="lp-d">Saya punya guru-guru — kelola jadwal, murid &amp; honor guru</div></div>'+arrow+'</button>'+
@@ -85,12 +85,16 @@ if(window.llkPicking){
 <meta property="og:description" content="Atur jadwal murid, absensi, laporan progres, invoice & kuitansi guru les dalam satu aplikasi."/>
 <meta property="og:url" content="https://leslesanku.com/"/>
 <meta property="og:image" content="https://leslesanku.com/logo-leslesanku.png"/>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"LesLesanKu","alternateName":["LLK","Les LesanKu","Les Lesanku"],"url":"https://leslesanku.com/"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"LesLesanKu","alternateName":["LLK","Les Lesanku"],"url":"https://leslesanku.com/","applicationCategory":"EducationalApplication","operatingSystem":"Web, Android","inLanguage":"id","description":"Aplikasi untuk guru les privat: jadwal murid, absensi, laporan progres, invoice & kuitansi, dan pengingat pembayaran."}</script>
 <meta name="theme-color" content="#000000"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="LesLesanKu"/>
+<link rel="icon" href="/favicon.ico" sizes="48x48"/>
+<link rel="icon" href="/favicon-192.png" type="image/png" sizes="192x192"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
 <link rel="manifest" href="manifest.json"/>
 
 <!-- ═══ ONESIGNAL PUSH NOTIFICATION ═══

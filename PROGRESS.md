@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 19 Okt 2026 (Play Store: pengujian tertutup berjalan)_
+_Terakhir diperbarui: 26 Okt 2026 (favicon & nama situs untuk Google)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -23,6 +23,9 @@ _Terakhir diperbarui: 19 Okt 2026 (Play Store: pengujian tertutup berjalan)_
 ## 🔎 SEO: agar leslesanku.com muncul di Google (10 Okt 2026)
 - Ditambah di `<head>` `index.html` (hanya meta, tidak menyentuh data/skrip): judul "LesLesanKu (LLK) — Aplikasi Jadwal, Absensi & Tagihan untuk Guru Les", `meta description`, `canonical`, Open Graph, JSON-LD `WebApplication`. File baru `robots.txt` & `sitemap.xml` (halaman utama + privacy-policy).
 - **Langkah pemilik (tidak bisa dilakukan lewat kode):** daftarkan `leslesanku.com` di Google Search Console (properti Domain, verifikasi lewat TXT DNS) → kirim `https://leslesanku.com/sitemap.xml` → "Inspeksi URL" `https://leslesanku.com/` → "Minta pengindeksan". Biasanya muncul beberapa hari–beberapa minggu; mencari "LesLesanKu" lebih dulu muncul daripada "LLK".
+- **Favicon & nama situs (26 Okt 2026):** Google menampilkan ikon bola dunia karena belum ada favicon. Ditambah `favicon.ico` (16/32/48 px), `favicon-192.png`, `apple-touch-icon.png` (dari `logo-llk.png`) + `<link rel="icon">` di `index.html`; JSON-LD `WebSite` (name "LesLesanKu") supaya Google memakai nama itu, bukan "leslesanku.com"; alt logo halaman pilih peran jadi "LesLesanKu (LLK)" (dulu "LLK — Les LesanKu", diduga sumber judul "LLK" di Google). Ikon baru muncul di hasil Google setelah Google merayapi ulang (bisa beberapa hari–minggu; percepat dengan "Minta pengindeksan").
+- **Kenapa mencari "leslesanku" dialihkan ke "les lesan":** merek masih baru, Google menganggapnya salah ketik. Hilang sendiri seiring makin banyak orang mencari & mengklik leslesanku.com dan makin banyak tautan ke situs (Instagram/TikTok/Facebook/Play Store bernama LesLesanKu).
+- **Kelemahan terbesar SEO saat ini (belum dikerjakan, perlu keputusan pemilik):** halaman utama untuk Google hanya berisi "Selamat datang di" + 3 tombol pilih peran, hampir tanpa teks tentang fitur. Usul: halaman landing statis (mis. bagian teks fitur, harga, FAQ di bawah 3 tombol, atau halaman `/fitur`) supaya bisa bersaing untuk kata kunci "aplikasi absensi les privat", "aplikasi guru les", dll.
 
 ## 🚪 leslesanku.com → halaman pilih peran dulu (9 Okt 2026)
 - Skrip kecil paling atas `<head>` `index.html`: pengunjung **baru** di **browser** diarahkan ke `v2/` (Selamat datang di LLK: Guru Lepas · LLK V1 / Pemilik Lembaga Les / Guru Mitra). Pilih **Guru Lepas** → `llk_v2_choice='lepas'` → kembali ke V1 (login). Tidak diarahkan: aplikasi terpasang (display-mode standalone / Play Store `android-app://`), browser yang sudah punya data V1 (`rms4_*` / `rms_*`), atau yang sudah memilih Guru Lepas. `?v1=1` = paksa V1. Tidak menyentuh data.
