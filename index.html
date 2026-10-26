@@ -2249,7 +2249,7 @@ function applySettings(){
   document.documentElement.style.setProperty('--red-glow', hexToRgba(color, 0.25));
   llkApplyAccentVars(color); // tampilan: teks header/tombol otomatis hitam/putih
   // Update page title
-  document.title=name;
+  if(!window.llkPicking) document.title=name; // halaman pilih peran (pengunjung baru/Google) tetap memakai judul SEO di <head>
   // Status bar Android: sengaja TIDAK ikut warna tema (lihat manifest.json untuk warna fixed)
 }
 
