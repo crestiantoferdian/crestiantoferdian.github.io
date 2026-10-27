@@ -9021,6 +9021,19 @@ function doSave(){
     const dup=students.some((x,i)=>i!==editIdx&&(x.name||'').trim().toLowerCase()===lower);
     if(dup){toast('❌ Sudah ada murid bernama "'+s.name+'" — pakai nama yang beda (mis. tambah inisial)',4000);return}
   }
+  // Jadwal Rutin 1 dikosongkan tapi Jadwal 2/3/4 masih ada (mis. les 2x seminggu dikurangi jadi 1x):
+  // jadwal yang tersisa naik urutan supaya Jadwal 1 tetap jadwal utama. Riwayat absensi tidak berubah
+  // (tersimpan per tanggal & nama murid, bukan per nomor jadwal).
+  let llkShifted=false;
+  if(!s.day){
+    const slots=[[s.day2,s.time2a,s.time2b],[s.day3,s.time3a,s.time3b],[s.day4,s.time4a,s.time4b]].filter(x=>x[0]);
+    if(slots.length){
+      const pick=i=>slots[i]||['','',''];
+      s.day=pick(0)[0]; s.time=pick(0)[1]||'09:00'; s.time2=pick(0)[2]||'';
+      [s.day2,s.time2a,s.time2b]=pick(1); [s.day3,s.time3a,s.time3b]=pick(2); [s.day4,s.time4a,s.time4b]=pick(3);
+      llkShifted=true;
+    }
+  }
   if(!s.day&&!s.extraDates.length){toast('❌ Isi jadwal rutin, atau tambahkan minimal 1 tanggal di "Tambahan Kelas"');return}
   if(editIdx===null && typeof isStudentLimitReached==='function' && isStudentLimitReached()){ closeModal(); showUpgradeOffer(true); return; }
   window._llkEditInitSnap=null;
@@ -9078,7 +9091,7 @@ function doSave(){
     if(firstInit<s.startDate) s.startDate=firstInit;
   }
   save();closeModal();render();
-  toast((editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`)+(initMarked?` · ${initMarked} pertemuan awal ditandai Hadir`:''));
+  toast((editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`)+(initMarked?` · ${initMarked} pertemuan awal ditandai Hadir`:'')+(llkShifted?` · jadwal ${s.day} kini jadi Jadwal Rutin 1`:''));
 }
 
 // ── PERTEMUAN AWAL ────────────────────────────────────
