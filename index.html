@@ -8632,6 +8632,7 @@ function openAdd(){
   document.getElementById('f_pay_cycle').value='4';
   document.getElementById('f_pay_timing').value='';
   extraDates=[];
+  window._llkExtraHideIds=new Set();
   setTimeout(renderExtraDates,100);
   document.getElementById('f_day').value=selectedDay||DAYS[0];
   document.getElementById('f_time').value='09:00';
@@ -8781,6 +8782,9 @@ function openEdit(idx){
   document.getElementById('f_rate').value=s.rate||'';
   document.getElementById('f_sheet_link').value=s.sheetLink||'';
   extraDates=s.extraDates?JSON.parse(JSON.stringify(s.extraDates)):[];
+  // Sesi tambahan yang SUDAH LEWAT saat form dibuka disembunyikan dari form (riwayat tetap aman).
+  // Sesi yang baru ditambah/diubah di form ini tetap tampil walau tanggalnya sudah lewat.
+  window._llkExtraHideIds=new Set(extraDates.filter(ed=>ed.date&&ed.date<todayStr()).map((ed,i)=>ed.id!=null?ed.id:'idx'+extraDates.indexOf(ed)));
   setTimeout(renderExtraDates,100);
   const rsSection=document.getElementById('reschedule-section-form');
   if(rsSection){
@@ -8849,7 +8853,8 @@ function renderExtraDates(){
   // tetap aman & tetap bisa dilihat lewat tab Track/Kalender, hanya tidak
   // ditampilkan/dikelola lagi di form edit siswa ini).
   const visibleIdx=[];
-  extraDates.forEach((ed,i)=>{ if(!(ed.date&&ed.date<today)) visibleIdx.push(i); });
+  const hide=window._llkExtraHideIds||new Set();
+  extraDates.forEach((ed,i)=>{ const key=ed.id!=null?ed.id:'idx'+i; if(!(ed.date&&ed.date<today&&hide.has(key))) visibleIdx.push(i); });
 
   if(!visibleIdx.length){
     wrap.innerHTML='<div style="font-size:0.84rem;color:var(--muted);text-align:center;padding:10px">Tidak ada tanggal tambahan yang akan datang</div>';
