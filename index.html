@@ -3915,6 +3915,10 @@ function savePaymentTemplate(mode){
   localStorage.setItem(meta.key, val||getPaymentTemplate(mode));
   toast('✅ Template pesan disimpan');
 }
+// Tanya dulu sebelum template kustom diganti template bawaan (tidak bisa dibatalkan)
+function confirmResetPaymentTemplate(mode){
+  showGenericConfirm('Kembalikan template default?','Teks template yang kamu tulis sendiri akan diganti dengan template bawaan LesLesanKu.','Ya, Kembalikan',function(){ resetPaymentTemplate(mode); },false,'undo');
+}
 function resetPaymentTemplate(mode){
   const meta=TPL_META[mode]||TPL_META.session;
   localStorage.removeItem(meta.key);
@@ -9255,7 +9259,7 @@ function renderPaymentSettings(){
   const tplVars='font-size:0.78rem;color:var(--muted);margin-top:8px;line-height:1.8';
   const tplBtns=(k)=>`<div style="display:flex;gap:8px;margin-top:10px">
           <button onclick="savePaymentTemplate('${k}')" class="llk-btn primary" style="flex:1">${llkI('check')} Simpan</button>
-          <button onclick="resetPaymentTemplate('${k}')" class="llk-btn secondary">${llkI('undo')} Default</button>
+          <button onclick="confirmResetPaymentTemplate('${k}')" class="llk-btn secondary">${llkI('undo')} Kembalikan Default</button>
         </div>`;
   const codeify=(s)=>s.replace(/<code>/g,'<code class="llk-code">');
 
