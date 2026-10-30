@@ -3861,7 +3861,7 @@ function setPaymentMode(mode){
 
 // ── TEMPLATE PESAN PENAGIHAN KE SISWA ─────────────────
 const DEFAULT_TPL_SESSION='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nMohon izin mengingatkan bahwa les {nama} telah berjalan {sesi}x pertemuan.\nMohon kesediaan Bapak/Ibu untuk melakukan pembayaran sebesar {biaya}.\n\nTerima kasih atas perhatian dan kerja samanya.\n\nHormat kami';
-const DEFAULT_TPL_MONTHLY='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nMohon izin mengingatkan pembayaran les bulan {bulan}.\nSelama bulan ini telah berlangsung {sesi}x pertemuan, yaitu pada tanggal {tanggal}.\nMohon kesediaan Bapak/Ibu untuk melakukan pembayaran sebesar {biaya}.\n\nTerima kasih atas perhatian dan kerja samanya.\n\nHormat kami';
+const DEFAULT_TPL_MONTHLY='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nMohon izin mengingatkan pembayaran les bulan {bulan}, dengan rincian sebagai berikut:\n\n{rincian}\n\nTerima kasih atas perhatian dan kerja samanya.\n\nHormat kami';
 const DEFAULT_TPL_ADMIN='Halo Admin\nMohon diingatkan pembayaran:\nNama: {nama}\nMata Pelajaran: {instrumen}\nJadwal: {jadwal}\nTotal: {total}x {keterangan}\nTerima kasih!';
 const DEFAULT_TPL_PROGRESS='{salam},\nKepada Yth. Bapak/Ibu {nama},\n\nBerikut kami sampaikan progres les {nama}:\n🗓️ {tanggal}\n🔢 {pertemuan}\n📝 Progress: {progress}\n📚 PR: {pr}\n\nTerima kasih atas perhatiannya.';
 function getMonthNameID(d){ return (d||new Date()).toLocaleDateString('id-ID',{month:'long'}); }
@@ -3948,6 +3948,8 @@ function sendPaymentWALegacy(name){
     const rate=s.rate||40000;
     vars={nama:name,sesi:sesiBelumBayar,siklus:s.payCycle||4,bulan:getMonthNameID(),salam:getGreetingID(),biaya:formatRupiah(sesiBelumBayar*rate)};
   }
+  // {rincian} (template baru) — cadangan sederhana untuk pesan lama tanpa invoice
+  vars.rincian=(vars.tanggal?'Pertemuan: '+vars.sesi+'x (tanggal '+vars.tanggal+')':'Pertemuan: '+vars.sesi+'x')+'\n*Total yang harus dibayar: '+vars.biaya+'*';
   const msgText=fillTemplate(tpl,vars);
   const msg=encodeURIComponent(msgText);
   if(phone) window.open(`https://wa.me/62${phone.replace(/^0/,'')}?text=${msg}`,'_blank');
@@ -4123,20 +4125,32 @@ function buildInvoiceWaText(inv, copyDate){
     bulan:inv.period?getMonthNameID(new Date(inv.period+'-01T00:00:00')):getMonthNameID(),
     tanggal:tanggalStr, salam:getGreetingID(), biaya:formatRupiah(inv.total)
   };
-  let text=inv.paidAt
-    ? getGreetingID()+',\nKepada Yth. Bapak/Ibu '+inv.studentName+',\n\nTerima kasih, pembayaran les '+inv.studentName+' sebesar '+formatRupiah(inv.total)+' sudah kami terima ✅'
-    : fillTemplate(getPaymentTemplate(invoiceTemplateKey(inv)), vars);
-  text+='\n\n🧾 *'+(inv.paidAt?'KUITANSI LUNAS':'INVOICE')+' '+inv.no+'*\n';
-  if(copyDate&&inv.paidAt) text+='_Salinan · dikirim ulang '+new Date(copyDate+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+'_\n';
-  text+=inv.desc+'\n';
+  // Rincian pertemuan. Tagihan (belum lunas): tanpa judul "INVOICE INV-…" (nomor tetap ada di PDF),
+  // "Rincian Pertemuan Bulan …" untuk tagihan akhir bulan, dan "Total yang harus dibayar".
+  let blk='';
+  if(inv.paidAt){
+    blk+='🧾 *KUITANSI LUNAS '+inv.no+'*\n';
+    if(copyDate) blk+='_Salinan · dikirim ulang '+new Date(copyDate+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+'_\n';
+  }
+  const isMonthlyAfter=!inv.paidAt&&inv.mode==='monthly'&&inv.timing!=='depan'&&inv.period;
+  blk+=(isMonthlyAfter?'Rincian Pertemuan Bulan '+monthKeyToLabel(inv.period)+' ('+inv.items.length+'x pertemuan)':inv.desc)+'\n';
   const showPrice=llkInvShow('price');
   llkInvoiceRows(inv).forEach(r=>{
     const parts=[r.label];
     if(showPrice) parts.push(formatRupiah(r.amount));
-    text+=(r.zero?'• ':r.no+'. ')+(r.date?fmtInvDate(r.date):'-')+' — '+parts.join(' · ')+'\n';
+    blk+=(r.zero?'• ':r.no+'. ')+(r.date?fmtInvDate(r.date):'-')+' — '+parts.join(' · ')+'\n';
   });
-  text+='*Total: '+formatRupiah(inv.total)+'*';
-  if(inv.paidAt) text+='\nStatus: LUNAS ('+new Date(inv.paidAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+')';
+  blk+='*'+(inv.paidAt?'Total':'Total yang harus dibayar')+': '+formatRupiah(inv.total)+'*';
+  if(inv.paidAt) blk+='\nStatus: LUNAS ('+new Date(inv.paidAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+')';
+  vars.rincian=blk;
+  let text;
+  if(inv.paidAt){
+    text=getGreetingID()+',\nKepada Yth. Bapak/Ibu '+inv.studentName+',\n\nTerima kasih, pembayaran les '+inv.studentName+' sebesar '+formatRupiah(inv.total)+' sudah kami terima ✅\n\n'+blk;
+  } else {
+    const tpl=getPaymentTemplate(invoiceTemplateKey(inv));
+    // Template berisi {rincian} → rincian diletakkan di situ; template lama tanpa {rincian} → rincian di bawah pesan (seperti dulu)
+    text=tpl.indexOf('{rincian}')>=0?fillTemplate(tpl,vars):fillTemplate(tpl,vars)+'\n\n'+blk;
+  }
   const payInfo=(localStorage.getItem('llk_pay_info')||'').trim();
   if(payInfo&&!inv.paidAt) text+='\n\n💳 Pembayaran:\n'+payInfo;
   return text;
@@ -9295,7 +9309,7 @@ function renderPaymentSettings(){
         <div style="${tplTitle}">${llkI('calendar')} Template Pesan · Akhir Bulan${activeTag(monthlyActive)}</div>
         <div style="${tplDesc}">Dipakai saat menagih langsung ke WA siswa saat mode Akhir Bulan aktif.</div>
         <textarea id="tplMonthlyInput" rows="5" class="llk-textarea">${escapeHtml(getPaymentTemplate('monthly'))}</textarea>
-        <div style="${tplVars}">Variabel: <code class="llk-code">{salam}</code> <code class="llk-code">{nama}</code> <code class="llk-code">{sesi}</code> <code class="llk-code">{bulan}</code> <code class="llk-code">{tanggal}</code> <code class="llk-code">{biaya}</code></div>
+        <div style="${tplVars}">Variabel: <code class="llk-code">{salam}</code> <code class="llk-code">{nama}</code> <code class="llk-code">{sesi}</code> <code class="llk-code">{bulan}</code> <code class="llk-code">{tanggal}</code> <code class="llk-code">{biaya}</code> <code class="llk-code">{rincian}</code> <span style="opacity:0.8">({rincian} = daftar pertemuan & total)</span></div>
         ${tplBtns('monthly')}
       </div>
       ${[['prepaid_session','tplPrepaidSessionInput','Template Pesan · Bayar di Depan (Per Pertemuan)','Dipakai untuk murid Bayar di Depan saat mode Setiap Pertemuan.','<code>{salam}</code> <code>{nama}</code> <code>{sesi}</code> <code>{tanggal}</code> <code>{biaya}</code>'],
