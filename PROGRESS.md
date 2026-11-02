@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 29 Okt 2026 (favicon.ico logo LLK)_
+_Terakhir diperbarui: 2 Nov 2026 (V1: tombol Uang Masuk)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,13 @@ _Terakhir diperbarui: 29 Okt 2026 (favicon.ico logo LLK)_
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 💰 V1: tombol "Uang Masuk" di halaman Siswa (2 Nov 2026)
+- Permintaan pemilik: daftar semua transaksi yang ditandai **Sudah Bayar**, dengan filter **Tanggal Bayar** (kapan tombol ditekan) dan **Bulan Les** (bulan yang dibayar). Tombol hanya muncul di mode pembayaran **Bulanan** (kanan judul "Siswa").
+- `openUangMasuk` / `llkUmRender` / `llkUangMasukList`: **hanya membaca** kuitansi yang sudah ada (`s.invoices` dengan `paidAt`, tanpa `voidAt`) — tidak ada data baru yang disimpan. Pembayaran yang dibatalkan (Batalkan Pembayaran) otomatis hilang dari daftar; invoice "Tagih" yang belum lunas tidak ikut.
+- Pilihan bulan: Semua Bulan + bulan ini + bulan yang ada datanya. Kotak ringkasan: total rupiah, jumlah transaksi & siswa. Tap baris → buka kuitansi (`openInvoice`).
+- Bulan Les: kuitansi bulanan pakai `inv.period`; Pembayaran Custom (tanpa period) dibagi per bulan dari tanggal pertemuan (`llkInvMonthSplit`, rupiah per bulan = jumlah pertemuan × tarif, total tetap sama) dan ditandai "(bagian {bulan})".
+- Batasan: riwayat mengikuti `INVOICE_MAX_STORED` (24 kuitansi terakhir per murid) dan murid yang dihapus tidak ikut.
 
 ## 💳 Paywall: teks beda untuk langganan yang sudah berakhir (19 Okt 2026)
 - Permintaan pemilik: akun yang **pernah berlangganan** lalu masanya habis tidak boleh lagi diberi tulisan "Trial 31 Hari Kamu Sudah Selesai".

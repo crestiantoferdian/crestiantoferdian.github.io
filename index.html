@@ -3113,6 +3113,8 @@ window.addEventListener('popstate',function(e){
   if(cpov){ cpov.remove(); window._cp=null; return; }
   const invov=document.getElementById('invoiceOverlay');
   if(invov){ invov.remove(); _currentInvoice=null; _currentInvoiceCanvas=null; _currentInvoiceCopy=null; return; }
+  const umov=document.getElementById('uangMasukOverlay');
+  if(umov){ umov.remove(); return; }
 
   // 0. Tutup popup "Kirim Progres/Sheet" jika terbuka (dibuat dinamis, bukan overlay tetap)
   const spop=document.getElementById('sheetPopup');
@@ -3255,6 +3257,7 @@ function render(){
   else if(currentTab==='links') renderLinks();
   else renderLainnya();
   updateMateriBadge();
+  if(document.getElementById('uangMasukOverlay')) llkUmRender(); // pembayaran dicatat/dibatalkan → daftar Uang Masuk ikut segar
   if(typeof updateStudentLimitUI==='function') updateStudentLimitUI(); // didefinisikan di blok script Firebase (dimuat belakangan)
 }
 
@@ -4824,6 +4827,123 @@ function undoInvoicePayment(){
   },300);
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// UANG MASUK (mode Bulanan) — daftar semua pembayaran yang dicatat lewat
+// "Sudah Bayar" / Pembayaran Custom. Hanya MEMBACA kuitansi yang sudah ada
+// (s.invoices dengan paidAt, tidak dibatalkan); tidak menyimpan data baru.
+// Filter: Tanggal Bayar (kapan tombol ditekan) atau Bulan Les (bulan yang dibayar).
+// ══════════════════════════════════════════════════════════════════════
+function llkMonthOfIso(iso){ const d=new Date(iso); return isNaN(d)?'':getMonthKey(d); }
+// Bagi 1 kuitansi ke bulan les yang dibayarnya → {bulan:{n, amount}}
+function llkInvMonthSplit(inv){
+  const items=inv.items||[], total=inv.total||0, out={};
+  if(inv.period){ out[inv.period]={n:items.length, amount:total}; return out; }
+  const rate=inv.rate||0;
+  let lastMk='';
+  items.forEach(x=>{ if(x.date) lastMk=x.date.slice(0,7); });
+  const fallback=lastMk||llkMonthOfIso(inv.paidAt);
+  items.forEach(x=>{ const mk=x.date?x.date.slice(0,7):fallback; (out[mk]=out[mk]||{n:0,amount:0}); out[mk].n++; out[mk].amount+=rate; });
+  const keys=Object.keys(out).sort();
+  if(!keys.length){ out[fallback]={n:0,amount:total}; return out; }
+  // Pastikan jumlahnya sama persis dengan total kuitansi
+  const sum=keys.reduce((a,k)=>a+out[k].amount,0);
+  out[keys[keys.length-1]].amount+=total-sum;
+  return out;
+}
+function llkUangMasukList(){
+  const list=[];
+  students.forEach(s=>{
+    (s.invoices||[]).forEach(inv=>{
+      if(!inv.paidAt||inv.voidAt) return;
+      list.push({s, inv, paidMk:llkMonthOfIso(inv.paidAt), split:llkInvMonthSplit(inv)});
+    });
+  });
+  list.sort((a,b)=>String(b.inv.paidAt).localeCompare(String(a.inv.paidAt)));
+  return list;
+}
+function openUangMasuk(){
+  if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
+  window._um=window._um||{by:'paid', month:getMonthKey(new Date())};
+  let el=document.getElementById('uangMasukOverlay');
+  if(el) el.remove();
+  el=document.createElement('div');
+  el.id='uangMasukOverlay';
+  el.style.cssText='position:fixed;inset:0;z-index:9980;background:rgba(43,36,32,0.42);display:flex;align-items:flex-end;justify-content:center';
+  el.addEventListener('click',e=>{ if(e.target===el) closeUangMasuk(); });
+  el.innerHTML=`
+    <div style="background:var(--card);border-radius:var(--r-xl) var(--r-xl) 0 0;width:100%;max-width:520px;height:94vh;max-height:94vh;display:flex;flex-direction:column;box-shadow:var(--shadow-float);animation:llkSheetUp var(--d3) var(--ease-out) both">
+      <div style="padding:12px 18px 0">
+        <div style="width:40px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 16px"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div style="min-width:0">
+            <div class="modal-title" style="margin:0">${llkI('wallet')}Uang Masuk</div>
+            <div style="font-size:0.84rem;color:var(--muted);margin-top:2px">Semua pembayaran yang ditandai Sudah Bayar</div>
+          </div>
+          <button onclick="closeUangMasuk()" class="llk-icon-btn sm" aria-label="Tutup" style="border-radius:50%">${llkI('x')}</button>
+        </div>
+        <div style="font-size:0.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin:14px 0 6px">Filter berdasarkan</div>
+        <div id="umBy" style="display:flex;gap:6px"></div>
+        <select id="umMonth" class="sort-select" style="width:100%;margin:10px 0 12px" aria-label="Pilih bulan" onchange="window._um.month=this.value;llkUmRender()"></select>
+      </div>
+      <div id="umSum" style="padding:0 18px 12px"></div>
+      <div id="umList" style="flex:1;overflow-y:auto;padding:0 18px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--border2)"></div>
+    </div>`;
+  document.body.appendChild(el);
+  history.pushState({tab:currentTab, view:'modal'},'');
+  llkUmRender();
+}
+function closeUangMasuk(){
+  const el=document.getElementById('uangMasukOverlay');
+  if(el){ el.remove(); if(history.state&&history.state.view==='modal'){ window._llkSkipPop=true; history.back(); } }
+}
+function llkUmSetBy(by){ window._um.by=by; llkUmRender(); }
+function llkUmRender(){
+  const um=window._um; if(!um||!document.getElementById('uangMasukOverlay')) return;
+  const all=llkUangMasukList();
+  const byPaid=um.by==='paid';
+  document.getElementById('umBy').innerHTML=[['paid','Tanggal Bayar'],['les','Bulan Les']].map(b=>
+    '<button class="llk-cp-chip'+(um.by===b[0]?' on':'')+'" style="flex:1;justify-content:center" aria-pressed="'+(um.by===b[0])+'" onclick="llkUmSetBy(\''+b[0]+'\')">'+b[1]+'</button>').join('');
+  // Pilihan bulan: bulan ini + semua bulan yang ada datanya (terbaru di atas)
+  const months={}; months[getMonthKey(new Date())]=1;
+  all.forEach(r=>{ if(byPaid){ if(r.paidMk) months[r.paidMk]=1; } else Object.keys(r.split).forEach(k=>{ if(k) months[k]=1; }); });
+  if(um.month!=='all') months[um.month]=1;
+  const mkeys=Object.keys(months).sort().reverse();
+  document.getElementById('umMonth').innerHTML='<option value="all"'+(um.month==='all'?' selected':'')+'>Semua Bulan</option>'
+    +mkeys.map(k=>'<option value="'+k+'"'+(um.month===k?' selected':'')+'>'+escapeHtml(monthKeyToLabel(k))+'</option>').join('');
+  // Baris sesuai filter; mode Bulan Les memakai bagian rupiah untuk bulan itu saja
+  const rows=[];
+  all.forEach(r=>{
+    const lesKeys=Object.keys(r.split).sort();
+    if(byPaid){ if(um.month==='all'||r.paidMk===um.month) rows.push({r, amount:r.inv.total||0, n:(r.inv.items||[]).length, lesKeys}); }
+    else if(um.month==='all') rows.push({r, amount:r.inv.total||0, n:(r.inv.items||[]).length, lesKeys});
+    else if(r.split[um.month]) rows.push({r, amount:r.split[um.month].amount, n:r.split[um.month].n, lesKeys, part:lesKeys.length>1});
+  });
+  const total=rows.reduce((a,x)=>a+x.amount,0);
+  const people=new Set(rows.map(x=>x.r.s.name)).size;
+  const label=um.month==='all'?'semua bulan':monthKeyToLabel(um.month);
+  document.getElementById('umSum').innerHTML='<div style="background:var(--hadir-bg,var(--bg));border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">'
+    +'<div style="font-size:0.78rem;font-weight:600;color:var(--muted)">Total '+(byPaid?'dibayar':'untuk les')+' '+escapeHtml(label)+'</div>'
+    +'<div style="font-family:var(--font-display);font-size:1.6rem;font-weight:600;color:var(--hadir);font-variant-numeric:lining-nums">'+escapeHtml(formatRupiah(total))+'</div>'
+    +'<div style="font-size:0.78rem;color:var(--text2)">'+rows.length+' transaksi · '+people+' siswa</div></div>';
+  const lesTxt=keys=>keys.length?keys.map(k=>monthKeyToLabel(k)).join(', '):'-';
+  const paidTxt=iso=>{ const d=new Date(iso); return fmtInvDate(dateKeyOfDate(d))+' · '+pad(d.getHours())+':'+pad(d.getMinutes()); };
+  let html='';
+  if(!rows.length) html='<div class="empty">'+llkIll('calendar')+'<div class="empty-t">Belum ada uang masuk</div><div class="empty-d">'+(byPaid?'Belum ada pembayaran yang ditandai Sudah Bayar di '+escapeHtml(label)+'.':'Belum ada pembayaran untuk les '+escapeHtml(label)+'.')+'</div></div>';
+  rows.forEach(x=>{
+    const inv=x.r.inv, s=x.r.s;
+    html+='<button onclick="openInvoice(\''+jsAttr(s.name)+'\',\''+jsAttr(inv.no)+'\')" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border2);padding:12px 0;font:inherit;color:inherit;cursor:pointer">'
+      +'<span style="min-width:0;flex:1">'
+      +'<span style="display:block;font-weight:700;font-size:0.95rem">'+escapeHtml(s.name)+'</span>'
+      +'<span style="display:block;font-size:0.8rem;color:var(--text2);margin-top:2px">'+llkI('check-circle')+' Bayar '+escapeHtml(paidTxt(inv.paidAt))+'</span>'
+      +'<span style="display:block;font-size:0.8rem;color:var(--muted);margin-top:1px">'+llkI('calendar')+' Les '+escapeHtml(lesTxt(x.lesKeys))+(x.n?' · '+x.n+'x':'')+(x.part?' (bagian '+escapeHtml(monthKeyToLabel(um.month))+')':'')+'</span>'
+      +'</span>'
+      +'<span style="font-weight:700;color:var(--hadir);white-space:nowrap;font-variant-numeric:lining-nums">'+escapeHtml(formatRupiah(x.amount))+'</span>'
+      +llkI('chevron-right')
+      +'</button>';
+  });
+  document.getElementById('umList').innerHTML=html;
+}
+
 // Riwayat invoice untuk halaman profil murid (5 terakhir + "Lihat semua")
 function invoiceHistoryHtml(s){
   const all=(s.invoices||[]).slice().reverse();
@@ -5438,9 +5558,13 @@ function renderSiswa(){
 
   function cardHtml(s,total,cycle,isDue){ return siswaCardHtml(s,total,cycle,isDue); }
 
-  let html='<div class="page-title-area">';
+  let html='<div class="page-title-area" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">';
+  html+='<div style="min-width:0">';
   html+='<div class="page-title">Siswa</div>';
   html+='<div class="page-sub">'+activeFiltered.length+' siswa aktif'+(inactiveList.length?' · '+inactiveList.length+' nonaktif':'')+(paymentMode==='off'?'':' · '+totalNeedPay+' perlu bayar')+'</div>';
+  html+='</div>';
+  // Uang Masuk: hanya di mode pembayaran Bulanan
+  if(paymentMode==='monthly') html+='<button onclick="openUangMasuk()" class="llk-btn outline-success sm" style="flex-shrink:0;margin-top:6px">'+llkI('wallet')+' Uang Masuk</button>';
   html+='</div>';
   html+='<div style="padding:10px 20px 24px">';
   html+='<div class="track-controls" style="margin-bottom:16px">';
