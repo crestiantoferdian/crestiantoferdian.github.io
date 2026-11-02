@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 2 Nov 2026 (V1: tombol Uang Masuk)_
+_Terakhir diperbarui: 2 Nov 2026 (V1: Uang Masuk + sudah/belum bayar per bulan)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -14,6 +14,8 @@ _Terakhir diperbarui: 2 Nov 2026 (V1: tombol Uang Masuk)_
 - `openUangMasuk` / `llkUmRender` / `llkUangMasukList`: **hanya membaca** kuitansi yang sudah ada (`s.invoices` dengan `paidAt`, tanpa `voidAt`) — tidak ada data baru yang disimpan. Pembayaran yang dibatalkan (Batalkan Pembayaran) otomatis hilang dari daftar; invoice "Tagih" yang belum lunas tidak ikut.
 - Pilihan bulan: Semua Bulan + bulan ini + bulan yang ada datanya. Kotak ringkasan: total rupiah, jumlah transaksi & siswa. Tap baris → buka kuitansi (`openInvoice`).
 - Bulan Les: kuitansi bulanan pakai `inv.period`; Pembayaran Custom (tanpa period) dibagi per bulan dari tanggal pertemuan (`llkInvMonthSplit`, rupiah per bulan = jumlah pertemuan × tarif, total tetap sama) dan ditandai "(bagian {bulan})".
+- **Lanjutan (2 Nov 2026, masukan pemilik):** ortu bayar dari ±3 hari sebelum akhir bulan sampai awal bulan berikutnya (30 Okt, 1 Nov, 5 Nov…), jadi pemilik perlu tahu siapa yang **belum bayar bulan Oktober** walau sudah November. Sekarang lembar dibuka langsung di **Bulan Les = bulan yang sedang ditagih** (`getBillingMonthKey()`: awal Nov → Oktober). Di Bulan Les + 1 bulan tampil kotak **Sudah bayar X dari Y siswa · Belum bayar Z siswa (± Rp sisa)** dan daftar **Belum bayar** (nama, jumlah/sisa pertemuan, rupiah; tap → profil murid), lalu daftar uang masuk.
+- `llkMonthPayStatus(mk)`: memakai status bayar murid (`monthlyPaidThru` ≥ bulan → lunas; selain itu `llkMonthlyUnpaidCount` di atas `paidThruDate`), bukan kuitansi — jadi pembayaran hasil impor/Custom ikut benar. Siswa dihitung kalau punya pertemuan Hadir/Alpa di bulan itu (+ jadwal sisa bulan untuk bulan berjalan/depan, kecuali nonaktif); murid nonaktif yang masih punya tunggakan tetap tampil "(nonaktif)". Tetap hanya membaca data.
 - Batasan: riwayat mengikuti `INVOICE_MAX_STORED` (24 kuitansi terakhir per murid) dan murid yang dihapus tidak ikut.
 
 ## 💳 Paywall: teks beda untuk langganan yang sudah berakhir (19 Okt 2026)
