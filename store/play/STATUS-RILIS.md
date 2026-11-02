@@ -1,4 +1,4 @@
-# Status Rilis Google Play — LesLesanKu (per 19 Okt 2026)
+# Status Rilis Google Play — LesLesanKu (per 3 Nov 2026)
 
 Ringkasan untuk melanjutkan di chat baru. Panduan langkah lengkap: `store/play/PANDUAN-RILIS.md`.
 Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
@@ -35,6 +35,9 @@ Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
    - **Pengiriman 2 dan 3** (19 Okt 11.38 & 20.30) juga berstatus **Diterbitkan**, jadi kedua grup aktif. Email masukan: `fertunestudio@gmail.com` (tanpa titik di belakang).
 7. **Dasbor (19 Okt)**: "9 penguji saat ini ikut serta" dari target ≥12. Yang dihitung hanya yang sudah menekan "Jadi penguji" lewat link, bukan jumlah anggota grup. Orang nyata di grup pemilik baru ±6, jadi **cari ±6 orang dewasa lagi** supaya syarat terpenuhi tanpa mengandalkan layanan berbayar.
 
+8. **Pengujian 14 hari selesai** (±3 Nov 2026): Dasbor menampilkan 12 penguji ikut serta (26 Okt: "6 hari secara terus-menerus"), lalu ketiga syarat tercentang dan tombol **Ajukan permohonan untuk produksi** aktif. Statistik 26 Okt: 26 perangkat memasang, 18 membuka/aktif.
+9. **Permohonan akses Produksi DIAJUKAN** (3 Nov 2026, 00.14 menurut Console). Status: *"Kami sedang meninjau formulir permohonan Anda… biasanya 7 hari atau kurang, terkadang lebih lama"*; hasil dikirim ke email pemilik akun. Formulir 3 halaman (tiap kolom teks maks 300 karakter): (1) tentang pengujian — cara merekrut penguji (**ditanya langsung: teman/keluarga atau penyedia berbayar** → dijawab jujur, termasuk layanan berbayar), kemudahan merekrut, engagement, ringkasan masukan; (2) tentang aplikasi — target audiens guru les dewasa, nilai bagi pengguna, perkiraan instalasi tahun pertama "0–10 ribu"; (3) kesiapan produksi — perubahan dari hasil pengujian (teks paywall langganan berakhir, Midtrans disembunyikan di Play, bilah alamat dihilangkan, menu LLK Lembaga disembunyikan di Play, rincian "Uang Masuk" bulanan siapa sudah/belum bayar [PR #158/#159]) dan alasan siap produksi. Tombol kirim terakhir bernama **Terapkan**.
+
 ### Pelajaran dari proses ini (supaya tidak terulang)
 - Membuat rilis tertutup: **jangan klik Upload** untuk AAB yang sama → muncul "Kode versi 1 sudah digunakan". Pakai **Tambahkan dari koleksi** lalu pilih versi 1.
 - Ringkasan publikasi sempat memblokir pengiriman: **"Pernyataan ID iklan tidak lengkap"** → Konten aplikasi → ID Iklan → **Tidak** → Simpan, baru tombol "Kirim … perubahan untuk ditinjau" bisa dipakai.
@@ -46,10 +49,11 @@ Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
 - Akun Google anak (Family Link/terawasi) sering tidak bisa dipakai sebagai anggota grup atau penguji; pakai akun orang tua di HP Android orang tua. Aplikasi target usia 18+.
 
 ## ⏭️ Langkah berikutnya (urut)
-1. Tab Penguji → **Mengikuti di Android → Salin link** (link yang sama untuk semua orang; "Mengikuti di web" bukan yang dipakai HP Android). Pastikan semua orang sudah jadi anggota grup dengan **Gmail yang sama** dengan yang akan dipakai di HP.
-2. **Uji satu orang dulu** (link bisa berjeda beberapa jam setelah publikasi; "Item tidak ditemukan" → coba lagi besok), lalu kirim lewat WA ke semua penguji: buka di HP Android dengan Gmail terdaftar → "Jadi penguji" → pasang dari Play Store → buka sesekali, **jangan keluar & jangan hapus aplikasi selama 14 hari**.
-3. Pantau Dasbor: "penguji saat ini ikut serta" harus ≥12. Hitungan 14 hari dianggap mulai ketika ≥12 sudah ikut serta (belum dipastikan; anggap begitu supaya aman). Tambah penguji kalau ada yang keluar.
-4. Setelah 12 penguji × 14 hari: Dasbor → **Ajukan permohonan untuk produksi** (jawab jujur kuesioner pengujian) → rilis produksi bertahap.
+1. **Tunggu hasil review Produksi** (≤7 hari, kadang lebih) lewat email pemilik akun (cek folder Spam). Jangan klik tautan di email: buka Play Console langsung. **Selama menunggu, jangan keluarkan penguji, jangan ubah/hapus grup penguji**, dan jangan mengubah pengujian tertutup tanpa perlu.
+2. **Kalau disetujui:** Produksi → **Buat rilis baru** → **Tambahkan dari koleksi** (jangan Upload ulang), catatan rilis `<id>…</id>`, Simpan → Tinjau → peluncuran bertahap (mis. 20% → 100%) → **Ringkasan publikasi → Kirim perubahan untuk ditinjau**.
+3. **Kalau ditolak:** baca alasannya di email/Console, perbaiki, ajukan ulang. Jangan menambah/menutupi apa pun; jawab jujur.
+4. **Pernyataan trader status** (pengumuman Google 30 Okt 2026, mulai November): isi sesuai kenyataan saat Console meminta; pakai email kontak publik, bukan Gmail pribadi. Alamat `llk@leslesanku.com` lewat Cloudflare Email Routing masih rencana (cek DNS dulu: Resend sudah memakai domain, jangan sampai ada 2 record SPF).
+5. **Setelah tayang:** kerjakan Google Play Billing (bagian di bawah) selama 31 hari trial pengguna baru; sebelum itu pengguna Play yang trialnya habis hanya melihat tombol beli "Segera hadir".
 
 ## Setelah itu: Google Play Billing (dikerjakan bersama Claude)
 - Pemilik: payments profile + buat 3 langganan `llk_basic`, `llk_up`, `llk_unlimited` (base plan bulanan/tahunan), aktifkan Play Developer API + service account.

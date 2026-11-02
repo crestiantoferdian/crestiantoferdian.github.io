@@ -23,6 +23,10 @@ _Terakhir diperbarui: 2 Nov 2026 (V1: Uang Masuk + sudah/belum bayar per bulan)_
 - `applySubscriptionDoc` mengisi `_subWasPaid` (`!subActive && subscriptionEndsAt>0`), `showPaywall` memilih teks: **trial ditolak** → "Trial Gratis Sudah Pernah Dipakai"; **pernah berlangganan** → "Langganan Pro Kamu Sudah Berakhir" + "Terima kasih sudah berlangganan… Perpanjang supaya…"; **selain itu** → teks trial lama. Hanya teks layar paywall; logika akses/langganan/data tidak berubah. Teruji 6 kasus (trial habis, langganan habis, trial ditolak, langganan aktif, trial jalan, tester).
 - Catatan: `status:"active"` di Firestore tidak otomatis berubah saat `subscriptionEndsAt` lewat; aplikasi mengecek keduanya, jadi akun seperti itu kena paywall (benar). Akun keluarga/tester dibuka lewat kolom `isTester:true` (boolean) di `subscriptions/{uid}` lewat Firebase Console.
 
+## 🏪 Play Console: permohonan Produksi diajukan (3 Nov 2026)
+- Pengujian tertutup 14 hari dengan ≥12 penguji **selesai**; **permohonan akses Produksi sudah diajukan** (3 Nov 2026, 00.14). Google biasanya menjawab ≤7 hari lewat email pemilik akun. Jawaban formulir (jujur, termasuk penyedia penguji berbayar) dan langkah setelahnya: **`store/play/STATUS-RILIS.md`**.
+- Berikutnya: tunggu review → (disetujui) buat rilis Produksi bertahap dari bundle yang sama → kerjakan Google Play Billing + build PWABuilder versi 2 (ikon opsi A) → pernyataan trader status (November).
+
 ## 🏪 Play Console: pengujian tertutup berjalan (19 Okt 2026)
 - Status lengkap & langkah berikutnya: **`store/play/STATUS-RILIS.md`** (sumber utama; jangan tulis email penguji/kata sandi di repo publik).
 - Akun **FerTune Studio** (pribadi) terverifikasi 14 Okt. Rilis **1 (1.0.0.0)** ada di **Pengujian tertutup - Alpha**; **Pengiriman 1** (14 perubahan: rilis, listing, konten aplikasi, kategori Pendidikan) berstatus **Diterbitkan** sejak 17 Okt 2026, 11.43.
