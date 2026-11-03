@@ -5,6 +5,13 @@ const { PLANS, resolvePlan, nextSubscription, priceFor, purchaseHistory, trialKe
 const OP = require('./orgPlans');
 const N = require('./notify');
 const R = require('./reminders');
+const FC = require('./fercash');
+const { defineSecret } = require('firebase-functions/params');
+
+// Kunci rahasia Fercash (aplikasi keuangan pemilik). Disimpan di Firebase Secret Manager,
+// BUKAN di kode / .env:  firebase functions:secrets:set FERCASH_SECRET
+// Wajib didaftarkan (runWith secrets) di setiap fungsi yang bisa mengaktifkan order Midtrans.
+const FERCASH_SECRET = defineSecret('FERCASH_SECRET');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -57,6 +64,21 @@ async function sendInvoiceEmail({ toEmail, orderId, plan, label, grossAmount, pa
     N.sendEmail({ to: toEmail, subject: mail.subject, html: mail.html }),
     N.sendTelegram(N.tgPaid({ v2, orderId, email: toEmail, label: planLabel, amount: grossAmount, orgName, activeUntilMs: subscriptionEndsMs, env })),
   ]);
+}
+
+/**
+ * Catat pemasukan ke Fercash (lihat fercash.js). Hanya Midtrans PRODUCTION; tidak pernah
+ * menggagalkan aktivasi (kesalahan cukup masuk log).
+ *
+ * ⚠️ HANYA untuk pembayaran MIDTRANS. Saat Google Play Billing dibuat nanti, JANGAN panggil
+ * fungsi ini untuk pembelian Play: Fercash mencatat pendapatan Play dari laporan bulanan
+ * Google Play, jadi kalau dikirim juga akan tercatat dua kali.
+ */
+async function catatDiFercash({ orderId, plan, label, grossAmount, v2, env }) {
+  let secret = '';
+  try { secret = FERCASH_SECRET.value(); } catch (e) { secret = ''; }
+  const paket = label || (v2 ? '' : ((resolvePlan(plan) || {}).label || plan));
+  return FC.kirimPemasukan({ orderId, grossAmount, label: paket, v2, env }, { secret });
 }
 
 /**
@@ -357,10 +379,16 @@ async function activateOrgOrder(orderId) {
     return { activated: true, order, paidAtMs: now, subscriptionEndsMs: next.activeUntilMs, orgName: o.name || '' };
   });
   if (result.activated) {
-    await sendInvoiceEmail({
-      toEmail: result.order.email, orderId, label: result.order.label, grossAmount: result.order.grossAmount,
-      paidAtMs: result.paidAtMs, subscriptionEndsMs: result.subscriptionEndsMs, orgName: result.orgName, v2: true, env: midtransCfg(result.order).env,
-    });
+    const env = midtransCfg(result.order).env;
+    const label = result.order.label || OP.orderLabel(result.order);
+    await Promise.all([
+      sendInvoiceEmail({
+        toEmail: result.order.email, orderId, label: result.order.label, grossAmount: result.order.grossAmount,
+        paidAtMs: result.paidAtMs, subscriptionEndsMs: result.subscriptionEndsMs, orgName: result.orgName, v2: true, env,
+      }),
+      // Pemasukan Midtrans (LLK Lembaga) → Fercash, hanya production
+      catatDiFercash({ orderId, label, grossAmount: result.order.grossAmount, v2: true, env }),
+    ]);
   }
   return result;
 }
@@ -424,16 +452,21 @@ async function activateOrder(orderId) {
         console.warn('Tidak bisa ambil email user untuk invoice:', order.uid);
       }
     }
-    await sendInvoiceEmail({
-      toEmail,
-      orderId,
-      plan: order.plan,
-      label: order.label,
-      grossAmount: order.grossAmount,
-      paidAtMs: result.paidAtMs,
-      subscriptionEndsMs: result.subscriptionEndsMs,
-      env: midtransCfg(order).env,
-    });
+    const env = midtransCfg(order).env;
+    await Promise.all([
+      sendInvoiceEmail({
+        toEmail,
+        orderId,
+        plan: order.plan,
+        label: order.label,
+        grossAmount: order.grossAmount,
+        paidAtMs: result.paidAtMs,
+        subscriptionEndsMs: result.subscriptionEndsMs,
+        env,
+      }),
+      // Pemasukan Midtrans (LLK V1) → Fercash, hanya production
+      catatDiFercash({ orderId, plan: order.plan, label: order.label, grossAmount: order.grossAmount, v2: false, env }),
+    ]);
   }
   return result;
 }
@@ -443,7 +476,7 @@ async function activateOrder(orderId) {
  *    Ini yang benar-benar mengaktifkan/memperpanjang langganan setelah pembayaran sukses,
  *    DAN mengirim email invoice ke pembeli.
  */
-exports.midtransWebhook = functions.https.onRequest(async (req, res) => {
+exports.midtransWebhook = functions.runWith({ secrets: [FERCASH_SECRET] }).https.onRequest(async (req, res) => {
   try {
     const { order_id, status_code, gross_amount, signature_key, transaction_status, fraud_status } = req.body;
 
@@ -512,7 +545,7 @@ exports.getMySubscriptionHistory = functions.https.onCall(async (data, context) 
   return purchaseHistory(orders, Date.now());
 });
 
-exports.checkMidtransPayment = functions.https.onCall(async (data, context) => {
+exports.checkMidtransPayment = functions.runWith({ secrets: [FERCASH_SECRET] }).https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Harus login dulu.');
   }

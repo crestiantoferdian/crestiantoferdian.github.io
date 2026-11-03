@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 2 Nov 2026 (V1: Uang Masuk + sudah/belum bayar per bulan)_
+_Terakhir diperbarui: 3 Nov 2026 (Pembayaran Midtrans → Fercash)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,14 @@ _Terakhir diperbarui: 2 Nov 2026 (V1: Uang Masuk + sudah/belum bayar per bulan)_
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 🧮 Pembayaran Midtrans → Fercash (3 Nov 2026)
+- Setiap pembayaran **Midtrans PRODUCTION** yang berhasil (LLK V1 `LLK-…` → `produk:"v1"`, LLK Lembaga `LLKO-…` → `produk:"lembaga"`) otomatis dikirim sebagai pemasukan ke Fercash (`functions/fercash.js`, URL Supabase `fercash-terima-pemasukan`). Dipanggil di `activateOrder` / `activateOrgOrder` (titik yang sama dengan Telegram "💰 Pembayaran berhasil"), hanya sekali per order (saat order baru berubah jadi `paid`). Sandbox, trial, pengguna/lembaga baru, pengingat: tidak dikirim.
+- Kunci di **Firebase Secret Manager** `FERCASH_SECRET` (`defineSecret`, didaftarkan di `midtransWebhook` & `checkMidtransPayment`), sama dengan `FERCASH_LLK_SECRET` di Supabase. Pasang: `firebase functions:secrets:set FERCASH_SECRET` **sebelum** `firebase deploy --only functions`.
+- Tidak bisa menggagalkan aktivasi: try/catch, batas 10 dtk, gagal cukup di log ("Fercash menolak…"/"Gagal kirim ke Fercash…"). Tidak dikirim ulang otomatis; Fercash aman menerima kiriman ulang manual (orderId sama tercatat sekali).
+- ⚠️ **Google Play Billing (nanti) JANGAN dikirim ke Fercash**: Fercash mencatatnya dari laporan bulanan Google Play (kalau dikirim juga = dobel). Komentar pengingat ada di `fercash.js` & `catatDiFercash` (`index.js`).
+- Belum: refund Midtrans belum dikirim sebagai `status:"refund"` (webhook belum menangani refund).
+- Uji: `functions/test` 10 uji baru (total 52 lolos).
 
 ## 💰 V1: tombol "Uang Masuk" di halaman Siswa (2 Nov 2026)
 - Permintaan pemilik: daftar semua transaksi yang ditandai **Sudah Bayar**, dengan filter **Tanggal Bayar** (kapan tombol ditekan) dan **Bulan Les** (bulan yang dibayar). Tombol hanya muncul di mode pembayaran **Bulanan** (kanan judul "Siswa").
