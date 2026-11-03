@@ -9300,8 +9300,10 @@ function doSave(){
       s.initialSessions=prev.initialSessions||0;
     }
   }
-  // Pertemuan awal ditandai di tanggal sebelum "Mulai Les" → mundurkan tanggal mulai supaya tetap konsisten
-  if(s.startDate&&s.initialDates&&s.initialDates.length){
+  // Pertemuan awal BARU ditandai (di simpan ini) di tanggal sebelum "Mulai Les" → mundurkan tanggal mulai
+  // supaya tetap konsisten. Hanya saat Pertemuan Awal diisi/diubah: kalau tidak, tanggal mulai yang diketik
+  // guru (mis. murid lama yang ganti jadwal) selalu tertimpa kembali ke tanggal pertemuan awal lama.
+  if(initMarked>0&&s.startDate&&s.initialDates&&s.initialDates.length){
     const firstInit=s.initialDates.slice().sort()[0];
     if(firstInit<s.startDate) s.startDate=firstInit;
   }
