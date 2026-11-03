@@ -83,6 +83,8 @@ Module._load = function (req, ...rest) {
   if (req === 'firebase-functions/v1') return fakeFunctions;
   if (req === 'firebase-admin') return fakeAdmin;
   if (req === 'nodemailer') return { createTransport: () => ({ sendMail: async () => {} }) };
+  // Secret Manager tiruan: nilai diambil dari process.env (seperti di server)
+  if (req === 'firebase-functions/params') return { defineSecret: (name) => ({ name, value: () => process.env[name] || '' }) };
   return origLoad.call(this, req, ...rest);
 };
 const fns = require('../index.js');
@@ -595,3 +597,153 @@ test('reportSignupSource: hanya akun baru, sekali, sumber dikenal', async () => 
     assert.ok(!store.has('signupSource/a'));
   } finally { fakeAdmin.auth = prev; }
 });
+
+// ── Fercash: pemasukan Midtrans production → aplikasi keuangan pemilik ──
+const FC = require('../fercash.js');
+const FC_URL = FC.FERCASH_URL;
+// Muat ulang index.js dengan Midtrans PRODUCTION (pengaturan dibaca saat file dimuat)
+function loadProdFns() {
+  const keep = { p1: process.env.MIDTRANS_IS_PRODUCTION, p2: process.env.MIDTRANS_V2_IS_PRODUCTION };
+  process.env.MIDTRANS_IS_PRODUCTION = 'true';
+  process.env.MIDTRANS_V2_IS_PRODUCTION = 'true';
+  delete require.cache[require.resolve('../index.js')];
+  try { return require('../index.js'); } finally {
+    if (keep.p1 === undefined) delete process.env.MIDTRANS_IS_PRODUCTION; else process.env.MIDTRANS_IS_PRODUCTION = keep.p1;
+    if (keep.p2 === undefined) delete process.env.MIDTRANS_V2_IS_PRODUCTION; else process.env.MIDTRANS_V2_IS_PRODUCTION = keep.p2;
+    delete require.cache[require.resolve('../index.js')];
+  }
+}
+// Tangkap kiriman ke Fercash; `jawab` menentukan balasan Fercash
+function captureFercash(jawab = async () => ({ ok: true, status: 200, text: async () => '{"ok":true}' }), midtrans) {
+  const sent = [];
+  global.fetch = async (url, opts) => {
+    if (url === FC_URL) { sent.push({ headers: opts.headers, body: JSON.parse(opts.body), signal: opts.signal }); return jawab(); }
+    if (midtrans) return midtrans(url, opts);
+    return { ok: true, status: 200, json: async () => ({}), text: async () => '' };
+  };
+  return sent;
+}
+function withFercashSecret(fn) {
+  return async () => {
+    process.env.FERCASH_SECRET = 'KUNCI-FERCASH-UJI';
+    try { await fn(); } finally { delete process.env.FERCASH_SECRET; }
+  };
+}
+
+test('Fercash: isi kiriman sesuai format (v1 / lembaga, nominal bulat)', () => {
+  assert.deepStrictEqual(FC.fercashBody({ orderId: 'LLK-JNDcAcPj-1791653684277', grossAmount: 75000, label: 'Pro Up Bulanan', v2: false, env: 'production' }),
+    { orderId: 'LLK-JNDcAcPj-1791653684277', nominal: 75000, produk: 'v1', paket: 'Pro Up Bulanan', env: 'production', status: 'paid' });
+  const b = FC.fercashBody({ orderId: 'LLKO-org1-1', grossAmount: '300000.00', label: 'Langganan', v2: true, env: 'production' });
+  assert.strictEqual(b.produk, 'lembaga');
+  assert.strictEqual(b.nominal, 300000);
+});
+
+test('Fercash: sandbox atau kunci kosong → tidak dikirim', async () => {
+  const sent = captureFercash();
+  assert.deepStrictEqual(await FC.kirimPemasukan({ orderId: 'X', grossAmount: 1, env: 'sandbox' }, { secret: 'k' }), { skipped: 'bukan-production' });
+  assert.deepStrictEqual(await FC.kirimPemasukan({ orderId: 'X', grossAmount: 1, env: 'production' }, { secret: '' }), { skipped: 'no-secret' });
+  assert.strictEqual(sent.length, 0);
+});
+
+test('Fercash: kunci dikirim di header, batas waktu dipasang, gagal/putus tidak melempar error', async () => {
+  let sent = captureFercash();
+  assert.deepStrictEqual(await FC.kirimPemasukan({ orderId: 'A', grossAmount: 75000, label: 'P', env: 'production' }, { secret: 'RAHASIA' }), { ok: true });
+  assert.strictEqual(sent[0].headers['x-fercash-secret'], 'RAHASIA');
+  assert.strictEqual(sent[0].headers['Content-Type'], 'application/json');
+  assert.ok(sent[0].signal, 'harus ada batas waktu (AbortSignal)');
+  assert.strictEqual(FC.TIMEOUT_MS, 10000);
+  sent = captureFercash(async () => ({ ok: false, status: 500, text: async () => 'error RAHASIA' }));
+  assert.deepStrictEqual(await FC.kirimPemasukan({ orderId: 'A', grossAmount: 1, env: 'production' }, { secret: 'RAHASIA' }), { error: 500 });
+  global.fetch = async () => { throw new Error('The operation was aborted due to timeout'); };
+  assert.deepStrictEqual(await FC.kirimPemasukan({ orderId: 'A', grossAmount: 1, env: 'production' }, { secret: 'RAHASIA' }), { error: true });
+});
+
+test('Fercash: pembayaran SANDBOX (V1) aktif tapi TIDAK dikirim ke Fercash', withFercashSecret(async () => {
+  store.clear();
+  store.set('orders/S1', { uid: 'u1', plan: 'up_monthly', grossAmount: 75000, status: 'pending' });
+  const sent = captureFercash();
+  const res = fakeRes();
+  await fns.midtransWebhook(webhookReq('S1', 75000), res);
+  assert.strictEqual(res.code, 200);
+  assert.strictEqual(store.get('subscriptions/u1').status, 'active');
+  assert.strictEqual(sent.length, 0);
+}));
+
+test('Fercash: pembayaran PRODUCTION V1 lewat webhook → tercatat sekali, isi benar', withFercashSecret(async () => {
+  const pf = loadProdFns();
+  store.clear();
+  store.set('orders/LLK-JNDcAcPj-1', { uid: 'u1', plan: 'up_monthly', grossAmount: 75000, status: 'pending' });
+  const sent = captureFercash();
+  const res = fakeRes();
+  await pf.midtransWebhook(webhookReq('LLK-JNDcAcPj-1', 75000), res);
+  await pf.midtransWebhook(webhookReq('LLK-JNDcAcPj-1', 75000), fakeRes()); // notifikasi ganda dari Midtrans
+  assert.strictEqual(res.code, 200);
+  assert.strictEqual(sent.length, 1, 'satu order hanya dikirim sekali');
+  assert.deepStrictEqual(sent[0].body, { orderId: 'LLK-JNDcAcPj-1', nominal: 75000, produk: 'v1', paket: 'Pro Up Bulanan', env: 'production', status: 'paid' });
+  assert.strictEqual(sent[0].headers['x-fercash-secret'], 'KUNCI-FERCASH-UJI');
+}));
+
+test('Fercash: status belum lunas / kedaluwarsa / signature salah → tidak dikirim', withFercashSecret(async () => {
+  const pf = loadProdFns();
+  store.clear();
+  store.set('orders/P1', { uid: 'u1', plan: 'up_monthly', grossAmount: 75000, status: 'pending' });
+  const sent = captureFercash();
+  await pf.midtransWebhook(webhookReq('P1', 75000, 'pending'), fakeRes());
+  await pf.midtransWebhook(webhookReq('P1', 75000, 'expire'), fakeRes());
+  const bad = webhookReq('P1', 75000); bad.body.signature_key = 'palsu';
+  await pf.midtransWebhook(bad, fakeRes());
+  assert.strictEqual(sent.length, 0);
+}));
+
+test('Fercash: Fercash error 500 / putus → pembeli TETAP aktif, webhook tetap 200', withFercashSecret(async () => {
+  const pf = loadProdFns();
+  for (const jawab of [async () => ({ ok: false, status: 500, text: async () => 'down' }), async () => { throw new Error('ECONNRESET'); }]) {
+    store.clear();
+    store.set('orders/E1', { uid: 'u1', plan: 'basic_monthly', grossAmount: 35000, status: 'pending' });
+    const sent = captureFercash(jawab);
+    const res = fakeRes();
+    await pf.midtransWebhook(webhookReq('E1', 35000), res);
+    assert.strictEqual(sent.length, 1);
+    assert.strictEqual(res.code, 200);
+    assert.strictEqual(store.get('subscriptions/u1').status, 'active');
+    assert.strictEqual(store.get('orders/E1').status, 'paid');
+  }
+}));
+
+test('Fercash: kunci belum dipasang di Secret Manager → pembayaran tetap aktif, tidak dikirim', async () => {
+  const pf = loadProdFns();
+  store.clear();
+  store.set('orders/N1', { uid: 'u1', plan: 'up_monthly', grossAmount: 75000, status: 'pending' });
+  const sent = captureFercash();
+  const res = fakeRes();
+  await pf.midtransWebhook(webhookReq('N1', 75000), res);
+  assert.strictEqual(res.code, 200);
+  assert.strictEqual(store.get('subscriptions/u1').status, 'active');
+  assert.strictEqual(sent.length, 0);
+});
+
+test('Fercash: pembayaran PRODUCTION LLK Lembaga (cek status) → produk "lembaga", sekali saja', withFercashSecret(async () => {
+  const pf = loadProdFns();
+  seedOrg();
+  fakeSnap();
+  const r = await pf.createOrgTransaction({ orgId: 'org1', action: 'subscribe', extra: 1, period: 'monthly' }, asRani);
+  assert.ok(r.orderId.startsWith('LLKO-'));
+  const sent = captureFercash(undefined, async () => ({ ok: true, json: async () => ({ order_id: r.orderId, transaction_status: 'settlement', gross_amount: '300000.00' }) }));
+  await pf.checkMidtransPayment({}, asRani);
+  await pf.checkMidtransPayment({}, asRani);
+  assert.strictEqual(sent.length, 1);
+  assert.strictEqual(sent[0].body.produk, 'lembaga');
+  assert.strictEqual(sent[0].body.nominal, 300000);
+  assert.strictEqual(sent[0].body.env, 'production');
+  assert.strictEqual(sent[0].body.orderId, r.orderId);
+  assert.ok(sent[0].body.paket && sent[0].body.paket !== '-');
+}));
+
+test('Fercash: pengguna baru, trial, & lembaga baru TIDAK dikirim', withFercashSecret(async () => {
+  const pf = loadProdFns();
+  store.clear();
+  const sent = captureFercash();
+  await pf.onUserCreate({ uid: 'baruF', email: 'baru.f@gmail.com' });
+  await pf.onOrgCreate({ data: () => ({ name: 'Les F', ownerUid: 'rani', createdAt: ts(Date.now()) }) });
+  assert.strictEqual(sent.length, 0);
+}));
