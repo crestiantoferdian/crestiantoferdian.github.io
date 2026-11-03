@@ -1474,9 +1474,9 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
     </div>
     <!-- JADWAL RUTIN 1 - selalu tampil -->
     <div class="mfield" id="startDateWrap" style="margin-top:2px">
-      <label><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Mulai Les Tanggal</label>
+      <label><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Mulai Les Tanggal <span style="font-weight:500;color:var(--muted)">(efektif)</span></label>
       <input type="date" id="f_startDate"/>
-      <div class="llk-hint">Jadwal rutin murid ini baru muncul mulai tanggal ini — tanggal sebelumnya tidak ikut terjadwal. Kosongkan kalau murid sudah les sejak lama.</div>
+      <div class="llk-hint">Jadwal rutin murid ini baru muncul mulai tanggal ini — tanggal sebelumnya tidak ikut terjadwal. Kosongkan kalau murid sudah les sejak lama. Kalau jadwal rutin diganti, kamu akan ditanya jadwal baru berlaku mulai tanggal berapa.</div>
     </div>
     <div style="padding:14px 0 4px;border-top:1px dashed var(--border);margin-top:4px" id="tut-step-jadwal">
       <button type="button" onclick="toggleJadwal(1)" id="jadwal-header-1" class="llk-acc" style="background:var(--blue-bg);border-color:transparent">
@@ -1584,13 +1584,13 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
       <div class="mfield">
         <label>Pertemuan Awal</label>
         <input id="f_initial_sessions" type="number" min="0" placeholder="cth: 3" oninput="this.dataset.touched='1'"/>
-        <div class="llk-hint">Sesi sebelum pakai app (opsional) — otomatis ditandai Hadir di jadwal sebelum hari ini</div>
+        <div class="llk-hint">Pertemuan sebelum memakai aplikasi (opsional) — otomatis ditandai Hadir di jadwal sebelum hari ini</div>
       </div>
     </div>
     <div class="mfield" id="tut-step-sheet">
       <label><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg> Link Google Sheet Siswa</label>
       <input id="f_sheet_link" type="url" placeholder="https://docs.google.com/spreadsheets/..."/>
-      <div class="llk-hint">Link untuk orang tua monitor progress (opsional)</div>
+      <div class="llk-hint">Link untuk orang tua memantau progres (opsional)</div>
     </div>
 
     <!-- TAMBAHAN KELAS -->
@@ -1649,7 +1649,7 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
       </select>
     </div>
     <div class="mfield" id="notePhotoWrap">
-      <label><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg> Foto Progress <span style="font-weight:500;color:var(--muted)">(opsional, maks 6)</span></label>
+      <label><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg> Foto Progres <span style="font-weight:500;color:var(--muted)">(opsional, maks 6)</span></label>
       <div id="notePhotoPreviewGrid" style="display:none;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px"></div>
       <div id="notePhotoBtnRow" style="display:flex;gap:8px">
         <button type="button" id="notePhotoCameraBtn" onclick="document.getElementById('notePhotoCameraInput').click()" class="llk-btn info" style="flex:1"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg> Ambil Foto</button>
@@ -1680,7 +1680,7 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
       <textarea id="noteReason" rows="3" placeholder="Sakit, acara keluarga, dll..."></textarea>
     </div>
     <div class="mfield" id="noteProgressWrap">
-      <label><svg class="ico" aria-hidden="true"><use href="#i-note"/></svg> Catatan Progress / Materi Hari Ini</label>
+      <label><svg class="ico" aria-hidden="true"><use href="#i-note"/></svg> Catatan Progres / Materi Hari Ini</label>
       <textarea id="noteProgress" rows="4" placeholder="cth: Sudah sampai halaman 12, latihan tangga nada C mayor, PR: ulangi bar 5-8..."></textarea>
     </div>
     <div class="mfield" id="notePrSiswaWrap">
@@ -3450,7 +3450,7 @@ function renderAbsensi(){
   document.getElementById('mainContent').innerHTML=
     `<div class="page-title-area" style="position:relative">
         <button onclick="goToCalendar()" class="llk-icon-btn" aria-label="Buka kalender" title="Kalender" style="position:absolute;top:18px;right:20px">${llkI('calendar-day')}</button>
-        <div class="page-title">Absensi Harian</div><div class="page-sub">Tandai siswa yang hadir. Catat progress di setiap pertemuan.</div>
+        <div class="page-title">Absensi Harian</div><div class="page-sub">Tandai siswa yang hadir. Catat progres di setiap pertemuan.</div>
       </div>`+
     dayBarHtml()+
     `<div class="stats-row"${offC?' style="grid-template-columns:repeat(5,1fr)"':''}>
@@ -3546,6 +3546,37 @@ function llkScheduleAt(s, dateKey){
   const eff=Object.assign({},s);
   LLK_SCHED_FIELDS.forEach(k=>{ eff[k]=e[k]||''; });
   return eff;
+}
+// Ringkasan jadwal rutin untuk teks (mis. "Selasa 13:00 & Jumat 17:15")
+function llkSchedSummary(x){
+  return [[x.day,x.time],[x.day2,x.time2a||x.time],[x.day3,x.time3a||x.time],[x.day4,x.time4a||x.time]]
+    .filter(a=>a[0]).map(a=>a[0]+' '+(a[1]||'')).join(' & ')||'tanpa jadwal rutin';
+}
+/* Jadwal rutin diganti tapi Mulai Les Tanggal tidak diubah → tanya jadwal baru berlaku mulai kapan.
+   Jadwal lama tetap dipakai untuk tanggal sebelum tanggal itu (riwayat jadwal). */
+function llkAskScheduleEffective(oldS, newS){
+  let el=document.getElementById('llkSchedEffOv'); if(el) el.remove();
+  el=document.createElement('div'); el.id='llkSchedEffOv';
+  el.style.cssText='position:fixed;inset:0;z-index:10060;background:rgba(43,36,32,0.45);display:flex;align-items:center;justify-content:center;padding:18px;font-family:inherit';
+  el.innerHTML='<div style="background:var(--card);border-radius:var(--r-xl);max-width:380px;width:100%;padding:22px 20px 18px;box-shadow:var(--shadow-float)">'
+    +'<div class="llk-dialog-ic info">'+llkI('calendar')+'</div>'
+    +'<div style="font-family:var(--font-display);font-size:1.2rem;font-weight:600;text-align:center;color:var(--text);margin-bottom:8px">Siswa masuk di jadwal baru ini mulai tanggal berapa?</div>'
+    +'<div style="font-size:0.86rem;color:var(--text2);line-height:1.55;text-align:center;margin-bottom:12px">'
+      +'<div>Jadwal lama: <b>'+escapeHtml(llkSchedSummary(oldS))+'</b></div>'
+      +'<div>Jadwal baru: <b>'+escapeHtml(llkSchedSummary(newS))+'</b></div></div>'
+    +'<div class="mfield" style="margin-bottom:6px"><label>Jadwal baru berlaku mulai</label><input type="date" id="llkSchedEffInput" value="'+todayStr()+'"/></div>'
+    +'<div class="llk-hint" style="margin-bottom:14px">Sebelum tanggal ini, Absensi & Kalender tetap memakai jadwal lama.</div>'
+    +'<div class="mactions" style="margin-top:0"><button type="button" class="mbtn mbtn-cancel" id="llkSchedEffNo">Batal</button><button type="button" class="mbtn mbtn-save" id="llkSchedEffOk">'+llkI('check')+' Simpan</button></div>'
+    +'</div>';
+  document.body.appendChild(el);
+  el.querySelector('#llkSchedEffNo').onclick=function(){ el.remove(); };
+  el.querySelector('#llkSchedEffOk').onclick=function(){
+    const v=document.getElementById('llkSchedEffInput').value;
+    if(!v){ toast('Pilih tanggal dulu'); return; }
+    el.remove();
+    window._llkSchedEffDate=v;
+    try{ doSave(); } finally { window._llkSchedEffDate=null; }
+  };
 }
 function getStudentsForDay(dayName, dateKey, includeInactive){
   const result=[];
@@ -9261,11 +9292,17 @@ function doSave(){
     // Riwayat jadwal: hari/jam rutin diganti → jadwal lama tetap berlaku untuk tanggal sebelum hari ini
     s.schedHistory=(old.schedHistory||[]).slice();
     const schedChanged=LLK_SCHED_FIELDS.some(k=>(old[k]||'')!==(s[k]||''));
-    const today=todayStr();
-    if(schedChanged&&!s.schedHistory.some(e=>e.until===today)){ // diedit lagi di hari yang sama → cukup satu catatan
-      const e={until:today}; LLK_SCHED_FIELDS.forEach(k=>{ e[k]=old[k]||''; });
-      s.schedHistory.push(e);
-      window._llkSchedChangedToast=true;
+    if(schedChanged){
+      // Tanggal jadwal baru berlaku: dari pertanyaan (llkAskScheduleEffective), atau dari
+      // Mulai Les Tanggal kalau guru mengubahnya sendiri di simpan ini. Belum ada → tanya dulu.
+      const startTouched=(s.startDate||'')!==(old.startDate||'');
+      const eff=window._llkSchedEffDate||(startTouched?s.startDate:'');
+      if(!eff){ llkAskScheduleEffective(old, s); return; }
+      if(!s.schedHistory.some(e=>e.until===eff)){ // diedit lagi untuk tanggal yang sama → cukup satu catatan
+        const e={until:eff}; LLK_SCHED_FIELDS.forEach(k=>{ e[k]=old[k]||''; });
+        s.schedHistory.push(e);
+      }
+      window._llkSchedChangedToast=eff;
     }
     if(!s.schedHistory.length) delete s.schedHistory;
     // Preserve status nonaktif agar tidak ke-reset saat form disimpan
@@ -9308,7 +9345,7 @@ function doSave(){
     if(firstInit<s.startDate) s.startDate=firstInit;
   }
   save();closeModal();render();
-  toast((editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`)+(initMarked?` · ${initMarked} pertemuan awal ditandai Hadir`:'')+(llkShifted?` · jadwal ${s.day} kini jadi Jadwal Rutin 1`:'')+(window._llkSchedChangedToast?' · jadwal baru berlaku mulai hari ini':''));
+  toast((editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`)+(initMarked?` · ${initMarked} pertemuan awal ditandai Hadir`:'')+(llkShifted?` · jadwal ${s.day} kini jadi Jadwal Rutin 1`:'')+(window._llkSchedChangedToast?' · jadwal baru berlaku mulai '+fmtInvDate(window._llkSchedChangedToast):''));
   window._llkSchedChangedToast=false;
 }
 
