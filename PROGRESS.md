@@ -16,6 +16,7 @@ _Terakhir diperbarui: 3 Nov 2026 (Pembayaran Midtrans → Fercash)_
 - ⚠️ **Google Play Billing (nanti) JANGAN dikirim ke Fercash**: Fercash mencatatnya dari laporan bulanan Google Play (kalau dikirim juga = dobel). Komentar pengingat ada di `fercash.js` & `catatDiFercash` (`index.js`).
 - Belum: refund Midtrans belum dikirim sebagai `status:"refund"` (webhook belum menangani refund).
 - Uji: `functions/test` 10 uji baru (total 52 lolos).
+- ✅ **Sudah terpasang 3 Nov 2026** (PR #163): `npm test` 52 lolos di Cloud Shell `~/llk`, `FERCASH_SECRET` disimpan, deploy 10 fungsi sukses, tes `"uji":true` memakai kunci tersimpan (`functions:secrets:access`) → `{"ok":true,"kunci":"llk"}`. Tinggal menunggu pembayaran Midtrans production sungguhan pertama untuk bukti akhir (cek Fercash / log Functions "Fercash").
 
 ## 💰 V1: tombol "Uang Masuk" di halaman Siswa (2 Nov 2026)
 - Permintaan pemilik: daftar semua transaksi yang ditandai **Sudah Bayar**, dengan filter **Tanggal Bayar** (kapan tombol ditekan) dan **Bulan Les** (bulan yang dibayar). Tombol hanya muncul di mode pembayaran **Bulanan** (kanan judul "Siswa").
