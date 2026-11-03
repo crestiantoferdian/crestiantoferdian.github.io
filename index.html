@@ -3534,12 +3534,26 @@ function getDateKeyForDay(dayName){
 let extraDates = []; // array of {date, time, time2} for current edit
 
 // Helper: get students scheduled for a day (including reschedule + tambahan)
+// Riwayat jadwal rutin: saat hari/jam rutin diganti, jadwal lama disimpan di s.schedHistory
+// [{until:'YYYY-MM-DD', day,time,time2,day2,...}] dan tetap dipakai untuk tanggal SEBELUM `until`.
+// Jadi jadwal baru tidak "muncul mundur" di Kalender bulan-bulan lalu.
+const LLK_SCHED_FIELDS=['day','time','time2','day2','time2a','time2b','day3','time3a','time3b','day4','time4a','time4b'];
+function llkScheduleAt(s, dateKey){
+  const h=s.schedHistory;
+  if(!h||!h.length||!dateKey) return s;
+  const e=h.slice().sort((a,b)=>a.until.localeCompare(b.until)).find(x=>dateKey<x.until);
+  if(!e) return s;
+  const eff=Object.assign({},s);
+  LLK_SCHED_FIELDS.forEach(k=>{ eff[k]=e[k]||''; });
+  return eff;
+}
 function getStudentsForDay(dayName, dateKey, includeInactive){
   const result=[];
 
-  students.forEach(s=>{
-    if(s.inactive&&!includeInactive) return; // siswa nonaktif tidak muncul di jadwal Absensi baru, tapi tetap muncul di riwayat
-    const originalIdx=students.indexOf(s);
+  students.forEach(s0=>{
+    if(s0.inactive&&!includeInactive) return; // siswa nonaktif tidak muncul di jadwal Absensi baru, tapi tetap muncul di riwayat
+    const originalIdx=students.indexOf(s0);
+    const s=llkScheduleAt(s0, dateKey); // jadwal rutin yang berlaku di tanggal ini
 
     // Reschedule berbasis array per hari
     // Cek apakah ada reschedule untuk hari ini (dayName) yang jatuh di dateKey
@@ -9244,6 +9258,16 @@ function doSave(){
     if(old.curriculumChecked) s.curriculumChecked=old.curriculumChecked;
     if(old.curriculumCardCollapsed!==undefined) s.curriculumCardCollapsed=old.curriculumCardCollapsed;
     if(old.curriculumCollapsedSections) s.curriculumCollapsedSections=old.curriculumCollapsedSections;
+    // Riwayat jadwal: hari/jam rutin diganti → jadwal lama tetap berlaku untuk tanggal sebelum hari ini
+    s.schedHistory=(old.schedHistory||[]).slice();
+    const schedChanged=LLK_SCHED_FIELDS.some(k=>(old[k]||'')!==(s[k]||''));
+    const today=todayStr();
+    if(schedChanged&&!s.schedHistory.some(e=>e.until===today)){ // diedit lagi di hari yang sama → cukup satu catatan
+      const e={until:today}; LLK_SCHED_FIELDS.forEach(k=>{ e[k]=old[k]||''; });
+      s.schedHistory.push(e);
+      window._llkSchedChangedToast=true;
+    }
+    if(!s.schedHistory.length) delete s.schedHistory;
     // Preserve status nonaktif agar tidak ke-reset saat form disimpan
     if(old.inactive){
       s.inactive=true;
@@ -9282,7 +9306,8 @@ function doSave(){
     if(firstInit<s.startDate) s.startDate=firstInit;
   }
   save();closeModal();render();
-  toast((editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`)+(initMarked?` · ${initMarked} pertemuan awal ditandai Hadir`:'')+(llkShifted?` · jadwal ${s.day} kini jadi Jadwal Rutin 1`:''));
+  toast((editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`)+(initMarked?` · ${initMarked} pertemuan awal ditandai Hadir`:'')+(llkShifted?` · jadwal ${s.day} kini jadi Jadwal Rutin 1`:'')+(window._llkSchedChangedToast?' · jadwal baru berlaku mulai hari ini':''));
+  window._llkSchedChangedToast=false;
 }
 
 // ── PERTEMUAN AWAL ────────────────────────────────────
