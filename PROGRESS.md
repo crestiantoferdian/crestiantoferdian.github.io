@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 3 Nov 2026 (Pembayaran Midtrans → Fercash)_
+_Terakhir diperbarui: 4 Nov 2026 (Email dukungan support@leslesanku.com)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,12 @@ _Terakhir diperbarui: 3 Nov 2026 (Pembayaran Midtrans → Fercash)_
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 📧 Email dukungan @leslesanku.com (4 Nov 2026)
+- Cloudflare Email Routing (dikerjakan pemilik): `support@`, `hello@`, `privacy@leslesanku.com` → diteruskan ke `ferdiancrestianto@gmail.com`. Record DNS Resend (`resend._domainkey`, `send`, CNAME) **jangan diubah** (dipakai `no-reply@leslesanku.com`). Firebase Auth templates: pengirim "LLK Support", Reply-to `support@`. Play Console: email kontak toko `support@leslesanku.com`.
+- Kode: email lama `crestiantoferdian@gmail.com` diganti → `privacy-policy.html` bagian 10 = `privacy@leslesanku.com` (tanggal 4 Nov 2026), `hapus-akun.html` = `support@leslesanku.com`, pesan gagal Hapus Akun di `index.html` = `support@` (hanya teks alert).
+- `functions/notify.js`: email Resend/SMTP kini memakai **reply_to `support@leslesanku.com`** (bisa diganti env `REPLY_TO_EMAIL`), footer "Mohon tidak membalas" → "Butuh bantuan? Balas email ini atau tulis ke support@leslesanku.com". Berlaku setelah `firebase deploy --only functions` (npm test 52 lolos).
+- Belum: Gmail "Kirim email sebagai" support@ masih terpental "550 domain is not verified" karena memakai API key akun Resend Gitar Sakti. Perlu API key (Sending access, domain leslesanku.com) dari akun Resend yang memegang leslesanku.com (bukan akun gitarsaktipol; tidak ada email Resend di ferdiancrestianto@gmail.com → kemungkinan didaftarkan dengan crestiantoferdian@gmail.com atau fertunestudio@gmail.com).
 
 ## 🧮 Pembayaran Midtrans → Fercash (3 Nov 2026)
 - Setiap pembayaran **Midtrans PRODUCTION** yang berhasil (LLK V1 `LLK-…` → `produk:"v1"`, LLK Lembaga `LLKO-…` → `produk:"lembaga"`) otomatis dikirim sebagai pemasukan ke Fercash (`functions/fercash.js`, URL Supabase `fercash-terima-pemasukan`). Dipanggil di `activateOrder` / `activateOrgOrder` (titik yang sama dengan Telegram "💰 Pembayaran berhasil"), hanya sekali per order (saat order baru berubah jadi `paid`). Sandbox, trial, pengguna/lembaga baru, pengingat: tidak dikirim.
