@@ -472,6 +472,8 @@ test('notifikasi: pengguna baru → email selamat datang + Telegram ke pemilik',
   assert.deepStrictEqual(sent.email[0].to, ['guru.baru@gmail.com']);
   assert.match(sent.email[0].subject, /Selamat datang/);
   assert.match(sent.email[0].html, /Terima kasih sudah bergabung, Sinta/);
+  assert.strictEqual(sent.email[0].reply_to, 'support@leslesanku.com');
+  assert.match(sent.email[0].html, /support@leslesanku\.com/);
   assert.strictEqual(sent.tg.length, 1);
   assert.strictEqual(sent.tg[0].chat_id, '999');
   assert.match(sent.tg[0].text, /Pengguna baru[\s\S]*guru\.baru@gmail\.com/);

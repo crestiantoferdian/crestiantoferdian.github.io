@@ -5,6 +5,7 @@
  *   Email — pilih SALAH SATU:
  *     RESEND_API_KEY=re_xxx               (sama seperti Gitar Sakti; domain pengirim diverifikasi di Resend)
  *     FROM_EMAIL="LesLesanKu <no-reply@leslesanku.com>"
+ *     REPLY_TO_EMAIL=support@leslesanku.com   (opsional; bawaan support@leslesanku.com)
  *   atau Gmail:
  *     SMTP_USER=alamat@gmail.com
  *     SMTP_PASS=app-password-16-huruf    (Google Account → Keamanan → Sandi Aplikasi)
@@ -17,6 +18,8 @@
 const env = (k) => String(process.env[k] || '').trim();
 const SITE = 'https://leslesanku.com';
 const LOGO = SITE + '/logo-leslesanku.png';
+const SUPPORT_EMAIL = 'support@leslesanku.com';
+const replyTo = () => env('REPLY_TO_EMAIL') || SUPPORT_EMAIL;
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const rupiah = (n) => 'Rp' + (Number(n) || 0).toLocaleString('id-ID');
@@ -38,14 +41,14 @@ async function sendEmail({ to, subject, html }) {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + env('RESEND_API_KEY'), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: env('FROM_EMAIL') || 'LesLesanKu <onboarding@resend.dev>', to: [to], subject, html }),
+        body: JSON.stringify({ from: env('FROM_EMAIL') || 'LesLesanKu <onboarding@resend.dev>', to: [to], reply_to: replyTo(), subject, html }),
       });
       if (!res.ok) { console.error('Resend menolak (' + res.status + '):', redact(await res.text())); return { error: res.status }; }
       return { ok: true, via: 'resend' };
     }
     if (env('SMTP_USER') && env('SMTP_PASS')) {
       if (!_smtp) _smtp = require('nodemailer').createTransport({ service: 'gmail', auth: { user: env('SMTP_USER'), pass: env('SMTP_PASS') } });
-      await _smtp.sendMail({ from: '"LesLesanKu" <' + env('SMTP_USER') + '>', to, subject, html });
+      await _smtp.sendMail({ from: '"LesLesanKu" <' + env('SMTP_USER') + '>', replyTo: replyTo(), to, subject, html });
       return { ok: true, via: 'smtp' };
     }
     console.log('Lewati email (RESEND_API_KEY / SMTP belum diisi):', subject);
@@ -83,7 +86,7 @@ function shell(title, inner) {
       ${inner}
     </div>
     <div style="background:#efe8dc;padding:14px 24px;font-size:12px;color:#6f6459;line-height:1.6">
-      Email ini dikirim otomatis oleh LesLesanKu (${SITE.replace('https://', '')}). Mohon tidak membalas email ini.
+      Email ini dikirim otomatis oleh LesLesanKu (${SITE.replace('https://', '')}). Butuh bantuan? Balas email ini atau tulis ke <a href="mailto:${SUPPORT_EMAIL}" style="color:#a8372a">${SUPPORT_EMAIL}</a>.
     </div>
   </div></body></html>`;
 }
