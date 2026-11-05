@@ -26,7 +26,7 @@ Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
    - Audiens target: **18+ saja**, kotak "batasi anak di bawah umur" tidak dicentang
    - Keamanan data: 7 jenis data dikumpulkan (Nama, Email, ID pengguna, Nomor telepon[opsional], Riwayat pembelian, Konten buatan pengguna, ID perangkat[opsional]); tidak ada yang dibagikan; terenkripsi; link hapus akun `https://leslesanku.com/hapus-akun.html`. Foto progres TIDAK (hanya di HP)
    - Aplikasi pemerintah: tidak · Fitur keuangan: tidak ada · Kesehatan: tidak ada
-   - Kategori: **Pendidikan** · Kontak: `fertunestudio@gmail.com`, situs `https://leslesanku.com` (telepon dikosongkan / format +62)
+   - Kategori: **Pendidikan** · Kontak: `fertunestudio@gmail.com` (diganti **`support@leslesanku.com`** sejak 4 Nov 2026), situs `https://leslesanku.com` (telepon dikosongkan / format +62)
 4. **Pengujian tertutup (Alpha)**: negara **Indonesia**, daftar penguji **"Tim LLK"**, email masukan `fertunestudio@gmail.com`. Rilis **1 (1.0.0.0)** dibuat dari "Tambahkan dari koleksi" (AAB yang sama dengan internal), catatan rilis `<id>Versi pertama</id>`.
 5. **Dikirim & disetujui Google** (17 Okt 2026): **Pengiriman 1** berisi 14 perubahan (rilis Alpha, negara, penguji, listingan, rating konten, audiens 18+, kebijakan privasi, pernyataan iklan, Keamanan Data, aplikasi kesehatan, kategori Pendidikan) → status **Diterbitkan** hanya ±11 menit setelah dikirim (11.32 → 11.43). Lihat di **Ringkasan publikasi → Aktivitas pengiriman**.
 6. **Sumber penguji sekarang = 2 Google Grup** (19 Okt 2026). Di tab Penguji, **"Daftar email" dan "Google Grup" adalah pilihan tunggal (radio)**, jadi daftar email "Tim LLK" **tidak lagi aktif**. Kolom Google Grup berbentuk chip dan menerima **lebih dari satu grup**:
