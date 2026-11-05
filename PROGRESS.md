@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 4 Nov 2026 (Email dukungan support@leslesanku.com)_
+_Terakhir diperbarui: 5 Nov 2026 (Play Store: pengajuan Produksi #1 perlu tambahan uji 14 hari)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -38,6 +38,10 @@ _Terakhir diperbarui: 4 Nov 2026 (Email dukungan support@leslesanku.com)_
 - Permintaan pemilik: akun yang **pernah berlangganan** lalu masanya habis tidak boleh lagi diberi tulisan "Trial 31 Hari Kamu Sudah Selesai".
 - `applySubscriptionDoc` mengisi `_subWasPaid` (`!subActive && subscriptionEndsAt>0`), `showPaywall` memilih teks: **trial ditolak** → "Trial Gratis Sudah Pernah Dipakai"; **pernah berlangganan** → "Langganan Pro Kamu Sudah Berakhir" + "Terima kasih sudah berlangganan… Perpanjang supaya…"; **selain itu** → teks trial lama. Hanya teks layar paywall; logika akses/langganan/data tidak berubah. Teruji 6 kasus (trial habis, langganan habis, trial ditolak, langganan aktif, trial jalan, tester).
 - Catatan: `status:"active"` di Firestore tidak otomatis berubah saat `subscriptionEndsAt` lewat; aplikasi mengecek keduanya, jadi akun seperti itu kena paywall (benar). Akun keluarga/tester dibuka lewat kolom `isTester:true` (boolean) di `subscriptions/{uid}` lewat Firebase Console.
+
+## 🏪 Play Console: pengajuan Produksi #1 belum disetujui (5 Nov 2026)
+- Google (5 Nov): perlu **tambahan 14 hari uji tertutup dengan penguji nyata** (interaksi penguji kurang; belum ada pembaruan sebagai tindak lanjut masukan). Rencana, daftar periksa, petunjuk penguji, lembar masukan, kerangka jawaban formulir: **`store/play/PENGAJUAN-PRODUKSI.md`**; status rinci: `store/play/STATUS-RILIS.md`.
+- Berikutnya: cari ≥12 guru les sebagai penguji nyata → rilis versi 2 (ikon opsi A, layar pembuka baru) ke Pengujian tertutup → ajukan ulang setelah 14 hari. Batas pernyataan status pedagang: 1 Feb 2027. Google Play Billing sebaiknya selesai sebelum produksi.
 
 ## 🏪 Play Console: permohonan Produksi diajukan (3 Nov 2026)
 - Pengujian tertutup 14 hari dengan ≥12 penguji **selesai**; **permohonan akses Produksi sudah diajukan** (3 Nov 2026, 00.14). Google biasanya menjawab ≤7 hari lewat email pemilik akun. Jawaban formulir (jujur, termasuk penyedia penguji berbayar) dan langkah setelahnya: **`store/play/STATUS-RILIS.md`**.

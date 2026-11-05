@@ -1,4 +1,4 @@
-# Status Rilis Google Play — LesLesanKu (per 3 Nov 2026)
+# Status Rilis Google Play — LesLesanKu (per 5 Nov 2026)
 
 Ringkasan untuk melanjutkan di chat baru. Panduan langkah lengkap: `store/play/PANDUAN-RILIS.md`.
 Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
@@ -38,7 +38,13 @@ Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
 8. **Pengujian 14 hari selesai** (±3 Nov 2026): Dasbor menampilkan 12 penguji ikut serta (26 Okt: "6 hari secara terus-menerus"), lalu ketiga syarat tercentang dan tombol **Ajukan permohonan untuk produksi** aktif. Statistik 26 Okt: 26 perangkat memasang, 18 membuka/aktif.
 9. **Permohonan akses Produksi DIAJUKAN** (3 Nov 2026, 00.14 menurut Console). Status: *"Kami sedang meninjau formulir permohonan Anda… biasanya 7 hari atau kurang, terkadang lebih lama"*; hasil dikirim ke email pemilik akun. Formulir 3 halaman (tiap kolom teks maks 300 karakter): (1) tentang pengujian — cara merekrut penguji (**ditanya langsung: teman/keluarga atau penyedia berbayar** → dijawab jujur, termasuk layanan berbayar), kemudahan merekrut, engagement, ringkasan masukan; (2) tentang aplikasi — target audiens guru les dewasa, nilai bagi pengguna, perkiraan instalasi tahun pertama "0–10 ribu"; (3) kesiapan produksi — perubahan dari hasil pengujian (teks paywall langganan berakhir, Midtrans disembunyikan di Play, bilah alamat dihilangkan, menu LLK Lembaga disembunyikan di Play, rincian "Uang Masuk" bulanan siapa sudah/belum bayar [PR #158/#159]) dan alasan siap produksi. Tombol kirim terakhir bernama **Terapkan**.
 
+10. **Pengajuan #1 BELUM disetujui** (email Google 5 Nov 2026, "More testing required to access Google Play production"). Alasan yang disebut: penguji tidak terlibat aktif; praktik pengujian terbaik tidak diikuti (mengumpulkan & menindaklanjuti masukan lewat pembaruan aplikasi). Instruksi: **uji tertutup lagi tambahan 14 hari dengan penguji nyata**, lalu ajukan ulang. Penyebab paling mungkin = **interaksi penguji kurang** (jumlah sudah 12). Fakta: 6 masukan di Play (semua 19 Okt, singkat "bagus/stabil", 4–5★); aplikasi tetap v1; penguji nyata baru ±6. **Rencana lengkap, daftar periksa, petunjuk penguji, lembar masukan, kerangka jawaban: `store/play/PENGAJUAN-PRODUKSI.md`.**
+11. **Email Google lain (5 Nov):** pernyataan **status pedagang** wajib paling lambat **1 Feb 2027** (Kelola akun → Detail akun → Tentang Anda). Pedagang perorangan: nomor telepon publik terverifikasi + nomor & alamat tampil publik. Yang tidak mendistribusikan di EEA/Inggris boleh menyatakan non-pedagang (menurut email Google); isi sesuai kenyataan (Pasal 11.4).
+12. **Rekomendasi Console "Untuk rilis Anda berikutnya"** (bukan kebijakan): edge-to-edge Android 15, API layar penuh usang, batasan orientasi Android 16 (`manifest.json` `"orientation":"portrait"` — tanya pemilik sebelum ubah). Ditangani lewat build versi 2.
+
 ### Pelajaran dari proses ini (supaya tidak terulang)
+- Panduan resmi Google: yang dinilai bukan hanya jumlah 12 penguji, tapi **interaksi**: petunjuk menguji jelas, pakai banyak fitur, saluran masukan jelas, **ringkas & tindak lanjuti masukan dengan pembaruan**, penguji mewakili target audiens (guru les). Jawaban formulir harus konkret (angka, fitur, masukan, perubahan).
+- Halaman **Masukan pengujian** (Pantau dan tingkatkan → Rating dan ulasan) dan **Laporan pra-peluncuran** adalah alat resmi; pakai dari awal. Aktifkan notifikasi masukan.
 - Membuat rilis tertutup: **jangan klik Upload** untuk AAB yang sama → muncul "Kode versi 1 sudah digunakan". Pakai **Tambahkan dari koleksi** lalu pilih versi 1.
 - Ringkasan publikasi sempat memblokir pengiriman: **"Pernyataan ID iklan tidak lengkap"** → Konten aplikasi → ID Iklan → **Tidak** → Simpan, baru tombol "Kirim … perubahan untuk ditinjau" bisa dipakai.
 - Halaman Dasbor "2 dari 5" tidak langsung berarti email masukan terisi; cek tab Penguji.
@@ -49,9 +55,9 @@ Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
 - Akun Google anak (Family Link/terawasi) sering tidak bisa dipakai sebagai anggota grup atau penguji; pakai akun orang tua di HP Android orang tua. Aplikasi target usia 18+.
 
 ## ⏭️ Langkah berikutnya (urut)
-1. **Tunggu hasil review Produksi** (≤7 hari, kadang lebih) lewat email pemilik akun (cek folder Spam). Jangan klik tautan di email: buka Play Console langsung. **Selama menunggu, jangan keluarkan penguji, jangan ubah/hapus grup penguji**, dan jangan mengubah pengujian tertutup tanpa perlu.
+1. **Ikuti `store/play/PENGAJUAN-PRODUKSI.md`**: kumpulkan ≥12 penguji **nyata** (guru les), kirim petunjuk menguji, catat masukan, jalankan Laporan pra-peluncuran, **rilis versi 2** ke Pengujian tertutup (PANDUAN-RILIS bagian F), lalu **ajukan ulang setelah tambahan 14 hari** (tanggal dari Dasbor). Jangan keluarkan/ubah grup penguji sebelum penguji nyata ≥12 ikut serta.
 2. **Kalau disetujui:** Produksi → **Buat rilis baru** → **Tambahkan dari koleksi** (jangan Upload ulang), catatan rilis `<id>…</id>`, Simpan → Tinjau → peluncuran bertahap (mis. 20% → 100%) → **Ringkasan publikasi → Kirim perubahan untuk ditinjau**.
-3. **Kalau ditolak:** baca alasannya di email/Console, perbaiki, ajukan ulang. Jangan menambah/menutupi apa pun; jawab jujur.
+3. **Kalau ditolak lagi:** baca alasannya, perbaiki, ajukan ulang. Jangan menambah/menutupi apa pun; jawab jujur.
 4. **Pernyataan trader status** (pengumuman Google 30 Okt 2026, mulai November): isi sesuai kenyataan saat Console meminta; pakai email kontak publik, bukan Gmail pribadi. Alamat `llk@leslesanku.com` lewat Cloudflare Email Routing masih rencana (cek DNS dulu: Resend sudah memakai domain, jangan sampai ada 2 record SPF).
 5. **Setelah tayang:** kerjakan Google Play Billing (bagian di bawah) selama 31 hari trial pengguna baru; sebelum itu pengguna Play yang trialnya habis hanya melihat tombol beli "Segera hadir".
 
