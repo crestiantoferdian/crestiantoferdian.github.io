@@ -6,6 +6,7 @@ const OP = require('./orgPlans');
 const N = require('./notify');
 const R = require('./reminders');
 const FC = require('./fercash');
+const PB = require('./playbilling');
 const { defineSecret } = require('firebase-functions/params');
 
 // Kunci rahasia Fercash (aplikasi keuangan pemilik). Disimpan di Firebase Secret Manager,
@@ -581,4 +582,65 @@ exports.checkMidtransPayment = functions.runWith({ secrets: [FERCASH_SECRET] }).
     }
   }
   return { activated, checked };
+});
+
+/**
+ * 6) Google Play Billing (aplikasi dari Play Store). Lihat playbilling.js.
+ *    Memakai akun layanan Cloud Functions (tanpa kunci JSON); pemilik mengundang akun itu
+ *    di Play Console (Pengguna & izin) dan mengaktifkan "Google Play Android Developer API".
+ */
+let _playClient = null;
+function playClient() {
+  if (!_playClient) {
+    _playClient = PB.createPlayClient({
+      getToken: async () => {
+        const { GoogleAuth } = require('google-auth-library'); // dimuat saat dipakai saja
+        const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/androidpublisher'] });
+        return auth.getAccessToken();
+      },
+    });
+  }
+  return _playClient;
+}
+function playService() {
+  return PB.createPlayService({ db, Timestamp: admin.firestore.Timestamp, client: playClient() });
+}
+
+/**
+ * Dipanggil aplikasi setelah pembelian ATAU saat "Pulihkan Langganan".
+ * data: { productId, purchaseToken }
+ */
+exports.verifyPlayPurchase = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Harus login dulu.');
+  const productId = String((data && data.productId) || '');
+  const purchaseToken = String((data && data.purchaseToken) || '');
+  if (!productId || !purchaseToken || purchaseToken.length > 2000) {
+    throw new functions.https.HttpsError('invalid-argument', 'Data pembelian tidak lengkap.');
+  }
+  try {
+    const r = await playService().applyPurchase(context.auth.uid, purchaseToken, { fromUser: true });
+    return { access: r.access, action: r.action, plan: r.plan, tier: r.tier, state: r.state, endsMs: r.endsMs, acknowledged: !!r.acknowledged };
+  } catch (err) {
+    console.error('verifyPlayPurchase gagal:', err && err.message);
+    if (err && err.code === 'token-bound-elsewhere') throw new functions.https.HttpsError('permission-denied', err.message);
+    if (err && err.code === 'unknown-product') throw new functions.https.HttpsError('failed-precondition', 'Produk langganan tidak dikenal. Perbarui aplikasinya lalu coba lagi.');
+    if (err && (err.status === 404 || err.status === 410 || err.status === 400)) throw new functions.https.HttpsError('not-found', 'Pembelian tidak ditemukan di Google Play.');
+    throw new functions.https.HttpsError('internal', 'Gagal memverifikasi pembelian. Coba lagi sebentar lagi.');
+  }
+});
+
+/**
+ * Real-time developer notifications dari Google (perpanjangan, pembatalan, kedaluwarsa, dll).
+ * Topik Pub/Sub `play-rtdn` — dibuat otomatis saat deploy; pemilik menyambungkannya di
+ * Play Console (Monetisasi → Penyiapan monetisasi → Notifikasi developer real-time).
+ */
+exports.playRtdn = functions.pubsub.topic('play-rtdn').onPublish(async (message) => {
+  let payload;
+  try { payload = message.json; } catch (e) { console.warn('RTDN bukan JSON, diabaikan'); return null; }
+  if (!payload) return null;
+  if (payload.packageName && payload.packageName !== PB.PACKAGE_NAME) return null;
+  if (payload.testNotification) { console.log('RTDN uji dari Google Play diterima'); return null; }
+  try { await playService().handleNotification(payload); }
+  catch (err) { console.error('RTDN gagal diproses:', err && err.message); throw err; } // dicoba ulang oleh Pub/Sub
+  return null;
 });

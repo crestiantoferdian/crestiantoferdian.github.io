@@ -10596,6 +10596,7 @@ function llkUpgradeDiscount(targetPeriod){ return (LLK_UPGRADE_DISCOUNT[_current
 let _currentTier=null;      // 'basic'|'up'|'unlimited'|null (null = belum diketahui → tidak dibatasi)
 let _subTrialDenied=false;  // server menolak trial karena email ini sudah pernah trial
 let _subWasPaid=false;      // pernah berlangganan berbayar & masanya sudah habis (teks paywall: "Langganan berakhir", bukan "Trial selesai")
+let _subSource=null;        // asal langganan berbayar: 'play' (Google Play) atau kosong (website/Midtrans)
 function tierInfo(id){ return LLK_TIERS.find(function(t){ return t.id===id; })||null; }
 function activeStudentCount(){ return (students||[]).filter(function(s){ return !s.inactive; }).length; }
 function isStudentLimitReached(){
@@ -10699,6 +10700,9 @@ function applySubscriptionDoc(doc){
     }
     const d=doc.data();
     _subTrialDenied=d.trialDenied==='already_used';
+    // Aplikasi Play: sekali per sesi, cocokkan pembelian Google Play yang belum tercatat/di-acknowledge
+    // (mis. pembeli menutup aplikasi sebelum verifikasi selesai → tanpa ini Google mengembalikan dana setelah 3 hari).
+    if(llkPlayIsApp()&&!_llkPlayRestoreDone){ _llkPlayRestoreDone=true; setTimeout(function(){ llkPlayRestore(true); },2500); }
     // Waktu yang ditulis server juga jadi batas bawah jam (tidak bisa mundur sebelum ini)
     ['updatedAt','createdAt','trialStartedAt'].forEach(function(k){
       if(d[k]&&typeof d[k].toMillis==='function') raiseTimeFloor(d[k].toMillis());
@@ -10717,6 +10721,7 @@ function applySubscriptionDoc(doc){
     _subDates={trialEndsMs:trialEndsMs,subEndsMs:subEndsMs,plan:String(d.plan||'')};
     _subPaidActive=subActive;
     _subWasPaid=!subActive && subEndsMs>0; // punya riwayat langganan berbayar tapi sudah lewat masanya
+    _subSource=d.source==='play'?'play':null;
     const tb=document.getElementById('trialBanner');
     if(subActive){
       _currentTier=tierInfo(d.tier)?d.tier:'unlimited'; // PRO lama tanpa tier = Unlimited
@@ -10803,7 +10808,7 @@ function showPaywall(){
     if(desc) desc.textContent='Semoga sebulan ini bantu kelola les kamu lebih rapi! Lanjutkan supaya semua data absensi, progres, dan jadwal murid tetap aman & bisa terus dipakai.';
   }
   const plans=document.getElementById('paywallPlans');
-  if(plans) plans.innerHTML=planCardsHtml({minTier:null});
+  if(plans) plans.innerHTML=planCardsHtml({minTier:null})+llkPlayRestoreHtml();
   const feats=document.getElementById('paywallFeatures');
   if(feats) feats.innerHTML=proFeaturesHtml();
   // Pakai gambar logo yang sama dengan layar login (tidak menyalin data gambar lagi)
@@ -10816,6 +10821,9 @@ function showPaywall(){
   const playApp=window.llkIsPlayApp&&window.llkIsPlayApp();
   const chk=document.getElementById('paywallCheckBtn'); if(chk) chk.style.display=playApp?'none':'';
   if(!playApp&&!window._llkAutoPayCheckDone){ window._llkAutoPayCheckDone=true; cekStatusPembayaran(true); }
+  // Aplikasi Play: sekali per sesi, pulihkan langganan Google Play diam-diam
+  // (mis. ganti HP / install ulang / perpanjangan otomatis yang belum tercatat).
+  if(playApp&&!_llkPlayRestoreDone){ _llkPlayRestoreDone=true; setTimeout(function(){ llkPlayRestore(true); },1500); }
 }
 
 /* Tanya status pembayaran yang masih tertunda langsung ke Midtrans (lewat
@@ -10991,7 +10999,7 @@ function showUpgradeOffer(fromLimit){
   const upgrade=!isTransfer&&_subPaidActive&&!(_subBadgeInfo&&_subBadgeInfo.isTester);
   el.innerHTML=head+planCardsHtml({minTier:isTransfer?null:_currentTier, upgrade:upgrade})
     +'<div style="font-size:0.8rem;color:var(--muted);max-width:340px;margin:4px auto 18px;line-height:1.55">Paket baru berlaku mulai hari ini. Sisa masa aktif paket lama tidak dibawa ke paket baru.</div>'
-    +((window.llkIsPlayApp&&window.llkIsPlayApp())?'':'<button onclick="cekStatusPembayaran(false)" class="llk-btn secondary sm" style="margin:0 auto 6px;display:flex">'+llkI('refresh','sm')+' Sudah bayar? Cek status pembayaran</button>')
+    +((window.llkIsPlayApp&&window.llkIsPlayApp())?llkPlayRestoreHtml():'<button onclick="cekStatusPembayaran(false)" class="llk-btn secondary sm" style="margin:0 auto 6px;display:flex">'+llkI('refresh','sm')+' Sudah bayar? Cek status pembayaran</button>')
     +'<button onclick="closeUpgradeOffer()" style="background:none;border:none;color:var(--text2);font-size:0.9rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:12px">Nanti saja</button>';
   document.body.appendChild(el);
 }
@@ -11022,7 +11030,7 @@ function llkOpenPricing(){
     +'<div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:8px">Paket & Harga</div>'
     +'<div style="display:inline-block;font-size:0.84rem;font-weight:700;color:var(--text2);background:var(--card);border:1px solid var(--border);border-radius:var(--r-pill);padding:6px 14px;margin-bottom:18px">Status kamu: '+escapeHtml(status)+'</div>'
     +llkMySubCardHtml()
-    +(playApp?'<div class="llk-callout" style="max-width:360px;margin:0 auto 18px;text-align:left;font-size:0.86rem">'+llkI('bulb')+'<div>Pembelian langganan di aplikasi <b>segera hadir lewat Google Play</b>. Selama masa uji coba, semua fitur Pro bisa dipakai gratis.</div></div>':'')
+    +(playApp?'<div class="llk-callout" style="max-width:360px;margin:0 auto 18px;text-align:left;font-size:0.86rem">'+llkI('bulb')+'<div>Langganan di aplikasi dibayar <b>lewat Google Play</b> dan bisa dibatalkan kapan saja di Play Store. Selama masa uji coba, semua fitur Pro bisa dipakai gratis.</div></div>':'')
     // Pelanggan berbayar (web): naik paket lewat halaman Naik Paket (harga diskon dihitung di sana)
     +(paidWeb
       ?(_currentTier!=='unlimited'?'<button onclick="showUpgradeOffer(false)" class="llk-btn ink" style="margin:0 auto 18px;display:flex;min-width:220px;justify-content:center">'+llkI('arrow-up','sm')+' Naik Paket</button>':'')
@@ -11223,8 +11231,110 @@ function llkPlayPayNotice(){
   document.body.appendChild(el);
 }
 
+/* ── Google Play Billing (aplikasi dari Play Store, lewat Digital Goods API) ──────────
+   Hanya aktif di aplikasi Play (llkIsPlayApp); website tetap Midtrans.
+   Alur: getDetails → PaymentRequest (Google Play) → purchaseToken → Cloud Function
+   verifyPlayPurchase (verifikasi ke Google + acknowledge + aktifkan langganan).
+   Kalau layanan/produk belum tersedia (mis. langganan belum dibuat di Play Console),
+   otomatis jatuh ke pemberitahuan "Segera hadir" (llkPlayPayNotice), tidak ada yang rusak.
+   Product ID HARUS sama dengan PLAY_PRODUCTS di functions/playbilling.js. */
+const LLK_PLAY_SKUS={basic_monthly:'llk_basic_monthly',up_monthly:'llk_up_monthly',up_yearly:'llk_up_yearly',unlimited_monthly:'llk_unlimited_monthly',unlimited_yearly:'llk_unlimited_yearly'};
+const LLK_PLAY_BILLING_URL='https://play.google.com/billing';
+let _llkPlaySvc=null, _llkPlayBusy=false, _llkPlayRestoreDone=false;
+function llkPlayIsApp(){ return !!(window.llkIsPlayApp&&window.llkIsPlayApp()); }
+async function llkPlayService(){
+  if(_llkPlaySvc) return _llkPlaySvc;
+  if(!llkPlayIsApp()||typeof window.getDigitalGoodsService!=='function'||typeof window.PaymentRequest!=='function') return null;
+  try{ _llkPlaySvc=await window.getDigitalGoodsService(LLK_PLAY_BILLING_URL); }
+  catch(e){ console.warn('Layanan Google Play Billing belum tersedia:', e); _llkPlaySvc=null; }
+  return _llkPlaySvc;
+}
+function llkPlayErrMsg(err){
+  const m=err&&(err.message||err.code); return m?String(m).replace(/^functions\//,'').slice(0,120):'';
+}
+function llkPlayManageNotice(){
+  let el=document.getElementById('llkPlayPay'); if(el) el.remove();
+  el=document.createElement('div'); el.id='llkPlayPay';
+  el.style.cssText='position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(43,36,32,0.45);font-family:inherit';
+  el.innerHTML='<div style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:24px 20px 18px;text-align:center;box-shadow:var(--shadow-lg)">'
+    +'<div class="llk-dialog-ic">'+llkI('crown')+'</div>'
+    +'<div style="font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--text);margin-bottom:8px">Kamu sudah berlangganan</div>'
+    +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.6;margin-bottom:18px">Langganan kamu dikelola Google Play. Untuk mengganti paket atau membatalkan, buka <b>Play Store → Profil → Pembayaran &amp; langganan → Langganan → LesLesanKu</b>.</div>'
+    +'<button class="llk-btn ink" style="width:100%" onclick="document.getElementById(\'llkPlayPay\').remove()">Mengerti</button></div>';
+  el.addEventListener('click',function(e){ if(e.target===el) el.remove(); });
+  document.body.appendChild(el);
+}
+/* Beli paket `plan` lewat Google Play. */
+async function llkPlayBuy(plan){
+  const sku=LLK_PLAY_SKUS[plan];
+  if(!sku){ llkPlayPayNotice(); return; }
+  // Sudah punya langganan Play aktif → jangan membuat langganan kedua (bisa tertagih dobel).
+  // Ganti paket / batalkan dilakukan di Play Store.
+  if(_subPaidActive&&_subSource==='play'){ llkPlayManageNotice(); return; }
+  if(_llkPlayBusy) return;
+  _llkPlayBusy=true; setTimeout(function(){ _llkPlayBusy=false; },5000);
+  let resp=null;
+  try{
+    const svc=await llkPlayService();
+    let found=null;
+    if(svc){ try{ const d=await svc.getDetails([sku]); found=(d&&d.length)?d[0]:null; }catch(e){ found=null; } }
+    if(!svc||!found){ llkPlayPayNotice(); return; } // layanan/produk belum tersedia
+    setPaywallStatus('Membuka Google Play…');
+    const req=new PaymentRequest([{supportedMethods:LLK_PLAY_BILLING_URL,data:{sku:sku}}],{total:{label:'Total',amount:{currency:'USD',value:'0'}}});
+    resp=await req.show();
+    const token=resp.details&&resp.details.purchaseToken;
+    if(!token) throw new Error('token pembelian kosong');
+    setPaywallStatus('Memverifikasi pembelian…');
+    let res;
+    try{ res=(await firebase.functions().httpsCallable('verifyPlayPurchase')({productId:sku,purchaseToken:token})).data; }
+    catch(ve){
+      // Pembelian sudah terjadi di Google tapi server belum bisa memverifikasi (mis. internet putus):
+      // jangan dianggap gagal. "Pulihkan Langganan" / pembukaan aplikasi berikutnya akan mengaktifkannya.
+      try{ await resp.complete('unknown'); }catch(e){}
+      resp=null; throw ve;
+    }
+    await resp.complete(res&&res.access?'success':'fail'); resp=null;
+    setPaywallStatus('✅ Berlangganan berhasil!');
+    toast('✅ Berlangganan berhasil! Terima kasih sudah mendukung LesLesanKu 🙏',5000);
+  }catch(err){
+    if(resp){ try{ await resp.complete('fail'); }catch(e){} }
+    if(err&&(err.name==='AbortError'||err.name==='NotSupportedError'&&!err.code)){ setPaywallStatus(''); return; } // dibatalkan pengguna
+    console.error('Pembelian Play gagal:', err);
+    const why=llkPlayErrMsg(err)?' ('+llkPlayErrMsg(err)+')':'';
+    setPaywallStatus('⚠️ Pembelian belum selesai.'+why+' Kalau sudah dibayar, tekan "Pulihkan Langganan".');
+    toast('⚠️ Pembelian belum selesai.'+why,6000);
+  }finally{ _llkPlayBusy=false; }
+}
+/* Pulihkan langganan Play (ganti HP, install ulang, atau verifikasi tertunda). silent=true: tanpa pesan kalau tidak ada. */
+async function llkPlayRestore(silent){
+  if(!llkPlayIsApp()||typeof currentUser==='undefined'||!currentUser||typeof firebase==='undefined'||!firebase.functions) return;
+  const svc=await llkPlayService();
+  if(!svc||typeof svc.listPurchases!=='function'){ if(!silent) toast('Pemulihan langganan belum tersedia di perangkat ini.',5000); return; }
+  if(!silent) showGlobalLoading('Memeriksa langganan Google Play…');
+  try{
+    let list=[]; try{ list=(await svc.listPurchases())||[]; }catch(e){ list=[]; }
+    list=list.filter(function(p){ return p&&p.purchaseToken&&Object.values(LLK_PLAY_SKUS).indexOf(p.itemId)>=0; });
+    if(!list.length){ if(!silent) toast('Tidak ada langganan Google Play yang ditemukan di akun Play ini.',5000); return; }
+    let active=0, lastErr='';
+    for(const p of list){
+      try{
+        const r=(await firebase.functions().httpsCallable('verifyPlayPurchase')({productId:p.itemId,purchaseToken:p.purchaseToken})).data;
+        if(r&&r.access) active++;
+      }catch(e){ lastErr=llkPlayErrMsg(e); }
+    }
+    if(active) toast('✅ Langganan Google Play dipulihkan.',5000);
+    else if(!silent) toast(lastErr?'⚠️ '+lastErr:'Langganan Play ditemukan tetapi sudah tidak aktif.',6000);
+  }finally{ if(!silent) hideGlobalLoading(); }
+}
+/* Tombol + keterangan "Pulihkan Langganan" (hanya aplikasi Play) */
+function llkPlayRestoreHtml(){
+  if(!llkPlayIsApp()) return '';
+  return '<div style="max-width:360px;margin:6px auto 4px;text-align:center"><button onclick="llkPlayRestore(false)" class="llk-btn secondary sm" style="margin:0 auto 8px;display:flex">'+llkI('refresh','sm')+' Pulihkan Langganan</button>'
+    +'<div style="font-size:0.78rem;color:var(--muted);line-height:1.55">Sudah berlangganan lewat Google Play? Tekan tombol ini. Langganan dikelola dan bisa dibatalkan kapan saja di <b>Play Store → Profil → Pembayaran &amp; langganan → Langganan</b>.</div></div>';
+}
+
 async function mulaiLangganan(plan){
-  if(window.llkIsPlayApp&&window.llkIsPlayApp()){ llkPlayPayNotice(); return; }
+  if(llkPlayIsApp()){ llkPlayBuy(plan); return; }
   // Cegah tombol tertekan dua kali (snap.pay kedua ditolak Midtrans: "not allowed in this state")
   if(_llkPayBusy) return;
   _llkPayBusy=true; setTimeout(function(){ _llkPayBusy=false; },4000);

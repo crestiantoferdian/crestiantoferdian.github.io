@@ -75,7 +75,7 @@ const fakeFunctions = {
   auth: { user: () => ({ onCreate: (fn) => fn, onDelete: (fn) => fn }) },
   https: { onCall: (fn) => fn, onRequest: (fn) => fn, HttpsError },
   firestore: { document: () => ({ onCreate: (fn) => fn }) },
-  pubsub: { schedule: () => ({ timeZone: () => ({ onRun: (fn) => fn }) }) },
+  pubsub: { schedule: () => ({ timeZone: () => ({ onRun: (fn) => fn }) }), topic: () => ({ onPublish: (fn) => fn }) },
 };
 fakeFunctions.runWith = () => fakeFunctions;
 const origLoad = Module._load;
@@ -83,6 +83,7 @@ Module._load = function (req, ...rest) {
   if (req === 'firebase-functions/v1') return fakeFunctions;
   if (req === 'firebase-admin') return fakeAdmin;
   if (req === 'nodemailer') return { createTransport: () => ({ sendMail: async () => {} }) };
+  if (req === 'google-auth-library') return { GoogleAuth: class { async getAccessToken() { return 'token-tiruan'; } } };
   // Secret Manager tiruan: nilai diambil dari process.env (seperti di server)
   if (req === 'firebase-functions/params') return { defineSecret: (name) => ({ name, value: () => process.env[name] || '' }) };
   return origLoad.call(this, req, ...rest);
@@ -749,3 +750,54 @@ test('Fercash: pengguna baru, trial, & lembaga baru TIDAK dikirim', withFercashS
   await pf.onOrgCreate({ data: () => ({ name: 'Les F', ownerUid: 'rani', createdAt: ts(Date.now()) }) });
   assert.strictEqual(sent.length, 0);
 }));
+
+// ── Google Play Billing (aplikasi dari Play Store) ─────────────────
+test('verifyPlayPurchase: wajib login dan data pembelian lengkap', async () => {
+  store.clear();
+  await assert.rejects(() => fns.verifyPlayPurchase({ productId: 'llk_up_monthly', purchaseToken: 'T' }, {}), (e) => e.code === 'unauthenticated');
+  await assert.rejects(() => fns.verifyPlayPurchase({ productId: '', purchaseToken: 'T' }, { auth: { uid: 'u1' } }), (e) => e.code === 'invalid-argument');
+  await assert.rejects(() => fns.verifyPlayPurchase({ productId: 'llk_up_monthly' }, { auth: { uid: 'u1' } }), (e) => e.code === 'invalid-argument');
+});
+
+test('verifyPlayPurchase: pembelian valid mengaktifkan langganan & acknowledge lewat Google Play API (tiruan)', async () => {
+  store.clear();
+  const seen = [];
+  const expiry = Date.now() + 25 * DAY;
+  global.fetch = async (url, opts) => {
+    seen.push([opts.method, url, opts.headers.Authorization]);
+    if (url.includes('/subscriptionsv2/')) {
+      return { ok: true, status: 200, text: async () => JSON.stringify({
+        latestOrderId: 'GPA.1234', startTime: new Date(Date.now() - DAY).toISOString(), subscriptionState: 'SUBSCRIPTION_STATE_ACTIVE',
+        acknowledgementState: 'ACKNOWLEDGEMENT_STATE_PENDING',
+        lineItems: [{ productId: 'llk_unlimited_yearly', expiryTime: new Date(expiry).toISOString(), autoRenewingPlan: { autoRenewEnabled: true } }],
+      }) };
+    }
+    return { ok: true, status: 200, text: async () => '{}' };
+  };
+  const r = await fns.verifyPlayPurchase({ productId: 'llk_unlimited_yearly', purchaseToken: 'TOK-ABC' }, { auth: { uid: 'guru1' } });
+  assert.strictEqual(r.access, true);
+  assert.strictEqual(r.tier, 'unlimited');
+  const sub = store.get('subscriptions/guru1');
+  assert.strictEqual(sub.status, 'active');
+  assert.strictEqual(sub.source, 'play');
+  assert.strictEqual(sub.subscriptionEndsAt.toMillis(), expiry); // masa aktif persis dari Google
+  assert.ok(seen.some(([m, u, a]) => m === 'GET' && u.includes('/subscriptionsv2/tokens/TOK-ABC') && a === 'Bearer token-tiruan'));
+  assert.ok(seen.some(([m, u]) => m === 'POST' && u.endsWith(':acknowledge')));
+});
+
+test('verifyPlayPurchase: token milik akun lain → permission-denied; token palsu → not-found', async () => {
+  store.clear();
+  global.fetch = async (url) => ({ ok: true, status: 200, text: async () => JSON.stringify({
+    latestOrderId: 'GPA.1', startTime: new Date().toISOString(), subscriptionState: 'SUBSCRIPTION_STATE_ACTIVE', acknowledgementState: 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED',
+    lineItems: [{ productId: 'llk_basic_monthly', expiryTime: new Date(Date.now() + 5 * DAY).toISOString() }] }) });
+  await fns.verifyPlayPurchase({ productId: 'llk_basic_monthly', purchaseToken: 'SHARE' }, { auth: { uid: 'a' } });
+  await assert.rejects(() => fns.verifyPlayPurchase({ productId: 'llk_basic_monthly', purchaseToken: 'SHARE' }, { auth: { uid: 'b' } }), (e) => e.code === 'permission-denied');
+  global.fetch = async () => ({ ok: false, status: 404, text: async () => '{"error":{"message":"not found"}}' });
+  await assert.rejects(() => fns.verifyPlayPurchase({ productId: 'llk_basic_monthly', purchaseToken: 'PALSU' }, { auth: { uid: 'a' } }), (e) => e.code === 'not-found');
+});
+
+test('playRtdn: notifikasi uji & paket lain diabaikan tanpa error', async () => {
+  store.clear();
+  assert.strictEqual(await fns.playRtdn({ json: { packageName: 'com.leslesanku.app', testNotification: { version: '1.0' } } }), null);
+  assert.strictEqual(await fns.playRtdn({ json: { packageName: 'com.lain.app', subscriptionNotification: { purchaseToken: 'X' } } }), null);
+});

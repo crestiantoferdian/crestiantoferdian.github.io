@@ -62,8 +62,10 @@ Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
 5. **Setelah tayang:** kerjakan Google Play Billing (bagian di bawah) selama 31 hari trial pengguna baru; sebelum itu pengguna Play yang trialnya habis hanya melihat tombol beli "Segera hadir".
 
 ## Setelah itu: Google Play Billing (dikerjakan bersama Claude)
-- Pemilik: payments profile + buat 3 langganan `llk_basic`, `llk_up`, `llk_unlimited` (base plan bulanan/tahunan), aktifkan Play Developer API + service account.
-- Claude: alur beli via Digital Goods API, verifikasi & acknowledge di server, tombol "Pulihkan Langganan".
+- **KODE SUDAH SIAP (5 Nov 2026, di branch, belum di-merge/di-deploy):** server `functions/playbilling.js` + `verifyPlayPurchase` + `playRtdn`; aplikasi `llkPlayBuy`/`llkPlayRestore`/tombol "Pulihkan Langganan" (hanya aplikasi Play); kebijakan privasi & hapus-akun diperbarui. Tes: 74 server + 15 aplikasi lulus. **Langkah pemilik 1–10 ada di `PANDUAN-RILIS.md` bagian G** (urutan penting: build v2 dengan Play Billing aktif → buat langganan → API + undang akun layanan → deploy functions DULU → notifikasi real-time → penguji lisensi → uji beli → baru merge web).
+- **Rancangan produk berubah:** 5 langganan (masing-masing 1 base plan): `llk_basic_monthly`, `llk_up_monthly`, `llk_up_yearly`, `llk_unlimited_monthly`, `llk_unlimited_yearly` (bukan 3 produk + base plan). Server tetap mengenali rancangan lama sebagai cadangan.
+- Tanpa kunci JSON: server memakai akun layanan Cloud Functions (`<project>@appspot.gserviceaccount.com`) yang diundang di Play Console.
+- Pemilik: profil pembayaran/rekening, buat 5 langganan, aktifkan Play Developer API, undang akun layanan, deploy functions, hubungkan notifikasi real-time, uji beli. Claude: memandu, memperbaiki bila ada galat.
 - ⚠️ **Sekalian (keputusan pemilik 20 Okt 2026)**: build ulang PWABuilder **versi 2** dengan **layar pembuka logo mendatar** + **ikon opsi A** — gambar sudah siap di `store/play/twa/` (Icon URL = `splash-1024.png`, Maskable icon URL = `icon-maskable-512.png`, background `#F6F1E9`, Version code 2, Start URL `/?src=play`, kunci lama). Langkah lengkap: `PANDUAN-RILIS.md` bagian F. Tes di Pengujian internal dulu, baru promosikan ke tertutup.
 
 ## Catatan lain
