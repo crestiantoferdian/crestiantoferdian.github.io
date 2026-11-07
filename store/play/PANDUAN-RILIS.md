@@ -134,9 +134,62 @@ Langkah di PWABuilder (sama seperti langkah A, bedanya hanya ini):
 4. **Maskable icon URL** → `https://leslesanku.com/store/play/twa/icon-maskable-512.png` (ikon di layar HP Android 8+).
 5. **Splash screen background color** → `#F6F1E9`.
 6. **Signing key** → kunci LAMA yang sama (folder 09/09/2026). Jangan buat kunci baru.
-7. Download → ambil file `.aab`.
+7. **Google Play Billing → AKTIFKAN** (di opsi Android lanjutan/"other options"; cari yang bernama "Google Play Billing" atau "Play Billing"). Wajib untuk langganan di aplikasi (lihat bagian G). Kalau tidak ketemu, kirim screenshot opsinya.
+8. Download → ambil file `.aab`.
+
+> ⚠️ **PENGINGAT PEMILIK: V2 WAJIB PAKAI IKON BARU (opsi A: tombol merah mengilap "LLK") + layar pembuka logo mendatar.** Dua gambar di tabel atas itu ikonnya. Jangan pakai ikon lama. Cek hasilnya di HP setelah update: ikon di layar utama & layar pembuka.
 
 Di Play Console:
 1. **Pengujian internal → Buat rilis baru** → unggah AAB versi 2 → catatan rilis `<id>Logo layar pembuka & ikon baru</id>` → luncurkan.
 2. Pasang/update di HP sendiri → cek layar pembuka & ikon.
 3. Kalau sudah bagus: **Pengujian tertutup → Buat rilis baru → Tambahkan dari library** (pilih versi 2) → luncurkan. Penguji cukup **update** dari Play Store; hitungan 14 hari **tidak diulang**.
+
+---
+
+## G. Google Play Billing — langganan di aplikasi dari Play Store
+
+**Prinsip:** di aplikasi Play, pembayaran HARUS lewat Google Play Billing (Midtrans hanya untuk website). Masa aktif langganan selalu diambil dari Google (bukan dihitung sendiri). Pembayaran masuk ke akun Play-mu; Google biasanya memotong sekitar 15% untuk langganan (cek tarif terbaru di Console).
+
+### Yang sudah dikerjakan Claude (kode siap, di branch; belum live)
+| Bagian | File | Isi |
+|---|---|---|
+| Server | `functions/playbilling.js`, `functions/index.js` | `verifyPlayPurchase` (verifikasi token ke Google, acknowledge, aktifkan `subscriptions/{uid}`), `playRtdn` (perpanjangan/batal/habis dari Google) |
+| Aplikasi | `index.html` | `llkPlayBuy` (beli lewat Digital Goods API), `llkPlayRestore` + tombol **Pulihkan Langganan**, deteksi langganan Play (tidak boleh beli dobel) |
+| Kebijakan | `privacy-policy.html`, `hapus-akun.html` | Google Play Billing dicantumkan; peringatan "langganan Play tidak berhenti otomatis saat akun dihapus" |
+| Tes | `functions/test/*.test.js` | 74 tes server lulus; 15 pemeriksaan sisi aplikasi lulus |
+
+Keamanan: token pembelian dicek ke Google (bukan percaya aplikasi), satu token hanya bisa dipakai satu akun (hash di `playPurchases`), tidak ada kunci rahasia (pakai akun layanan Cloud Functions, bukan file JSON). Sebelum langganan dibuat di Play Console, tombol beli otomatis menampilkan "Segera hadir" (tidak ada yang rusak).
+
+### Rancangan produk: 5 langganan, masing-masing 1 base plan
+(Dipilih supaya tidak bergantung pada perilaku Digital Goods API untuk langganan dengan banyak base plan. Rancangan lama 3 produk + base plan `bulanan`/`tahunan` tetap dikenali server sebagai cadangan, tapi aplikasi memakai 5 produk ini.)
+
+| Product ID | Nama | Base plan ID | Periode | Harga |
+|---|---|---|---|---|
+| `llk_basic_monthly` | Pro Basic Bulanan | `monthly` | 1 bulan | Rp35.000 |
+| `llk_up_monthly` | Pro Up Bulanan | `monthly` | 1 bulan | Rp75.000 |
+| `llk_up_yearly` | Pro Up Tahunan | `yearly` | 1 tahun | Rp700.000 |
+| `llk_unlimited_monthly` | Pro Unlimited Bulanan | `monthly` | 1 bulan | Rp100.000 |
+| `llk_unlimited_yearly` | Pro Unlimited Tahunan | `yearly` | 1 tahun | Rp1.000.000 |
+
+Product ID harus PERSIS seperti di tabel (tidak bisa diubah setelah dibuat).
+
+> ✅ **Sudah dibuat (6–7 Nov 2026, via sesi Claude di browser):** kelima langganan **Aktif** di Play Console, base plan **`monthly`/`yearly`** (bukan `bulanan`/`tahunan`), hanya dijual di Indonesia, perpanjangan otomatis. Versi 2 sudah dirilis ke **Pengujian internal** (syarat agar menu Langganan terbuka). Server mengenali paket dari **product ID**, jadi nama base plan tidak memengaruhi kode (ada tesnya). Google sempat mengubah 3 harga (Rp990.000 / Rp690.000 / Rp99.000) lalu dikembalikan ke harga benar; **cek ulang harga di Console setelah setiap pengubahan**. Draf versi 2 di jalur Alpha (tertutup) **belum dikirim ditinjau**: tunggu uji beli berhasil.
+
+
+### Langkah pemilik (urut; Claude memandu, tanda 🧑 = kamu yang menekan)
+1. 🧑 **Build versi 2 dengan Play Billing aktif + ikon baru** (bagian F, langkah 7) → unggah ke **Pengujian internal** → pasang & cek ikon.
+2. 🧑 **Profil pembayaran** (kalau belum): Konsol Play → Setelan/Penyiapan → profil pembayaran, isi rekening bank & data pajak (verifikasi bisa makan beberapa hari — mulai lebih awal).
+3. 🧑 **Buat 5 langganan** (hanya bisa setelah langkah 1): **Monetisasi dengan Google Play → Produk → Langganan → Buat langganan**. Isi Product ID & nama (tabel di atas), tambah **base plan** (ID `bulanan`/`tahunan`, perpanjang otomatis, periode & harga dalam Rupiah), lalu **Aktifkan** base plan-nya. Nama tombol bisa sedikit berbeda; kirim screenshot kalau bingung.
+4. 🧑 **Aktifkan API:** Google Cloud Console → pilih project `llk-67a30` → APIs & Services → Library → **Google Play Android Developer API** → Enable.
+5. 🧑 **Undang akun layanan di Play Console:** Pengguna dan izin → Undang pengguna → email akun layanan Cloud Functions (biasanya `llk-67a30@appspot.gserviceaccount.com`; pastikan di Firebase Console → Functions → pilih fungsi → Detail → *Service account*). Beri izin: lihat informasi aplikasi, **lihat data keuangan/pesanan**, dan **kelola pesanan dan langganan**. Izin bisa butuh beberapa jam untuk aktif.
+6. 🧑 **Deploy Cloud Functions** lewat Cloud Shell (seperti 29 Sep): `git clone` branch → `cloudshell edit .env` (salin dari file .env pemilik) → `npm ci && npm test` → `npx -y firebase-tools@13 deploy --only functions --project llk-67a30`. Pastikan `npm test` hijau. **Deploy functions DULU, baru merge web.**
+7. 🧑 **Notifikasi real-time (perpanjangan otomatis):** setelah deploy, topik Pub/Sub `play-rtdn` terbentuk. Cloud Console → Pub/Sub → Topics → `play-rtdn` → Permissions → beri peran **Pub/Sub Publisher** ke `google-play-developer-notifications@system.gserviceaccount.com`. Lalu Konsol Play → Monetisasi → Penyiapan monetisasi → **Notifikasi developer real-time** → nama topik `projects/llk-67a30/topics/play-rtdn` → **Kirim notifikasi uji**. (Tanpa ini, perpanjangan baru tercatat saat aplikasi dibuka; masih aman karena aplikasi memulihkan otomatis.)
+8. 🧑 **Penguji lisensi:** Konsol Play → Setelan → Pengujian lisensi → tambahkan Gmail pengujimu (pembelian uji tidak ditagih; perpanjangannya dipercepat).
+9. 🧑 **Uji beli** dengan akun penguji lisensi di aplikasi Play (versi 2): paywall → pilih paket → bayar → cek: badge **PRO**, dokumen `subscriptions/{uid}` berisi `source: "play"`, tombol **Pulihkan Langganan** bekerja (hapus-pasang ulang). Batalkan di Play Store dan pastikan masa aktif tetap sampai tanggal akhir.
+10. 🧑 Kalau semua lolos: merge web ke `main` (Claude membuat PR) → promosikan versi 2 ke **Pengujian tertutup** (Tambahkan dari library). Setelah akses Produksi disetujui, promosikan ke Produksi.
+
+### Catatan
+- Pengguna yang membeli lewat Play lalu ganti ke paket lain: diarahkan ke Play Store (aplikasi sengaja tidak membuat langganan kedua).
+- Pengembalian dana/pembatalan oleh Google ikut tercatat lewat notifikasi real-time (status jadi `expired`).
+- Pelanggan web (Midtrans) yang masa aktifnya lebih lama tidak dikurangi oleh pembelian Play yang lebih pendek.
+- Pernyataan **status pedagang** (batas 1 Feb 2027) tetap perlu diisi di Konsol Play.

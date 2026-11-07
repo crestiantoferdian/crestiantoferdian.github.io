@@ -91,7 +91,7 @@
   </div>
 
   <main>
-    <p class="updated">Terakhir diperbarui: 4 November 2026</p>
+    <p class="updated">Terakhir diperbarui: 5 November 2026</p>
 
     <div class="card">
       <p style="margin:0">LesLesanKu ("<strong>Aplikasi</strong>") dikembangkan dan dikelola secara independen oleh tutor pemilik aplikasi ini ("<strong>Pengembang</strong>", "<strong>kami</strong>"). Kebijakan ini menjelaskan data apa saja yang dikumpulkan Aplikasi, bagaimana data itu disimpan dan digunakan, serta hak yang kamu miliki atas data tersebut.</p>
@@ -128,11 +128,12 @@
     <p>Kalau kamu mengaktifkan notifikasi pengingat jadwal, Aplikasi menyimpan ID langganan notifikasi (subscription ID) dari layanan pihak ketiga OneSignal, untuk mengirim pengingat ke perangkatmu. Aplikasi hanya mengakses kamera/galeri saat kamu sendiri memilih menambahkan foto progres, dan tidak mengakses kontak, lokasi, atau data pribadi lain di HP-mu.</p>
 
     <p><strong>d. Data langganan berbayar Aplikasi (untuk tutor pengguna Aplikasi)</strong></p>
-    <p>Aplikasi ini memiliki masa uji coba gratis 31 hari, dilanjutkan dengan langganan berbayar bulanan/tahunan yang diproses lewat Midtrans. Data yang tersimpan terkait ini:</p>
+    <p>Aplikasi ini memiliki masa uji coba gratis 31 hari, dilanjutkan dengan langganan berbayar bulanan/tahunan. Di website, pembayaran diproses lewat Midtrans; di aplikasi yang dipasang dari Google Play Store, pembayaran diproses lewat Google Play Billing. Data yang tersimpan terkait ini:</p>
     <ul>
       <li>Status & tanggal berakhir masa uji coba gratis</li>
       <li>Paket langganan yang dipilih (bulanan/tahunan) dan tanggal berakhirnya</li>
       <li>ID transaksi dan status pembayaran (berhasil/gagal/kedaluwarsa) dari Midtrans</li>
+      <li>Untuk langganan lewat Google Play: ID pesanan, status langganan, tanggal berakhir, serta penanda pembelian (token Google Play yang disimpan dalam bentuk hash, supaya satu pembelian tidak dipakai dua akun)</li>
     </ul>
     <p>Data ini tersimpan di server (bukan di perangkat) dan hanya bisa diubah lewat proses pembayaran yang sah, untuk mencegah manipulasi masa aktif langganan.</p>
 
@@ -165,6 +166,7 @@
       <tr><th>Layanan</th><th>Fungsi</th></tr>
       <tr><td>Google Firebase</td><td>Login akun (Authentication), penyimpanan data cadangan cloud (Firestore), pemrosesan langganan berbayar, pengiriman email layanan & pengingat terjadwal (Cloud Functions)</td></tr>
       <tr><td>Midtrans</td><td>Pemroses pembayaran (payment gateway) untuk langganan berbayar Aplikasi. Saat bertransaksi, email akun Google-mu diteruskan ke Midtrans untuk keperluan pencatatan transaksi. Detail kartu/rekening/e-wallet diproses langsung oleh Midtrans, tidak melalui atau tersimpan di server kami.</td></tr>
+      <tr><td>Google Play (Billing)</td><td>Pemroses pembayaran untuk langganan yang dibeli di aplikasi dari Google Play Store. Pembayaran sepenuhnya diproses Google; kami hanya menerima status dan tanggal berakhir langganan untuk mengaktifkan fitur Pro. Pembatalan dan pengembalian dana mengikuti ketentuan Google Play.</td></tr>
       <tr><td>OneSignal</td><td>Pengiriman notifikasi pengingat jadwal & pengingat langganan</td></tr>
       <tr><td>Resend</td><td>Pengiriman email layanan (selamat datang, invoice, pengingat) dari no-reply@leslesanku.com. Menerima alamat email tujuan dan isi email tersebut.</td></tr>
       <tr><td>Telegram</td><td>Pemberitahuan internal ke Pengembang saat ada akun/lembaga baru atau pembayaran berhasil (lihat bagian 2.f)</td></tr>
@@ -185,7 +187,7 @@
     <ul>
       <li><strong>Akses & ekspor:</strong> semua data bisa diekspor kapan saja lewat fitur "Backup Data Manual" di dalam Aplikasi (menghasilkan file yang bisa dibuka/dibaca).</li>
       <li><strong>Koreksi:</strong> semua data bisa diedit langsung di dalam Aplikasi kapan saja.</li>
-      <li><strong>Penghapusan akun & data:</strong> kamu bisa menghapus akun kapan saja langsung dari Aplikasi lewat menu <b>Lainnya → Hapus Akun & Semua Data</b>. Proses ini menghapus permanen akun login, seluruh data cloud (murid, absensi, catatan, invoice, pengaturan), data di perangkat, dan reminder yang terjadwal. Kalau tidak bisa membuka Aplikasi, ajukan permintaan lewat halaman <a href="hapus-akun.html">Hapus Akun</a>. Catatan transaksi pembayaran langganan (ID transaksi, paket, tanggal) dapat disimpan hingga batas yang diwajibkan peraturan perpajakan/keuangan, lalu dihapus.</li>
+      <li><strong>Penghapusan akun & data:</strong> kamu bisa menghapus akun kapan saja langsung dari Aplikasi lewat menu <b>Lainnya → Hapus Akun & Semua Data</b>. Proses ini menghapus permanen akun login, seluruh data cloud (murid, absensi, catatan, invoice, pengaturan), data di perangkat, dan reminder yang terjadwal. Kalau tidak bisa membuka Aplikasi, ajukan permintaan lewat halaman <a href="hapus-akun.html">Hapus Akun</a>. Catatan transaksi pembayaran langganan (ID transaksi, paket, tanggal) dapat disimpan hingga batas yang diwajibkan peraturan perpajakan/keuangan, lalu dihapus. <b>Langganan yang dibeli lewat Google Play tidak berhenti otomatis saat akun dihapus</b> — batalkan di Play Store (Profil → Pembayaran &amp; langganan → Langganan) supaya tidak ditagih lagi.</li>
       <li><strong>Logout:</strong> logout dari akun Google berhenti menyinkronkan data baru ke cloud, tapi tidak menghapus data yang sudah tersimpan di cloud sebelumnya.</li>
     </ul>
 

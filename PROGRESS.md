@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 4 Nov 2026 (Email dukungan support@leslesanku.com)_
+_Terakhir diperbarui: 5 Nov 2026 (Play Store: pengajuan Produksi #1 perlu tambahan uji 14 hari)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -9,12 +9,30 @@ _Terakhir diperbarui: 4 Nov 2026 (Email dukungan support@leslesanku.com)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
-## 📧 Email dukungan @leslesanku.com (4 Nov 2026)
-- Cloudflare Email Routing (dikerjakan pemilik): `support@`, `hello@`, `privacy@leslesanku.com` → diteruskan ke `ferdiancrestianto@gmail.com`. Record DNS Resend (`resend._domainkey`, `send`, CNAME) **jangan diubah** (dipakai `no-reply@leslesanku.com`). Firebase Auth templates: pengirim "LLK Support", Reply-to `support@`. Play Console: email kontak toko `support@leslesanku.com`.
-- Kode: email lama `crestiantoferdian@gmail.com` diganti → `privacy-policy.html` bagian 10 = `privacy@leslesanku.com` (tanggal 4 Nov 2026), `hapus-akun.html` = `support@leslesanku.com`, pesan gagal Hapus Akun di `index.html` = `support@` (hanya teks alert).
-- `functions/notify.js`: email Resend/SMTP kini memakai **reply_to `support@leslesanku.com`** (bisa diganti env `REPLY_TO_EMAIL`), footer "Mohon tidak membalas" → "Butuh bantuan? Balas email ini atau tulis ke support@leslesanku.com". Berlaku setelah `firebase deploy --only functions` (npm test 52 lolos).
-- **PR #165** (di-merge 4 Nov 2026): perubahan situs langsung tayang di leslesanku.com; email Resend menunggu deploy functions di Cloud Shell `~/llk` (`git pull` lalu `firebase deploy --only functions`).
-- Belum: Gmail "Kirim email sebagai" support@ masih terpental "550 domain is not verified" karena memakai API key akun Resend Gitar Sakti. Perlu API key (Sending access, domain leslesanku.com) dari akun Resend yang memegang leslesanku.com (bukan akun gitarsaktipol; tidak ada email Resend di ferdiancrestianto@gmail.com → kemungkinan didaftarkan dengan crestiantoferdian@gmail.com atau fertunestudio@gmail.com).
+## 📧 Email bisnis LLK @leslesanku.com (diperbarui 5 Nov 2026)
+> ⚠️ Repo publik: **jangan** tulis alamat login akun Resend/Cloudflare, nama atau lokasi API key, maupun kata sandi di sini. Catatan lengkap itu disimpan pemilik secara pribadi.
+
+**Alamat kontak** (Cloudflare Email Routing, semuanya diteruskan ke `ferdiancrestianto@gmail.com`; tidak punya kotak masuk sendiri):
+- `support@leslesanku.com`: kontak utama pelanggan (bantuan/komplain). Dipakai di email toko Play Console, footer & Reply-To email otomatis, halaman `/hapus-akun`, dan pesan error Hapus Akun.
+- `hello@leslesanku.com`: pertanyaan umum, kerja sama, media.
+- `privacy@leslesanku.com`: urusan privasi; dipakai di `/privacy-policy` bagian 10 "Kontak".
+- `no-reply@leslesanku.com`: **hanya pengirim** email otomatis (Resend), bukan kotak masuk.
+- Gmail lama `crestiantoferdian@gmail.com` sudah dihapus dari situs & kode (diverifikasi di situs live 7 Nov 2026: `/privacy-policy` = `privacy@`, `/hapus-akun` = `support@`). `fertunestudio@gmail.com` = akun developer Play Store (jangan diubah).
+
+**Pengiriman email otomatis (Resend)**
+- Domain `leslesanku.com` kini ada di akun/team Resend "leslesku" (region Tokyo, status Verified). Sebelumnya di akun lain; kepemilikan dipindahkan 5 Nov 2026 sehingga key Resend lama tidak berlaku lagi.
+- `RESEND_API_KEY` di server LLK sudah diganti dengan key baru (Sending access, domain leslesanku.com), functions di-deploy ulang, tes email selamat datang lolos. Reply-To: `support@leslesanku.com` (footer "Butuh bantuan? Balas email ini atau tulis ke support@leslesanku.com").
+- Key terpisah dipakai **hanya** untuk Gmail "Kirim email sebagai" (SMTP `smtp.resend.com`, port 465, user `resend`); jangan satu key untuk dua keperluan. Tes kirim sebagai `support@` dari Gmail pemilik berhasil.
+
+**DNS leslesanku.com di Cloudflare (jangan diubah sembarangan)**
+- Cloudflare Email Routing (penerimaan): MX `route1/2/3.mx.cloudflare.net`, TXT SPF `v=spf1 include:_spf.mx.cloudflare.net ~all`, DKIM `cf2024-1._domainkey`.
+- Resend (pengiriman): TXT `resend._domainkey` (DKIM baru), TXT `@` `resend-domain-verification`, CNAME `bounce` → `send.forge.rmta.net`, CNAME `rbounce` → `rsend-apne1.forge.rmta.net`; semua DNS only. Record lama `send`/`rsend` (CNAME ke `forge.rmta.net`) sudah tidak dipakai, dibiarkan.
+- **"Enable receiving" di Resend harus tetap MATI**: kalau dinyalakan Resend meminta MX baru yang merusak penerusan Cloudflare.
+- GitHub Pages: A `185.199.108–111.153`, `www` CNAME `crestiantoferdian.github.io`.
+
+**Pengaturan lain:** Firebase Auth Templates: sender name "LLK Support", From `noreply`, Reply-to `support@leslesanku.com`. Play Console: email kontak toko `support@leslesanku.com`.
+
+**Belum / pembersihan:** (1) tes menerima: kirim dari Gmail lain ke `support@` dan `privacy@`; (2) hapus key lama di akun Resend lama setelah semuanya stabil.
 
 ## 🧮 Pembayaran Midtrans → Fercash (3 Nov 2026)
 - Setiap pembayaran **Midtrans PRODUCTION** yang berhasil (LLK V1 `LLK-…` → `produk:"v1"`, LLK Lembaga `LLKO-…` → `produk:"lembaga"`) otomatis dikirim sebagai pemasukan ke Fercash (`functions/fercash.js`, URL Supabase `fercash-terima-pemasukan`). Dipanggil di `activateOrder` / `activateOrgOrder` (titik yang sama dengan Telegram "💰 Pembayaran berhasil"), hanya sekali per order (saat order baru berubah jadi `paid`). Sandbox, trial, pengguna/lembaga baru, pengingat: tidak dikirim.
@@ -38,6 +56,20 @@ _Terakhir diperbarui: 4 Nov 2026 (Email dukungan support@leslesanku.com)_
 - Permintaan pemilik: akun yang **pernah berlangganan** lalu masanya habis tidak boleh lagi diberi tulisan "Trial 31 Hari Kamu Sudah Selesai".
 - `applySubscriptionDoc` mengisi `_subWasPaid` (`!subActive && subscriptionEndsAt>0`), `showPaywall` memilih teks: **trial ditolak** → "Trial Gratis Sudah Pernah Dipakai"; **pernah berlangganan** → "Langganan Pro Kamu Sudah Berakhir" + "Terima kasih sudah berlangganan… Perpanjang supaya…"; **selain itu** → teks trial lama. Hanya teks layar paywall; logika akses/langganan/data tidak berubah. Teruji 6 kasus (trial habis, langganan habis, trial ditolak, langganan aktif, trial jalan, tester).
 - Catatan: `status:"active"` di Firestore tidak otomatis berubah saat `subscriptionEndsAt` lewat; aplikasi mengecek keduanya, jadi akun seperti itu kena paywall (benar). Akun keluarga/tester dibuka lewat kolom `isTester:true` (boolean) di `subscriptions/{uid}` lewat Firebase Console.
+
+## 💳 Google Play Billing: kode siap, menunggu penyiapan Play Console (5 Nov 2026)
+- Ditulis & diuji (74 tes server + 15 pemeriksaan aplikasi, semua lulus), **di branch, belum di-merge/di-deploy**: `functions/playbilling.js`, `verifyPlayPurchase` & `playRtdn` di `functions/index.js`, `llkPlayBuy`/`llkPlayRestore`/"Pulihkan Langganan" di `index.html` (hanya aplikasi Play; website & Midtrans tidak berubah), `privacy-policy.html` & `hapus-akun.html` (Google Play Billing + peringatan "langganan Play tidak berhenti otomatis saat akun dihapus").
+- Desain: masa aktif dari Google (subscriptionsv2), acknowledge otomatis, 1 token = 1 akun (hash di `playPurchases`), tanpa kunci JSON (akun layanan Cloud Functions), 5 produk `llk_{basic|up|unlimited}_{monthly|yearly}`. Pembelian kedua saat masih punya langganan Play ditolak (diarahkan ke Play Store). Sebelum produk dibuat di Play Console tombol beli menampilkan "Segera hadir".
+- **Update 7 Nov:** 5 langganan sudah Aktif di Play Console (base plan `monthly`/`yearly`; server memetakan dari product ID, jadi cocok) + versi 2 di Pengujian internal. Berikutnya: deploy functions → akun layanan + notifikasi real-time → penguji lisensi → uji beli.
+- **Langkah pemilik (urut): `store/play/PANDUAN-RILIS.md` bagian G.** Build versi 2 wajib: Play Billing aktif + **ikon baru opsi A** + layar pembuka logo mendatar (bagian F).
+
+## 🏪 Play Console: pengajuan Produksi #1 belum disetujui (5 Nov 2026)
+- Google (5 Nov): perlu **tambahan 14 hari uji tertutup dengan penguji nyata** (interaksi penguji kurang; belum ada pembaruan sebagai tindak lanjut masukan). Rencana, daftar periksa, petunjuk penguji, lembar masukan, kerangka jawaban formulir: **`store/play/PENGAJUAN-PRODUKSI.md`**; status rinci: `store/play/STATUS-RILIS.md`.
+- Berikutnya: cari ≥12 guru les sebagai penguji nyata → rilis versi 2 (ikon opsi A, layar pembuka baru) ke Pengujian tertutup → ajukan ulang setelah 14 hari. Batas pernyataan status pedagang: 1 Feb 2027. Google Play Billing sebaiknya selesai sebelum produksi.
+
+## 🏪 Play Console: permohonan Produksi diajukan (3 Nov 2026)
+- Pengujian tertutup 14 hari dengan ≥12 penguji **selesai**; **permohonan akses Produksi sudah diajukan** (3 Nov 2026, 00.14). Google biasanya menjawab ≤7 hari lewat email pemilik akun. Jawaban formulir (jujur, termasuk penyedia penguji berbayar) dan langkah setelahnya: **`store/play/STATUS-RILIS.md`**.
+- Berikutnya: tunggu review → (disetujui) buat rilis Produksi bertahap dari bundle yang sama → kerjakan Google Play Billing + build PWABuilder versi 2 (ikon opsi A) → pernyataan trader status (November).
 
 ## 🏪 Play Console: pengujian tertutup berjalan (19 Okt 2026)
 - Status lengkap & langkah berikutnya: **`store/play/STATUS-RILIS.md`** (sumber utama; jangan tulis email penguji/kata sandi di repo publik).
