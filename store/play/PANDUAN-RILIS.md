@@ -165,13 +165,16 @@ Keamanan: token pembelian dicek ke Google (bukan percaya aplikasi), satu token h
 
 | Product ID | Nama | Base plan ID | Periode | Harga |
 |---|---|---|---|---|
-| `llk_basic_monthly` | Pro Basic Bulanan | `bulanan` | 1 bulan | Rp35.000 |
-| `llk_up_monthly` | Pro Up Bulanan | `bulanan` | 1 bulan | Rp75.000 |
-| `llk_up_yearly` | Pro Up Tahunan | `tahunan` | 1 tahun | Rp700.000 |
-| `llk_unlimited_monthly` | Pro Unlimited Bulanan | `bulanan` | 1 bulan | Rp100.000 |
-| `llk_unlimited_yearly` | Pro Unlimited Tahunan | `tahunan` | 1 tahun | Rp1.000.000 |
+| `llk_basic_monthly` | Pro Basic Bulanan | `monthly` | 1 bulan | Rp35.000 |
+| `llk_up_monthly` | Pro Up Bulanan | `monthly` | 1 bulan | Rp75.000 |
+| `llk_up_yearly` | Pro Up Tahunan | `yearly` | 1 tahun | Rp700.000 |
+| `llk_unlimited_monthly` | Pro Unlimited Bulanan | `monthly` | 1 bulan | Rp100.000 |
+| `llk_unlimited_yearly` | Pro Unlimited Tahunan | `yearly` | 1 tahun | Rp1.000.000 |
 
 Product ID harus PERSIS seperti di tabel (tidak bisa diubah setelah dibuat).
+
+> ✅ **Sudah dibuat (6–7 Nov 2026, via sesi Claude di browser):** kelima langganan **Aktif** di Play Console, base plan **`monthly`/`yearly`** (bukan `bulanan`/`tahunan`), hanya dijual di Indonesia, perpanjangan otomatis. Versi 2 sudah dirilis ke **Pengujian internal** (syarat agar menu Langganan terbuka). Server mengenali paket dari **product ID**, jadi nama base plan tidak memengaruhi kode (ada tesnya). Google sempat mengubah 3 harga (Rp990.000 / Rp690.000 / Rp99.000) lalu dikembalikan ke harga benar; **cek ulang harga di Console setelah setiap pengubahan**. Draf versi 2 di jalur Alpha (tertutup) **belum dikirim ditinjau**: tunggu uji beli berhasil.
+
 
 ### Langkah pemilik (urut; Claude memandu, tanda 🧑 = kamu yang menekan)
 1. 🧑 **Build versi 2 dengan Play Billing aktif + ikon baru** (bagian F, langkah 7) → unggah ke **Pengujian internal** → pasang & cek ikon.

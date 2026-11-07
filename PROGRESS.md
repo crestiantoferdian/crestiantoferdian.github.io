@@ -60,6 +60,7 @@ _Terakhir diperbarui: 5 Nov 2026 (Play Store: pengajuan Produksi #1 perlu tambah
 ## 💳 Google Play Billing: kode siap, menunggu penyiapan Play Console (5 Nov 2026)
 - Ditulis & diuji (74 tes server + 15 pemeriksaan aplikasi, semua lulus), **di branch, belum di-merge/di-deploy**: `functions/playbilling.js`, `verifyPlayPurchase` & `playRtdn` di `functions/index.js`, `llkPlayBuy`/`llkPlayRestore`/"Pulihkan Langganan" di `index.html` (hanya aplikasi Play; website & Midtrans tidak berubah), `privacy-policy.html` & `hapus-akun.html` (Google Play Billing + peringatan "langganan Play tidak berhenti otomatis saat akun dihapus").
 - Desain: masa aktif dari Google (subscriptionsv2), acknowledge otomatis, 1 token = 1 akun (hash di `playPurchases`), tanpa kunci JSON (akun layanan Cloud Functions), 5 produk `llk_{basic|up|unlimited}_{monthly|yearly}`. Pembelian kedua saat masih punya langganan Play ditolak (diarahkan ke Play Store). Sebelum produk dibuat di Play Console tombol beli menampilkan "Segera hadir".
+- **Update 7 Nov:** 5 langganan sudah Aktif di Play Console (base plan `monthly`/`yearly`; server memetakan dari product ID, jadi cocok) + versi 2 di Pengujian internal. Berikutnya: deploy functions → akun layanan + notifikasi real-time → penguji lisensi → uji beli.
 - **Langkah pemilik (urut): `store/play/PANDUAN-RILIS.md` bagian G.** Build versi 2 wajib: Play Billing aktif + **ikon baru opsi A** + layar pembuka logo mendatar (bagian F).
 
 ## 🏪 Play Console: pengajuan Produksi #1 belum disetujui (5 Nov 2026)

@@ -78,6 +78,21 @@ test('product ID Play dipetakan ke paket (5 langganan, base plan cadangan, tak d
   assert.strictEqual(Object.keys(PB.PLAY_SKUS).length, 5);
 });
 
+test('base plan ID di Play Console (monthly/yearly) tidak memengaruhi pemetaan: yang dipakai product ID', () => {
+  // Kondisi nyata di Play Console: 5 langganan, base plan `monthly` / `yearly`
+  const real = [
+    ['llk_basic_monthly', 'monthly', 'basic_monthly'], ['llk_up_monthly', 'monthly', 'up_monthly'], ['llk_up_yearly', 'yearly', 'up_yearly'],
+    ['llk_unlimited_monthly', 'monthly', 'unlimited_monthly'], ['llk_unlimited_yearly', 'yearly', 'unlimited_yearly'],
+  ];
+  for (const [sku, base, plan] of real) {
+    assert.strictEqual(PB.resolvePlayPlan(sku, base), plan, sku);
+    assert.strictEqual(PB.resolvePlayPlan(sku, 'apa-saja'), plan, sku + ' + base plan sembarang');
+    const p = PB.parsePlaySubscription(sub({ productId: sku, basePlanId: base }));
+    assert.strictEqual(p.basePlanId, base);
+    assert.strictEqual(PB.resolvePlayPlan(p.productId, p.basePlanId), plan);
+  }
+});
+
 test('semua paket di plans.js punya SKU Play (tidak ada paket yang tidak bisa dibeli)', () => {
   const { PLANS } = require('../plans.js');
   for (const k of Object.keys(PLANS)) assert.ok(PB.PLAY_SKUS[k], 'SKU Play hilang untuk ' + k);
