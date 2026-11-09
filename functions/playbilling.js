@@ -70,6 +70,8 @@ function parsePlaySubscription(resp) {
     ackPending: (resp && resp.acknowledgementState) === 'ACKNOWLEDGEMENT_STATE_PENDING',
     autoRenew: !!(li.autoRenewingPlan && li.autoRenewingPlan.autoRenewEnabled),
     test: !!(resp && resp.testPurchase),
+    // Penggantian paket: token baru menunjuk ke token lama yang digantikannya
+    linkedToken: (resp && resp.linkedPurchaseToken) || '',
   };
 }
 
@@ -226,8 +228,18 @@ function createPlayService({ db, Timestamp, client, now }) {
     const n = message && message.subscriptionNotification;
     if (!n || !n.purchaseToken) return false;
     const bind = await db.collection('playPurchases').doc(tokenKey(n.purchaseToken)).get();
-    if (!bind.exists) return false; // token belum pernah diverifikasi aplikasi → akan terikat saat pembeli membuka aplikasi
-    await applyPurchase(bind.data().uid, n.purchaseToken, { fromUser: false });
+    if (bind.exists) {
+      await applyPurchase(bind.data().uid, n.purchaseToken, { fromUser: false });
+      return true;
+    }
+    // Token baru hasil PENGGANTIAN paket (upgrade/downgrade, termasuk yang berlaku saat perpanjangan): Google
+    // menautkannya ke token lama. Kalau token lama sudah terikat ke satu akun, token baru ikut ke akun itu.
+    let linked = '';
+    try { linked = parsePlaySubscription(await client.getSubscription(n.purchaseToken)).linkedToken; } catch (e) { return false; }
+    if (!linked) return false; // token yang belum pernah diverifikasi aplikasi → terikat saat pembeli membuka aplikasi
+    const lb = await db.collection('playPurchases').doc(tokenKey(linked)).get();
+    if (!lb.exists) return false;
+    await applyPurchase(lb.data().uid, n.purchaseToken, { fromUser: true });
     return true;
   }
 

@@ -10598,6 +10598,7 @@ let _subTrialDenied=false;  // server menolak trial karena email ini sudah perna
 let _subWasPaid=false;      // pernah berlangganan berbayar & masanya sudah habis (teks paywall: "Langganan berakhir", bukan "Trial selesai")
 let _subSource=null;        // asal langganan berbayar: 'play' (Google Play) atau kosong (website/Midtrans)
 let _subEndsMs=0;           // tanggal berakhir langganan berbayar (ms)
+let _subPlanKey=null;       // kunci paket langganan berbayar sekarang (mis. 'basic_monthly')
 let _subPlayAutoRenew=null; // langganan Play: true = perpanjang otomatis, false = sudah dibatalkan pengguna (masih aktif sampai tanggal berakhir)
 function tierInfo(id){ return LLK_TIERS.find(function(t){ return t.id===id; })||null; }
 function activeStudentCount(){ return (students||[]).filter(function(s){ return !s.inactive; }).length; }
@@ -10727,6 +10728,7 @@ function applySubscriptionDoc(doc){
     _subWasPaid=!subActive && subEndsMs>0; // punya riwayat langganan berbayar tapi sudah lewat masanya
     _subSource=d.source==='play'?'play':null;
     _subEndsMs=subEndsMs;
+    _subPlanKey=d.plan||null;
     _subPlayAutoRenew=(d.source==='play'&&typeof d.playAutoRenew==='boolean')?d.playAutoRenew:null;
     const tb=document.getElementById('trialBanner');
     if(subActive){
@@ -11283,6 +11285,89 @@ function llkPlayManageNotice(){
   el.addEventListener('click',function(e){ if(e.target===el) el.remove(); });
   document.body.appendChild(el);
 }
+/* ── Ganti paket (upgrade/downgrade) antar langganan Play ─────────────────────────────
+   Memakai penggantian langganan Google Play lewat PaymentRequest: data {sku, oldSku, purchaseToken, prorationMode}
+   (sumber: panduan resmi Google "Implement Play Billing in your PWA", chromeos.dev). Aturan mode:
+   - naik tingkat DENGAN periode sama (mis. Basic bulanan → Up bulanan) → immediateAndChargeProratedPrice (langsung, tagih selisih);
+   - selain itu (turun tingkat, ganti bulanan↔tahunan) → deferred (berlaku saat perpanjangan berikutnya, tanpa tagihan sekarang).
+   immediateWithoutProration SENGAJA tidak dipakai (dinonaktifkan Google: celah penipuan).
+   Aman bila gagal: Google menolak / langganan lama tak ditemukan → kembali ke petunjuk "batalkan di Play Store"; TIDAK PERNAH jatuh ke pembelian baru. */
+function llkPlayPlanTierIdx(plan){ return LLK_TIERS.findIndex(function(t){ return t.id===String(plan).split('_')[0]; }); }
+function llkPlayPlanPeriod(plan){ return /_yearly$/.test(String(plan))?'yearly':'monthly'; }
+function llkPlayPlanName(plan){ const t=LLK_TIERS[llkPlayPlanTierIdx(plan)]; return (t?t.name:'Pro')+' '+(llkPlayPlanPeriod(plan)==='yearly'?'Tahunan':'Bulanan'); }
+function llkPlayChangeMode(curPlan,newPlan){
+  const naik=llkPlayPlanTierIdx(newPlan)>llkPlayPlanTierIdx(curPlan)&&llkPlayPlanPeriod(newPlan)===llkPlayPlanPeriod(curPlan);
+  return naik?'immediateAndChargeProratedPrice':'deferred';
+}
+/* Konfirmasi sebelum membuka pembayaran Google (menjelaskan kapan berlaku & apa yang ditagih). Mengembalikan Promise<boolean>. */
+function llkPlayConfirmChange(plan,mode){
+  return new Promise(function(resolve){
+    let el=document.getElementById('llkPlayPay'); if(el) el.remove();
+    el=document.createElement('div'); el.id='llkPlayPay';
+    el.style.cssText='position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(43,36,32,0.45);font-family:inherit';
+    const sekarang=mode==='immediateAndChargeProratedPrice';
+    const nama=escapeHtml(llkPlayPlanName(plan));
+    const until=_subEndsMs?escapeHtml(llkFmtDateMs(_subEndsMs)):'';
+    const body=sekarang
+      ?'Paket baru berlaku <b>sekarang</b>. Google menagih <b>selisih harga untuk sisa periode</b> (belum termasuk pajak). Tanggal tagihan berikutnya tidak berubah.'
+      :'Perubahan berlaku saat <b>perpanjangan berikutnya</b>'+(until?' (<b>'+until+'</b>)':'')+'. Sampai saat itu paketmu sekarang tetap aktif dan <b>tidak ada tagihan sekarang</b>.';
+    el.innerHTML='<div style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:24px 20px 18px;text-align:center;box-shadow:var(--shadow-lg)">'
+      +'<div class="llk-dialog-ic">'+llkI('crown')+'</div>'
+      +'<div style="font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--text);margin-bottom:8px">'+(sekarang?'Naik ke ':'Ganti ke ')+nama+'?</div>'
+      +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.6;margin-bottom:18px;text-align:left">'+body+'</div>'
+      +'<button id="llkPlayChgYes" class="llk-btn ink" style="width:100%;margin-bottom:8px">Lanjutkan</button>'
+      +'<button id="llkPlayChgNo" class="llk-btn secondary" style="width:100%">Batal</button></div>';
+    const done=function(v){ try{ el.remove(); }catch(e){} resolve(v); };
+    el.addEventListener('click',function(e){ if(e.target===el) done(false); });
+    document.body.appendChild(el);
+    el.querySelector('#llkPlayChgYes').onclick=function(){ done(true); };
+    el.querySelector('#llkPlayChgNo').onclick=function(){ done(false); };
+  });
+}
+async function llkPlayChange(plan){
+  const newSku=LLK_PLAY_SKUS[plan], curPlan=_subPlanKey, oldSku=curPlan&&LLK_PLAY_SKUS[curPlan];
+  if(!newSku||!oldSku){ llkPlayManageNotice(); return; }
+  if(plan===curPlan){ toast('Itu paket kamu sekarang.',4000); return; }
+  // Sudah dibatalkan (masih aktif sampai tanggal berakhir): jangan coba mengganti; beri tahu kapan bisa pilih paket baru.
+  if(_subPlayAutoRenew===false){ llkPlayManageNotice(); return; }
+  if(_llkPlayBusy) return;
+  const mode=llkPlayChangeMode(curPlan,plan);
+  if(!(await llkPlayConfirmChange(plan,mode))) return;
+  _llkPlayBusy=true;
+  let resp=null;
+  try{
+    const svc=await llkPlayService();
+    if(!svc||typeof svc.listPurchases!=='function'){ llkPlayManageNotice(); return; }
+    let list=[]; try{ list=(await svc.listPurchases())||[]; }catch(e){ list=[]; }
+    const old=list.find(function(p){ return p&&p.itemId===oldSku&&p.purchaseToken; });
+    if(!old){ llkPlayManageNotice(); return; } // langganan lama tidak ditemukan di Google → jalur aman (petunjuk), bukan pembelian baru
+    let found=null; try{ const d=await svc.getDetails([newSku]); found=(d&&d.length)?d[0]:null; }catch(e){ found=null; }
+    if(!found){ llkPlayPayNotice(); return; }
+    setPaywallStatus('Membuka Google Play…');
+    const req=new PaymentRequest([{supportedMethods:LLK_PLAY_BILLING_URL,data:{sku:newSku,oldSku:oldSku,purchaseToken:old.purchaseToken,prorationMode:mode}}],{total:{label:'Total',amount:{currency:'USD',value:'0'}}});
+    resp=await req.show();
+    const token=resp.details&&resp.details.purchaseToken;
+    if(!token) throw new Error('token pembelian kosong');
+    setPaywallStatus('Memverifikasi pergantian paket…');
+    let res;
+    try{ res=(await firebase.functions().httpsCallable('verifyPlayPurchase')({productId:newSku,purchaseToken:token})).data; }
+    catch(ve){ try{ await resp.complete('unknown'); }catch(e){} resp=null; throw ve; }
+    await resp.complete(res&&res.access?'success':'fail'); resp=null;
+    setPaywallStatus('');
+    toast(mode==='deferred'
+      ?'✅ Pergantian ke '+llkPlayPlanName(plan)+' dijadwalkan saat perpanjangan berikutnya.'
+      :'✅ Paket diganti ke '+llkPlayPlanName(plan)+'.',6000);
+  }catch(err){
+    if(resp){ try{ await resp.complete('fail'); }catch(e){} }
+    if(err&&err.name==='AbortError'){ setPaywallStatus(''); return; } // dibatalkan pengguna
+    // Google menolak penggantian (data/mode tidak didukung di perangkat ini): JANGAN buat langganan baru → petunjuk aman
+    if(err&&(err.name==='NotSupportedError'||err.name==='OperationError'||err.name==='SecurityError')){ console.warn('Penggantian Play ditolak:', err); llkPlayManageNotice(); return; }
+    console.error('Pergantian paket Play gagal:', err);
+    const why=llkPlayErrMsg(err)?' ('+llkPlayErrMsg(err)+')':'';
+    setPaywallStatus('⚠️ Pergantian paket belum selesai.'+why);
+    toast('⚠️ Pergantian paket belum selesai.'+why,6000);
+  }finally{ _llkPlayBusy=false; }
+}
 /* Harga asli dari Google Play (Digital Goods API getDetails). Dipakai di kartu paket aplikasi Play;
    kalau belum/tidak tersedia, jatuh ke harga di tabel LLK_TIERS (sama dengan harga produk di Play Console). */
 function llkPlayPlanPrice(planKey,fallback){
@@ -11327,7 +11412,7 @@ async function llkPlayBuy(plan){
   if(!sku){ llkPlayPayNotice(); return; }
   // Sudah punya langganan Play aktif → jangan membuat langganan kedua (bisa tertagih dobel).
   // Ganti paket / batalkan dilakukan di Play Store.
-  if(_subPaidActive&&_subSource==='play'){ llkPlayManageNotice(); return; }
+  if(_subPaidActive&&_subSource==='play'){ await llkPlayChange(plan); return; }
   // Langganan berbayar dari luar Play masih aktif (kecuali akun tester untuk uji beli) → jangan dobel-tagih.
   if(_subPaidActive&&_subSource!=='play'&&!(_subBadgeInfo&&_subBadgeInfo.isTester)){ llkPlayWebActiveNotice(); return; }
   if(_llkPlayBusy) return;

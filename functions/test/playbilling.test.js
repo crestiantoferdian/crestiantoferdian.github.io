@@ -282,3 +282,41 @@ test('klien Play: alamat, header, dan penanganan kesalahan benar', async () => {
   assert.strictEqual(calls[1][1].method, 'POST');
   await assert.rejects(() => c.getSubscription('GAGAL'), (e) => e.status === 403 && /tidak ada izin/.test(e.message));
 });
+
+// ── Penggantian paket (upgrade/downgrade): token baru tertaut ke token lama ──
+test('penggantian paket: RTDN token BARU yang tertaut ke token lama ikut ke akun yang sama', async () => {
+  const db = makeDb();
+  const client = makeClient({ OLD: sub({ productId: 'llk_basic_monthly', ack: 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED' }) });
+  const s = svc(db, client);
+  await s.applyPurchase('u1', 'OLD', { fromUser: true });
+  // Google menerbitkan token baru (deferred: berlaku saat perpanjangan) yang menunjuk ke token lama
+  client.responses.NEW = { ...sub({ productId: 'llk_unlimited_monthly', orderId: 'GPA.7777', expiryMs: NOW + 50 * DAY, ack: 'ACKNOWLEDGEMENT_STATE_PENDING' }), linkedPurchaseToken: 'OLD' };
+  const done = await s.handleNotification({ subscriptionNotification: { notificationType: 4, purchaseToken: 'NEW', subscriptionId: 'llk_unlimited_monthly' } });
+  assert.strictEqual(done, true);
+  assert.strictEqual(db.store.get('playPurchases/' + PB.tokenKey('NEW')).uid, 'u1');
+  const cur = db.store.get('subscriptions/u1');
+  assert.strictEqual(cur.tier, 'unlimited'); assert.strictEqual(cur.status, 'active');
+  assert.strictEqual(cur.playTokenKey, PB.tokenKey('NEW'));
+  assert.deepStrictEqual(client.acks, [['llk_unlimited_monthly', 'NEW']]);
+});
+
+test('RTDN token baru yang TIDAK tertaut ke token terikat mana pun: diabaikan', async () => {
+  const db = makeDb();
+  const client = makeClient({ ORANG: { ...sub({ productId: 'llk_up_monthly' }), linkedPurchaseToken: 'TIDAK-DIKENAL' }, KOSONG: sub({}) });
+  assert.strictEqual(await svc(db, client).handleNotification({ subscriptionNotification: { purchaseToken: 'ORANG' } }), false);
+  assert.strictEqual(await svc(db, client).handleNotification({ subscriptionNotification: { purchaseToken: 'KOSONG' } }), false);
+  assert.strictEqual(db.store.size, 0);
+});
+
+test('penggantian segera: token baru aktif sebagai paket baru; token lama yang habis tidak mematikannya (diuji lewat jalur pembeli)', async () => {
+  const db = makeDb();
+  const client = makeClient({ OLD: sub({ productId: 'llk_basic_monthly', ack: 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED' }) });
+  const s = svc(db, client);
+  await s.applyPurchase('u1', 'OLD', { fromUser: true });
+  client.responses.NEW = { ...sub({ productId: 'llk_up_monthly', orderId: 'GPA.8888', ack: 'ACKNOWLEDGEMENT_STATE_PENDING' }), linkedPurchaseToken: 'OLD' };
+  const r = await s.applyPurchase('u1', 'NEW', { fromUser: true });
+  assert.strictEqual(r.plan, 'up_monthly'); assert.strictEqual(db.store.get('subscriptions/u1').tier, 'up');
+  client.responses.OLD = sub({ productId: 'llk_basic_monthly', state: 'SUBSCRIPTION_STATE_EXPIRED', expiryMs: NOW - 1000, ack: 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED' });
+  await s.handleNotification({ subscriptionNotification: { purchaseToken: 'OLD' } });
+  assert.strictEqual(db.store.get('subscriptions/u1').tier, 'up'); assert.strictEqual(db.store.get('subscriptions/u1').status, 'active');
+});

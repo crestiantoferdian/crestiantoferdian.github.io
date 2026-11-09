@@ -33,7 +33,7 @@ function makeEnv(o) {
     showGlobalLoading: () => log.loading++, hideGlobalLoading: () => log.loading--,
     currentUser: o.user === false ? null : { uid: 'u1' },
     firebase: { functions: () => ({ httpsCallable: (name) => async (data) => { log.calls.push([name, data]); if (o.verifyError) { const e = new Error(o.verifyError); e.code = 'functions/internal'; throw e; } return { data: o.verifyResult || { access: true, plan: 'up_monthly' } }; } }) },
-    _subPaidActive: !!o.activePlay, _subSource: o.activePlay ? 'play' : null,
+    _subPaidActive: !!o.activePlay, _subSource: o.activePlay ? 'play' : null, _subPlanKey: null, _subEndsMs: 0, _subPlayAutoRenew: null,
     llkPlayPayNotice: () => log.notice++,
   };
   vm.createContext(ctx);
