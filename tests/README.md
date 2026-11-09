@@ -17,4 +17,8 @@ npm run test:sim          # SIMULASI: pengguna V1 30 murid → lembaga → 2 Gur
 npm run test:v2t3         # uji V2 Tahap 3: tampilan Guru Mitra (= V1), absensi, Izin Admin, honor
 ```
 
+```bash
+npm run test:play         # PLAY BILLING sisi aplikasi (Node saja, cepat): beli/pulihkan, harga Google, tanpa diskon di Play, penjaga dobel-tagih
+```
+
 Tes V2 memakai emulator Firestore dengan aturan asli, jadi tidak menyentuh data sungguhan.

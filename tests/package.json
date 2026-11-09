@@ -2,6 +2,7 @@
   "name": "llk-tests",
   "private": true,
   "scripts": {
+    "test:play": "node play-billing-app.test.cjs && node play-harga.test.cjs",
     "test:rules": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node firestore-rules.test.mjs\"",
     "test:v2": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-e2e.test.cjs\"",
     "test:v2t2": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-llk \"node v2-tahap2.test.cjs\"",

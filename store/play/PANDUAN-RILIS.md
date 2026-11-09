@@ -188,6 +188,13 @@ Product ID harus PERSIS seperti di tabel (tidak bisa diubah setelah dibuat).
 9. 🧑 **Uji beli** dengan akun penguji lisensi di aplikasi Play (versi 2): paywall → pilih paket → bayar → cek: badge **PRO**, dokumen `subscriptions/{uid}` berisi `source: "play"`, tombol **Pulihkan Langganan** bekerja (hapus-pasang ulang). Batalkan di Play Store dan pastikan masa aktif tetap sampai tanggal akhir.
 10. 🧑 Kalau semua lolos: merge web ke `main` (Claude membuat PR) → promosikan versi 2 ke **Pengujian tertutup** (Tambahkan dari library). Setelah akses Produksi disetujui, promosikan ke Produksi.
 
+### Harga & penagihan ganda di aplikasi Play (perbaikan 9 Nov 2026, atas komplain marketing)
+- Google **selalu menagih harga penuh produk** (Rp35.000 / 75.000 / 700.000 / 100.000 / 1.000.000). **Diskon naik paket (50% / 10%) hanya berlaku di website (Midtrans).** Di aplikasi Play semua harga/teks diskon dan harga coret **disembunyikan**.
+- Kartu paket di aplikasi Play kini memakai **harga asli dari Google** (Digital Goods API `getDetails`); kalau belum tersedia memakai tabel yang sama. Cek harga di Play Console setelah tiap perubahan.
+- **Anti tagih ganda:** pelanggan **website/Midtrans yang masih aktif** tidak bisa membeli lewat Play (muncul pemberitahuan "Langgananmu masih aktif… setelah masa aktif ini berakhir"); pelanggan Play yang masih aktif diarahkan ke Play Store; akun **tester** tetap boleh uji beli. Pesan **sengaja tidak menyebut website/cara bayar lain** (aturan Google Play melarang mengarahkan ke luar Play Billing di dalam aplikasi).
+- Sisa masa aktif: kalau Midtrans sudah habis lalu beli Play, masa aktif mulai dari Google (tidak ada sisa yang hilang karena pembelian baru hanya dibuka setelah Midtrans habis). Naik paket berdiskon tetap dilakukan pengguna sendiri di website.
+- Tes: `cd tests && npm run test:play` (27 pemeriksaan).
+
 ### Catatan
 - Pengguna yang membeli lewat Play lalu ganti ke paket lain: diarahkan ke Play Store (aplikasi sengaja tidak membuat langganan kedua).
 - Pengembalian dana/pembatalan oleh Google ikut tercatat lewat notifikasi real-time (status jadi `expired`).

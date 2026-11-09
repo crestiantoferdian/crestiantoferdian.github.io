@@ -10597,6 +10597,7 @@ let _currentTier=null;      // 'basic'|'up'|'unlimited'|null (null = belum diket
 let _subTrialDenied=false;  // server menolak trial karena email ini sudah pernah trial
 let _subWasPaid=false;      // pernah berlangganan berbayar & masanya sudah habis (teks paywall: "Langganan berakhir", bukan "Trial selesai")
 let _subSource=null;        // asal langganan berbayar: 'play' (Google Play) atau kosong (website/Midtrans)
+let _subEndsMs=0;           // tanggal berakhir langganan berbayar (ms)
 function tierInfo(id){ return LLK_TIERS.find(function(t){ return t.id===id; })||null; }
 function activeStudentCount(){ return (students||[]).filter(function(s){ return !s.inactive; }).length; }
 function isStudentLimitReached(){
@@ -10703,6 +10704,8 @@ function applySubscriptionDoc(doc){
     // Aplikasi Play: sekali per sesi, cocokkan pembelian Google Play yang belum tercatat/di-acknowledge
     // (mis. pembeli menutup aplikasi sebelum verifikasi selesai → tanpa ini Google mengembalikan dana setelah 3 hari).
     if(llkPlayIsApp()&&!_llkPlayRestoreDone){ _llkPlayRestoreDone=true; setTimeout(function(){ llkPlayRestore(true); },2500); }
+    // Aplikasi Play: ambil harga asli dari Google untuk kartu paket (cadangan: harga tabel yang sama)
+    if(llkPlayIsApp()&&!_llkPlayPrices) setTimeout(function(){ llkPlayLoadPrices(); },800);
     // Waktu yang ditulis server juga jadi batas bawah jam (tidak bisa mundur sebelum ini)
     ['updatedAt','createdAt','trialStartedAt'].forEach(function(k){
       if(d[k]&&typeof d[k].toMillis==='function') raiseTimeFloor(d[k].toMillis());
@@ -10722,6 +10725,7 @@ function applySubscriptionDoc(doc){
     _subPaidActive=subActive;
     _subWasPaid=!subActive && subEndsMs>0; // punya riwayat langganan berbayar tapi sudah lewat masanya
     _subSource=d.source==='play'?'play':null;
+    _subEndsMs=subEndsMs;
     const tb=document.getElementById('trialBanner');
     if(subActive){
       _currentTier=tierInfo(d.tier)?d.tier:'unlimited'; // PRO lama tanpa tier = Unlimited
@@ -10935,6 +10939,8 @@ function formatRpPlan(n){ return 'Rp'+Number(n).toLocaleString('id-ID'); }
    aktif saat ini diberi tanda "Cocok untukmu". */
 function planCardsHtml(opts){
   opts=opts||{};
+  // Aplikasi Play: Google menagih HARGA PENUH produk → jangan tampilkan harga/teks diskon naik paket (itu hanya berlaku di website).
+  if(llkPlayIsApp()) opts=Object.assign({},opts,{upgrade:false});
   const minIdx=opts.minTier?LLK_TIERS.findIndex(function(t){ return t.id===opts.minTier; }):-1;
   const n=activeStudentCount();
   const tiers=LLK_TIERS.filter(function(t,i){ return i>minIdx; });
@@ -10950,10 +10956,11 @@ function planCardsHtml(opts){
     +'<div class="llk-plan-row">'+tiers.map(function(t){
     const isFit=fit&&fit.id===t.id;
     const limitText=t.limit===Infinity?'Murid aktif <b>tanpa batas</b>':'Maks. <b>'+t.limit+' murid aktif</b>';
-    let btns='<button onclick="pickPlan(\''+t.monthly.plan+'\')" class="llk-plan-btn llk-pro-btn'+(isFit?' dark':'')+'" style="width:100%;min-height:50px;padding:12px;background:'+(isFit?'var(--text)':'var(--card)')+';color:'+(isFit?'#fffcf7':'var(--text)')+';border:'+(isFit?'none':'1.5px solid var(--text)')+';border-radius:var(--r-md);font-size:0.94rem;font-weight:700;cursor:pointer">Bulanan — '+priceTxt(t.monthly.price,'monthly')+'</button>';
+    const mP=llkPlayPlanPrice(t.monthly.plan,t.monthly.price), yP=t.yearly?llkPlayPlanPrice(t.yearly.plan,t.yearly.price):0; // aplikasi Play: harga dari Google
+    let btns='<button onclick="pickPlan(\''+t.monthly.plan+'\')" class="llk-plan-btn llk-pro-btn'+(isFit?' dark':'')+'" style="width:100%;min-height:50px;padding:12px;background:'+(isFit?'var(--text)':'var(--card)')+';color:'+(isFit?'#fffcf7':'var(--text)')+';border:'+(isFit?'none':'1.5px solid var(--text)')+';border-radius:var(--r-md);font-size:0.94rem;font-weight:700;cursor:pointer">Bulanan — '+priceTxt(mP,'monthly')+'</button>';
     if(t.yearly){
-      const hemat=t.monthly.price*12-t.yearly.price;
-      btns+='<button onclick="pickPlan(\''+t.yearly.plan+'\')" class="llk-plan-btn" style="width:100%;margin-top:8px;min-height:50px;padding:10px 12px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:0.92rem;font-weight:700;cursor:pointer">Tahunan — '+priceTxt(t.yearly.price,'yearly')+(opts.upgrade?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">diskon naik paket '+pct('yearly')+'%</span>':hemat>0?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">hemat '+formatRpPlan(hemat)+'</span>':'')+'</button>';
+      const hemat=mP*12-yP;
+      btns+='<button onclick="pickPlan(\''+t.yearly.plan+'\')" class="llk-plan-btn" style="width:100%;margin-top:8px;min-height:50px;padding:10px 12px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--r-md);font-size:0.92rem;font-weight:700;cursor:pointer">Tahunan — '+priceTxt(yP,'yearly')+(opts.upgrade?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">diskon naik paket '+pct('yearly')+'%</span>':hemat>0?'<span style="display:block;color:var(--hadir);font-size:0.8rem;margin-top:2px">hemat '+formatRpPlan(hemat)+'</span>':'')+'</button>';
     }
     return '<div style="border:'+(isFit?'2px solid var(--text)':'1px solid var(--border)')+';border-radius:var(--r-lg);padding:20px;max-width:360px;margin:0 auto 16px;text-align:left;position:relative;background:var(--card);'+(isFit?'box-shadow:var(--shadow-md)':'')+'">'
       +(isFit?'<div style="position:absolute;top:-11px;right:16px;background:var(--ink);color:var(--on-ink);font-size:0.68rem;font-weight:800;padding:4px 12px;border-radius:99px;letter-spacing:0.04em">COCOK UNTUKMU</div>':'')
@@ -10996,9 +11003,9 @@ function showUpgradeOffer(fromLimit){
     ? '<div class="llk-dialog-ic warn">'+llkI('lock')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:8px">Batas Murid '+escapeHtml(t.name)+' Tercapai</div>'
       +'<div style="font-size:0.9rem;color:var(--text2);max-width:360px;margin:0 auto 22px;line-height:1.6">Paket '+escapeHtml(t.name)+' maksimal <b>'+t.limit+' murid aktif</b>, dan kamu sudah punya <b>'+n+'</b>. Naik paket untuk menambah murid — atau nonaktifkan murid yang sudah berhenti les (riwayatnya tetap tersimpan).</div>'
     : '<div class="llk-dialog-ic">'+llkI('arrow-up')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:22px">Naik Paket</div>';
-  const upgrade=!isTransfer&&_subPaidActive&&!(_subBadgeInfo&&_subBadgeInfo.isTester);
+  const upgrade=!isTransfer&&_subPaidActive&&!(_subBadgeInfo&&_subBadgeInfo.isTester)&&!llkPlayIsApp();
   el.innerHTML=head+planCardsHtml({minTier:isTransfer?null:_currentTier, upgrade:upgrade})
-    +'<div style="font-size:0.8rem;color:var(--muted);max-width:340px;margin:4px auto 18px;line-height:1.55">Paket baru berlaku mulai hari ini. Sisa masa aktif paket lama tidak dibawa ke paket baru.</div>'
+    +'<div style="font-size:0.8rem;color:var(--muted);max-width:340px;margin:4px auto 18px;line-height:1.55">'+(llkPlayIsApp()?'Harga dan penagihan mengikuti Google Play.':'Paket baru berlaku mulai hari ini. Sisa masa aktif paket lama tidak dibawa ke paket baru.')+'</div>'
     +((window.llkIsPlayApp&&window.llkIsPlayApp())?llkPlayRestoreHtml():'<button onclick="cekStatusPembayaran(false)" class="llk-btn secondary sm" style="margin:0 auto 6px;display:flex">'+llkI('refresh','sm')+' Sudah bayar? Cek status pembayaran</button>')
     +'<button onclick="closeUpgradeOffer()" style="background:none;border:none;color:var(--text2);font-size:0.9rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:12px">Nanti saja</button>';
   document.body.appendChild(el);
@@ -11240,7 +11247,7 @@ function llkPlayPayNotice(){
    Product ID HARUS sama dengan PLAY_PRODUCTS di functions/playbilling.js. */
 const LLK_PLAY_SKUS={basic_monthly:'llk_basic_monthly',up_monthly:'llk_up_monthly',up_yearly:'llk_up_yearly',unlimited_monthly:'llk_unlimited_monthly',unlimited_yearly:'llk_unlimited_yearly'};
 const LLK_PLAY_BILLING_URL='https://play.google.com/billing';
-let _llkPlaySvc=null, _llkPlayBusy=false, _llkPlayRestoreDone=false;
+let _llkPlaySvc=null, _llkPlayBusy=false, _llkPlayRestoreDone=false, _llkPlayPrices=null, _llkPlayPricesBusy=false;
 function llkPlayIsApp(){ return !!(window.llkIsPlayApp&&window.llkIsPlayApp()); }
 async function llkPlayService(){
   if(_llkPlaySvc) return _llkPlaySvc;
@@ -11264,6 +11271,44 @@ function llkPlayManageNotice(){
   el.addEventListener('click',function(e){ if(e.target===el) el.remove(); });
   document.body.appendChild(el);
 }
+/* Harga asli dari Google Play (Digital Goods API getDetails). Dipakai di kartu paket aplikasi Play;
+   kalau belum/tidak tersedia, jatuh ke harga di tabel LLK_TIERS (sama dengan harga produk di Play Console). */
+function llkPlayPlanPrice(planKey,fallback){
+  if(!llkPlayIsApp()||!_llkPlayPrices) return fallback;
+  const it=_llkPlayPrices[LLK_PLAY_SKUS[planKey]];
+  return (it&&it.currency==='IDR'&&it.value>0)?it.value:fallback;
+}
+function llkPlayRefreshPrices(){
+  const el=document.getElementById('paywallPlans');
+  if(el&&el.innerHTML) el.innerHTML=planCardsHtml({minTier:null})+llkPlayRestoreHtml();
+}
+async function llkPlayLoadPrices(){
+  if(_llkPlayPrices||_llkPlayPricesBusy||!llkPlayIsApp()) return;
+  _llkPlayPricesBusy=true;
+  try{
+    const svc=await llkPlayService(); if(!svc) return;
+    const d=await svc.getDetails(Object.values(LLK_PLAY_SKUS));
+    const m={};
+    (d||[]).forEach(function(it){ if(it&&it.itemId&&it.price&&it.price.value!=null&&!isNaN(Number(it.price.value))) m[it.itemId]={currency:it.price.currency,value:Number(it.price.value)}; });
+    if(Object.keys(m).length){ _llkPlayPrices=m; llkPlayRefreshPrices(); }
+  }catch(e){ console.warn('Harga Google Play belum tersedia:', e); }
+  finally{ _llkPlayPricesBusy=false; }
+}
+/* Langganan berbayar yang BUKAN dari Play masih aktif: jangan buat langganan Play (bisa tertagih dua kali).
+   Pesan netral: tidak menyebut cara bayar lain (aturan Google Play melarang mengarahkan ke luar Play Billing). */
+function llkPlayWebActiveNotice(){
+  let el=document.getElementById('llkPlayPay'); if(el) el.remove();
+  el=document.createElement('div'); el.id='llkPlayPay';
+  el.style.cssText='position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(43,36,32,0.45);font-family:inherit';
+  const until=_subEndsMs?llkFmtDateMs(_subEndsMs):'';
+  el.innerHTML='<div style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:24px 20px 18px;text-align:center;box-shadow:var(--shadow-lg)">'
+    +'<div class="llk-dialog-ic">'+llkI('crown')+'</div>'
+    +'<div style="font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--text);margin-bottom:8px">Langgananmu masih aktif</div>'
+    +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.6;margin-bottom:18px">Paket kamu aktif'+(until?' sampai <b>'+escapeHtml(until)+'</b>':'')+'. Pembelian lewat Google Play bisa dilakukan setelah masa aktif ini berakhir, supaya kamu tidak tertagih dua kali.</div>'
+    +'<button class="llk-btn ink" style="width:100%" onclick="document.getElementById(\'llkPlayPay\').remove()">Mengerti</button></div>';
+  el.addEventListener('click',function(e){ if(e.target===el) el.remove(); });
+  document.body.appendChild(el);
+}
 /* Beli paket `plan` lewat Google Play. */
 async function llkPlayBuy(plan){
   const sku=LLK_PLAY_SKUS[plan];
@@ -11271,6 +11316,8 @@ async function llkPlayBuy(plan){
   // Sudah punya langganan Play aktif → jangan membuat langganan kedua (bisa tertagih dobel).
   // Ganti paket / batalkan dilakukan di Play Store.
   if(_subPaidActive&&_subSource==='play'){ llkPlayManageNotice(); return; }
+  // Langganan berbayar dari luar Play masih aktif (kecuali akun tester untuk uji beli) → jangan dobel-tagih.
+  if(_subPaidActive&&_subSource!=='play'&&!(_subBadgeInfo&&_subBadgeInfo.isTester)){ llkPlayWebActiveNotice(); return; }
   if(_llkPlayBusy) return;
   _llkPlayBusy=true; setTimeout(function(){ _llkPlayBusy=false; },5000);
   let resp=null;
