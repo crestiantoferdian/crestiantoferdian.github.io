@@ -11007,9 +11007,9 @@ function showUpgradeOffer(fromLimit){
     : fromLimit&&t
     ? '<div class="llk-dialog-ic warn">'+llkI('lock')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:8px">Batas Murid '+escapeHtml(t.name)+' Tercapai</div>'
       +'<div style="font-size:0.9rem;color:var(--text2);max-width:360px;margin:0 auto 22px;line-height:1.6">Paket '+escapeHtml(t.name)+' maksimal <b>'+t.limit+' murid aktif</b>, dan kamu sudah punya <b>'+n+'</b>. Naik paket untuk menambah murid — atau nonaktifkan murid yang sudah berhenti les (riwayatnya tetap tersimpan).</div>'
-    : '<div class="llk-dialog-ic">'+llkI('arrow-up')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:22px">Naik Paket</div>';
+    : '<div class="llk-dialog-ic">'+llkI('arrow-up')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:22px">'+(llkPlayManagedSub()?'Ganti Paket':'Naik Paket')+'</div>';
   const upgrade=!isTransfer&&_subPaidActive&&!(_subBadgeInfo&&_subBadgeInfo.isTester)&&!llkPlayIsApp();
-  el.innerHTML=head+planCardsHtml({minTier:isTransfer?null:_currentTier, upgrade:upgrade})
+  el.innerHTML=head+planCardsHtml({minTier:(isTransfer||llkPlayManagedSub())?null:_currentTier, upgrade:upgrade})
     +'<div style="font-size:0.8rem;color:var(--muted);max-width:340px;margin:4px auto 18px;line-height:1.55">'+(llkPlayIsApp()?'Harga dan penagihan mengikuti Google Play.':'Paket baru berlaku mulai hari ini. Sisa masa aktif paket lama tidak dibawa ke paket baru.')+'</div>'
     +((window.llkIsPlayApp&&window.llkIsPlayApp())?llkPlayRestoreHtml():'<button onclick="cekStatusPembayaran(false)" class="llk-btn secondary sm" style="margin:0 auto 6px;display:flex">'+llkI('refresh','sm')+' Sudah bayar? Cek status pembayaran</button>')
     +'<button onclick="closeUpgradeOffer()" style="background:none;border:none;color:var(--text2);font-size:0.9rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:12px">Nanti saja</button>';
@@ -11295,6 +11295,8 @@ function llkPlayManageNotice(){
 function llkPlayPlanTierIdx(plan){ return LLK_TIERS.findIndex(function(t){ return t.id===String(plan).split('_')[0]; }); }
 function llkPlayPlanPeriod(plan){ return /_yearly$/.test(String(plan))?'yearly':'monthly'; }
 function llkPlayPlanName(plan){ const t=LLK_TIERS[llkPlayPlanTierIdx(plan)]; return (t?t.name:'Pro')+' '+(llkPlayPlanPeriod(plan)==='yearly'?'Tahunan':'Bulanan'); }
+/* Langganan berbayar yang dikelola Google Play di aplikasi Play: boleh ganti paket naik MAUPUN turun (termasuk dari Unlimited). */
+function llkPlayManagedSub(){ return !!(llkPlayIsApp()&&_subPaidActive&&_subSource==='play'); }
 function llkPlayChangeMode(curPlan,newPlan){
   const naik=llkPlayPlanTierIdx(newPlan)>llkPlayPlanTierIdx(curPlan)&&llkPlayPlanPeriod(newPlan)===llkPlayPlanPeriod(curPlan);
   return naik?'immediateAndChargeProratedPrice':'deferred';
@@ -12215,8 +12217,8 @@ function renderAccountSection(){
         // Akun tester (isTester:true di Firestore) tetap dikasih tombol "Jadi Pro"
         // supaya gampang buka lagi layar Selamat Datang buat preview. Dulu dicek
         // lewat daftar email yang ditulis langsung di kode (ikut terbaca publik).
-        if(!_subBadgeInfo.isTester && _currentTier && _currentTier!=='unlimited'){
-          upgradeBtnHtml='<button onclick="showUpgradeOffer(false)" class="llk-btn ink sm" style="flex-shrink:0;height:30px;padding:0 10px;font-size:0.74rem;border-radius:var(--r-pill)">'+llkI('arrow-up','sm')+' Naik Paket</button>';
+        if(!_subBadgeInfo.isTester && _currentTier && (_currentTier!=='unlimited'||llkPlayManagedSub())){
+          upgradeBtnHtml='<button onclick="showUpgradeOffer(false)" class="llk-btn ink sm" style="flex-shrink:0;height:30px;padding:0 10px;font-size:0.74rem;border-radius:var(--r-pill)">'+llkI('arrow-up','sm')+(llkPlayManagedSub()?' Ganti Paket':' Naik Paket')+'</button>';
         }
         if(_subBadgeInfo.isTester){
           upgradeBtnHtml='<button onclick="showWelcomePricing()" class="llk-btn ink sm" style="flex-shrink:0;height:30px;padding:0 10px;font-size:0.74rem;border-radius:var(--r-pill)">'+llkI('star','sm')+' Jadi Pro</button>';
