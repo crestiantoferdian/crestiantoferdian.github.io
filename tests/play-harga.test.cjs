@@ -33,7 +33,7 @@ function makeEnv(o) {
     activeStudentCount: () => 5,
     showGlobalLoading() {}, hideGlobalLoading() {}, currentUser: { uid: 'u1' },
     firebase: { functions: () => ({ httpsCallable: (n) => async (d) => { log.calls.push(n); return { data: { access: true } }; } }) },
-    _subPaidActive: !!o.paidActive, _subSource: o.source || null, _subEndsMs: o.endsMs || 0, _subBadgeInfo: o.tester ? { isTester: true } : null, _subPlayAutoRenew: o.autoRenew === undefined ? null : o.autoRenew, _currentTier: o.tier || null,
+    _subPaidActive: !!o.paidActive, _subSource: o.source || null, _subEndsMs: o.endsMs || 0, _subBadgeInfo: o.tester ? { isTester: true } : null, _subPlanKey: o.planKey === undefined ? null : o.planKey, _subPlayAutoRenew: o.autoRenew === undefined ? null : o.autoRenew, _currentTier: o.tier || null,
     llkPlayPayNotice: () => (log.soon = (log.soon || 0) + 1),
   };
   vm.createContext(ctx);
