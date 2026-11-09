@@ -540,3 +540,5 @@ Hasil analisis + simulasi; semua di bawah sudah ditutup:
 - Semua perubahan harus lulus tes sebelum di-merge.
 - Setiap kali file `worker/onesignal-bridge-worker.js` berubah, kode di Cloudflare harus di-deploy ulang secara manual (Edit code → tempel → Deploy).
 - Setiap ada kemajuan berarti, perbarui file ini.
+
+- 9 Nov 2026: uji ganti paket Play berhasil (Basic→Up→Unlimited, prorata). Perbaikan: tombol "Ganti Paket" kini tetap ada di paket Unlimited untuk langganan Play, sehingga bisa turun paket (mode deferred, berlaku saat perpanjangan berikutnya).

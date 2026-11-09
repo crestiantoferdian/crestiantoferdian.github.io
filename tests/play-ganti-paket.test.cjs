@@ -180,5 +180,23 @@ let n = 0; const ok = (m) => console.log('OK  ' + (++n) + ' ' + m);
     assert.deepStrictEqual(d, { sku: 'llk_up_monthly' });
     ok('pembelian pertama tetap polos {sku} (tanpa oldSku/purchaseToken/prorationMode)');
   }
+  // ── Turun dari Unlimited (tombol "Ganti Paket" harus tetap ada di paket tertinggi) ──
+  {
+    const e = makeEnv({ cur: 'unlimited_monthly', purchases: [{ itemId: 'llk_unlimited_monthly', purchaseToken: 'OLDU' }] });
+    assert.strictEqual(run(e, 'llkPlayManagedSub()'), true);
+    await run(e, "llkPlayBuy('up_monthly')");
+    const d = J(e.log.pr[0].methods)[0].data;
+    assert.deepStrictEqual(d, { sku: 'llk_up_monthly', oldSku: 'llk_unlimited_monthly', purchaseToken: 'OLDU', prorationMode: 'deferred' });
+    ok('Unlimited bulanan → Up bulanan: deferred (tanpa tagihan sekarang), bawa token lama');
+    const e2 = makeEnv({ cur: 'unlimited_yearly', purchases: [{ itemId: 'llk_unlimited_yearly', purchaseToken: 'OLDY' }] });
+    await run(e2, "llkPlayBuy('basic_monthly')");
+    assert.strictEqual(J(e2.log.pr[0].methods)[0].data.prorationMode, 'deferred');
+    ok('Unlimited tahunan → Basic bulanan: deferred');
+    const e3 = makeEnv(); e3.ctx._subSource = 'midtrans';
+    assert.strictEqual(run(e3, 'llkPlayManagedSub()'), false);
+    const e4 = makeEnv(); e4.ctx._subPaidActive = false;
+    assert.strictEqual(run(e4, 'llkPlayManagedSub()'), false);
+    ok('tombol Ganti Paket hanya untuk langganan berbayar yang dikelola Play');
+  }
   console.log('\nSemua ' + n + ' pemeriksaan lolos');
 })().catch((e) => { console.error('GAGAL:', e && e.stack || e); process.exit(1); });
