@@ -1,9 +1,18 @@
-# Status Rilis Google Play — LesLesanKu (per 5 Nov 2026)
+# Status Rilis Google Play — LesLesanKu (per 9 Nov 2026, malam)
 
 Ringkasan untuk melanjutkan di chat baru. Panduan langkah lengkap: `store/play/PANDUAN-RILIS.md`.
 Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
 
 > ⚠️ Repo ini publik: jangan tulis kata sandi, isi keystore, atau daftar email penguji di file mana pun.
+
+## 🆕 Update 9 Nov 2026 (malam) — yang berlaku sekarang
+(Catatan lengkap di Claude Doc "Progres Rilis LLK v2 – Google Play Billing". Bagian lama di bawah ini bisa tertinggal; yang ini yang terbaru.)
+- **Build v2** (com.leslesanku.app 1.0.1, kode 2, Play Billing, ikon opsi A) SUDAH dibuat & diunggah — **tidak perlu build ulang**. Perubahan web tidak butuh build baru (aplikasi memuat dari leslesanku.com).
+- **Jalur:** Internal (Tim LLK) = v2 dirilis 7 Nov · Tertutup "Peach Studio" (grup peach-studio-tech) = v2 dikirim review 9 Nov · Alpha (penguji-llk + peach-studio-tech) = v1, v2 masih draf.
+- **5 langganan aktif** (Indonesia, belum termasuk PPN): basic_monthly 35rb, up_monthly 75rb, up_yearly 700rb, unlimited_monthly 100rb, unlimited_yearly 1jt.
+- **Server selesai:** API aktif, akun layanan aktif, RTDN (play-rtdn) tersambung; functions sudah di-deploy (81 tes). Penguji lisensi = gitarsaktipol@gmail.com saja.
+- **Teruji berhasil:** beli, naik paket langsung, turun paket (deferred) Unlimited → Basic, hanya satu langganan di Play Store. Belum diuji: ganti periode, batalkan + pulihkan.
+- **Berikutnya:** (1) tunggu persetujuan Peach Studio → kirim https://play.google.com/apps/testing/com.leslesanku.app ke penguji; (2) uji ganti periode, batalkan + pulihkan; (3) kirim draf v2 di Alpha; (4) ajukan Produksi setelah 12 penguji aktif 14 hari; (5) putuskan harga Play termasuk PPN atau tidak.
 
 ## Data aplikasi
 | Hal | Isi |
