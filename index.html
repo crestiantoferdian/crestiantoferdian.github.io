@@ -11008,11 +11008,12 @@ function showUpgradeOffer(fromLimit){
     : fromLimit&&t
     ? '<div class="llk-dialog-ic warn">'+llkI('lock')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:8px">Batas Murid '+escapeHtml(t.name)+' Tercapai</div>'
       +'<div style="font-size:0.9rem;color:var(--text2);max-width:360px;margin:0 auto 22px;line-height:1.6">Paket '+escapeHtml(t.name)+' maksimal <b>'+t.limit+' murid aktif</b>, dan kamu sudah punya <b>'+n+'</b>. Naik paket untuk menambah murid — atau nonaktifkan murid yang sudah berhenti les (riwayatnya tetap tersimpan).</div>'
-    : '<div class="llk-dialog-ic">'+llkI('arrow-up')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:22px">Naik Paket</div>';
+    : '<div class="llk-dialog-ic">'+llkI('arrow-up')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:22px">'+(llkPlayManagedSub()&&LLK_PLAY_DEFERRED?'Ganti Paket':'Naik Paket')+'</div>';
   const upgrade=!isTransfer&&_subPaidActive&&!(_subBadgeInfo&&_subBadgeInfo.isTester)&&!llkPlayIsApp();
-  el.innerHTML=head+planCardsHtml({minTier:isTransfer?null:_currentTier, upgrade:upgrade})
+  el.innerHTML=head+planCardsHtml({minTier:(isTransfer||(llkPlayManagedSub()&&LLK_PLAY_DEFERRED))?null:_currentTier, upgrade:upgrade})
     +'<div style="font-size:0.8rem;color:var(--muted);max-width:340px;margin:4px auto 18px;line-height:1.55">'+(llkPlayIsApp()?'Harga dan penagihan mengikuti Google Play.':'Paket baru berlaku mulai hari ini. Sisa masa aktif paket lama tidak dibawa ke paket baru.')+'</div>'
     +((window.llkIsPlayApp&&window.llkIsPlayApp())?llkPlayRestoreHtml():'<button onclick="cekStatusPembayaran(false)" class="llk-btn secondary sm" style="margin:0 auto 6px;display:flex">'+llkI('refresh','sm')+' Sudah bayar? Cek status pembayaran</button>')
+    +(llkPlayManagedSub()?'<a href="'+escapeHtml(llkPlayManageUrl())+'" target="_blank" rel="noopener" style="display:block;color:var(--text2);font-size:0.84rem;font-weight:600;text-decoration:underline;text-underline-offset:3px;padding:6px">Batalkan atau kelola langganan di Play Store</a>':'')
     +'<button onclick="closeUpgradeOffer()" style="background:none;border:none;color:var(--text2);font-size:0.9rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:12px">Nanti saja</button>';
   document.body.appendChild(el);
 }
@@ -11304,9 +11305,10 @@ function llkPlayPlanPeriod(plan){ return /_yearly$/.test(String(plan))?'yearly':
 function llkPlayPlanName(plan){ const t=LLK_TIERS[llkPlayPlanTierIdx(plan)]; return (t?t.name:'Pro')+' '+(llkPlayPlanPeriod(plan)==='yearly'?'Tahunan':'Bulanan'); }
 /* Langganan berbayar yang dikelola Google Play di aplikasi Play: boleh ganti paket naik MAUPUN turun (termasuk dari Unlimited). */
 function llkPlayManagedSub(){ return !!(llkPlayIsApp()&&_subPaidActive&&_subSource==='play'); }
-/* Pergantian "deferred" (turun paket / ganti periode) DIMATIKAN: uji 9 Nov 2026 (dua kali) membuat Google langsung menandai langganan lama
-   EXPIRED sehingga pengguna terkunci sebelum masa bayarnya habis. Nyalakan lagi (true) hanya setelah terbukti aman dengan data uji. */
-let LLK_PLAY_DEFERRED=false;
+/* Pergantian "deferred" (turun paket / ganti periode). Uji 9 Nov 2026 sempat mengunci pengguna karena server salah membaca token lama
+   (Google SENGAJA menandainya EXPIRED). Server sudah diperbaiki (akses dibaca dari line item token baru) dan functions di-deploy; nyalakan lagi.
+   Bila uji ulang masih bermasalah, set false: aplikasi kembali hanya menampilkan petunjuk "batalkan di Play Store". */
+let LLK_PLAY_DEFERRED=true;
 function llkPlayChangeMode(curPlan,newPlan){
   const naik=llkPlayPlanTierIdx(newPlan)>llkPlayPlanTierIdx(curPlan)&&llkPlayPlanPeriod(newPlan)===llkPlayPlanPeriod(curPlan);
   return naik?'immediateAndChargeProratedPrice':'deferred';
@@ -12235,7 +12237,9 @@ function renderAccountSection(){
         // Akun tester (isTester:true di Firestore) tetap dikasih tombol "Jadi Pro"
         // supaya gampang buka lagi layar Selamat Datang buat preview. Dulu dicek
         // lewat daftar email yang ditulis langsung di kode (ikut terbaca publik).
-        if(!_subBadgeInfo.isTester && _currentTier && _currentTier==='unlimited' && llkPlayManagedSub()){
+        if(!_subBadgeInfo.isTester && _currentTier && llkPlayManagedSub() && LLK_PLAY_DEFERRED){
+          upgradeBtnHtml='<button onclick="showUpgradeOffer(false)" class="llk-btn ink sm" style="flex-shrink:0;height:30px;padding:0 10px;font-size:0.74rem;border-radius:var(--r-pill)">'+llkI('arrow-up','sm')+' Ganti Paket</button>';
+        } else if(!_subBadgeInfo.isTester && _currentTier && _currentTier==='unlimited' && llkPlayManagedSub()){
           // Paket tertinggi di Play: tidak ada paket di atasnya, tapi pengguna perlu jalan untuk turun paket / berhenti → pengelolaan di Play Store
           upgradeBtnHtml='<button onclick="llkPlayManageNotice()" class="llk-btn ink sm" style="flex-shrink:0;height:30px;padding:0 10px;font-size:0.74rem;border-radius:var(--r-pill)">'+llkI('card','sm')+' Kelola Paket</button>';
         } else if(!_subBadgeInfo.isTester && _currentTier && _currentTier!=='unlimited'){
