@@ -550,3 +550,5 @@ Hasil analisis + simulasi; semua di bawah sudah ditutup:
 - 9 Nov 2026: server Play membaca hak akses dari line item token baru (penggantian deferred), token lama ditandai replacedBy, acknowledge pakai produk baru (81 tes functions). Paywall Play mengecek ulang ke Google tiap 60 dtk. Turun paket di aplikasi masih dimatikan sampai deploy + uji ulang.
 
 - 9 Nov 2026: functions (baca hak akses dari token baru) sudah di-deploy; RTDN terbukti jalan (playRtdn 37 permintaan/24 jam). Turun paket / ganti periode (deferred) DINYALAKAN lagi (LLK_PLAY_DEFERRED=true); tombol profil "Ganti Paket" menampilkan semua paket + tautan "Batalkan atau kelola langganan di Play Store". Perlu uji ulang oleh pemilik: Unlimited → Basic bulanan harus tetap PRO UNLIMITED sampai jam tagihan pertama lalu jadi PRO BASIC. Jika terkunci lagi: set LLK_PLAY_DEFERRED=false.
+
+- 9 Nov 2026 23.38: uji turun paket Unlimited → Basic (deferred) BERHASIL setelah perbaikan server. Sisa uji: ganti periode, batalkan/pulihkan, cek satu langganan di Play Store.
