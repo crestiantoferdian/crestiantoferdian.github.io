@@ -11297,6 +11297,9 @@ function llkPlayPlanPeriod(plan){ return /_yearly$/.test(String(plan))?'yearly':
 function llkPlayPlanName(plan){ const t=LLK_TIERS[llkPlayPlanTierIdx(plan)]; return (t?t.name:'Pro')+' '+(llkPlayPlanPeriod(plan)==='yearly'?'Tahunan':'Bulanan'); }
 /* Langganan berbayar yang dikelola Google Play di aplikasi Play: boleh ganti paket naik MAUPUN turun (termasuk dari Unlimited). */
 function llkPlayManagedSub(){ return !!(llkPlayIsApp()&&_subPaidActive&&_subSource==='play'); }
+/* Pergantian "deferred" (turun paket / ganti periode) DIMATIKAN: uji 9 Nov 2026 (dua kali) membuat Google langsung menandai langganan lama
+   EXPIRED sehingga pengguna terkunci sebelum masa bayarnya habis. Nyalakan lagi (true) hanya setelah terbukti aman dengan data uji. */
+let LLK_PLAY_DEFERRED=false;
 function llkPlayChangeMode(curPlan,newPlan){
   const naik=llkPlayPlanTierIdx(newPlan)>llkPlayPlanTierIdx(curPlan)&&llkPlayPlanPeriod(newPlan)===llkPlayPlanPeriod(curPlan);
   return naik?'immediateAndChargeProratedPrice':'deferred';
@@ -11334,6 +11337,7 @@ async function llkPlayChange(plan){
   if(_subPlayAutoRenew===false){ llkPlayManageNotice(); return; }
   if(_llkPlayBusy) return;
   const mode=llkPlayChangeMode(curPlan,plan);
+  if(mode==='deferred'&&!LLK_PLAY_DEFERRED){ llkPlayManageNotice(); return; } // turun paket: petunjuk aman (batalkan di Play Store, beli setelah berakhir)
   if(!(await llkPlayConfirmChange(plan,mode))) return;
   _llkPlayBusy=true;
   let resp=null;
