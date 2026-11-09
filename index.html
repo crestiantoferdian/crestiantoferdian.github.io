@@ -10598,6 +10598,7 @@ let _subTrialDenied=false;  // server menolak trial karena email ini sudah perna
 let _subWasPaid=false;      // pernah berlangganan berbayar & masanya sudah habis (teks paywall: "Langganan berakhir", bukan "Trial selesai")
 let _subSource=null;        // asal langganan berbayar: 'play' (Google Play) atau kosong (website/Midtrans)
 let _subEndsMs=0;           // tanggal berakhir langganan berbayar (ms)
+let _subPlayAutoRenew=null; // langganan Play: true = perpanjang otomatis, false = sudah dibatalkan pengguna (masih aktif sampai tanggal berakhir)
 function tierInfo(id){ return LLK_TIERS.find(function(t){ return t.id===id; })||null; }
 function activeStudentCount(){ return (students||[]).filter(function(s){ return !s.inactive; }).length; }
 function isStudentLimitReached(){
@@ -10726,6 +10727,7 @@ function applySubscriptionDoc(doc){
     _subWasPaid=!subActive && subEndsMs>0; // punya riwayat langganan berbayar tapi sudah lewat masanya
     _subSource=d.source==='play'?'play':null;
     _subEndsMs=subEndsMs;
+    _subPlayAutoRenew=(d.source==='play'&&typeof d.playAutoRenew==='boolean')?d.playAutoRenew:null;
     const tb=document.getElementById('trialBanner');
     if(subActive){
       _currentTier=tierInfo(d.tier)?d.tier:'unlimited'; // PRO lama tanpa tier = Unlimited
@@ -10967,7 +10969,8 @@ function planCardsHtml(opts){
       +'<div style="display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:1.3rem;font-weight:600;color:var(--text);margin-bottom:4px"><span style="width:36px;height:36px;border-radius:11px;background:'+(t.id==='unlimited'?'rgba(185,138,46,0.16);color:#8a6414':t.id==='up'?'var(--accent-soft);color:var(--red-text)':'var(--blue-bg);color:var(--blue)')+';display:inline-flex;align-items:center;justify-content:center">'+llkI(t.id==='unlimited'?'crown':t.id==='up'?'star':'sparkle')+'</span>'+t.name+'</div>'
       +'<div style="font-size:0.88rem;color:var(--text2);margin-bottom:14px">'+limitText+' · semua fitur Pro</div>'
       +'<div class="llk-plan-btns">'+btns+'</div></div>';
-  }).join('')+'</div>';
+  }).join('')+'</div>'
+    +(llkPlayIsApp()?'<div style="max-width:360px;margin:-6px auto 16px;font-size:0.76rem;color:var(--muted);line-height:1.5">Harga belum termasuk pajak (PPN). Total yang ditagih tertera di Google Play saat pembayaran.</div>':'');
 }
 
 /* Logo di sidebar laptop: memakai gambar yang sama dengan layar login (tidak menyalin data gambar) */
@@ -11260,13 +11263,22 @@ function llkPlayErrMsg(err){
   const m=err&&(err.message||err.code); return m?String(m).replace(/^functions\//,'').slice(0,120):'';
 }
 function llkPlayManageNotice(){
+  /* Langganan Play yang masih aktif. Penggantian paket langsung (upgrade/downgrade) belum tersedia di aplikasi:
+     jalannya = batalkan di Play Store (paket tetap aktif sampai tanggal berakhir), lalu beli paket baru setelah itu. */
   let el=document.getElementById('llkPlayPay'); if(el) el.remove();
   el=document.createElement('div'); el.id='llkPlayPay';
   el.style.cssText='position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(43,36,32,0.45);font-family:inherit';
+  const t=tierInfo(_currentTier), nama=t?t.name:'Pro';
+  const until=_subEndsMs?escapeHtml(llkFmtDateMs(_subEndsMs)):'';
+  const cancelled=_subPlayAutoRenew===false;
+  const title=cancelled?'Langgananmu sudah dibatalkan':'Kamu sudah berlangganan';
+  const body=cancelled
+    ?'Paket <b>'+escapeHtml(nama)+'</b> tetap aktif'+(until?' sampai <b>'+until+'</b>':'')+'. Setelah masa aktif berakhir, kamu bisa memilih paket baru di sini.'
+    :'Paket <b>'+escapeHtml(nama)+'</b> aktif'+(until?' sampai <b>'+until+'</b>':'')+'.<br><br>Untuk <b>mengganti paket</b>: buka <b>Play Store → Profil → Pembayaran &amp; langganan → Langganan → LesLesanKu → Batalkan langganan</b>. Paketmu tetap aktif sampai '+(until?'<b>'+until+'</b>':'masa aktif berakhir')+', lalu pilih paket baru di sini.';
   el.innerHTML='<div style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:24px 20px 18px;text-align:center;box-shadow:var(--shadow-lg)">'
     +'<div class="llk-dialog-ic">'+llkI('crown')+'</div>'
-    +'<div style="font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--text);margin-bottom:8px">Kamu sudah berlangganan</div>'
-    +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.6;margin-bottom:18px">Langganan kamu dikelola Google Play. Untuk mengganti paket atau membatalkan, buka <b>Play Store → Profil → Pembayaran &amp; langganan → Langganan → LesLesanKu</b>.</div>'
+    +'<div style="font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--text);margin-bottom:8px">'+title+'</div>'
+    +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.6;margin-bottom:18px;text-align:left">'+body+'</div>'
     +'<button class="llk-btn ink" style="width:100%" onclick="document.getElementById(\'llkPlayPay\').remove()">Mengerti</button></div>';
   el.addEventListener('click',function(e){ if(e.target===el) el.remove(); });
   document.body.appendChild(el);

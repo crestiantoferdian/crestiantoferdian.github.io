@@ -12,6 +12,7 @@ function grabFn(name) {
 const tiers = html.slice(html.indexOf('const LLK_TIERS=['), html.indexOf('let _currentTier=null;'));
 const fmt = grabFn('formatRpPlan');
 const plan = grabFn('planCardsHtml');
+const tierInfoSrc = grabFn('tierInfo');
 const a = html.indexOf('const LLK_PLAY_SKUS='), b = html.indexOf('async function mulaiLangganan(plan){');
 const playBlock = html.slice(a, b);
 
@@ -32,11 +33,11 @@ function makeEnv(o) {
     activeStudentCount: () => 5,
     showGlobalLoading() {}, hideGlobalLoading() {}, currentUser: { uid: 'u1' },
     firebase: { functions: () => ({ httpsCallable: (n) => async (d) => { log.calls.push(n); return { data: { access: true } }; } }) },
-    _subPaidActive: !!o.paidActive, _subSource: o.source || null, _subEndsMs: o.endsMs || 0, _subBadgeInfo: o.tester ? { isTester: true } : null,
+    _subPaidActive: !!o.paidActive, _subSource: o.source || null, _subEndsMs: o.endsMs || 0, _subBadgeInfo: o.tester ? { isTester: true } : null, _subPlayAutoRenew: o.autoRenew === undefined ? null : o.autoRenew, _currentTier: o.tier || null,
     llkPlayPayNotice: () => (log.soon = (log.soon || 0) + 1),
   };
   vm.createContext(ctx);
-  vm.runInContext(tiers + '\n' + fmt + '\n' + playBlock + '\n' + plan + '\n_currentPeriod=' + JSON.stringify(o.period || 'monthly') + ';', ctx);
+  vm.runInContext(tiers + '\n' + tierInfoSrc + '\n' + fmt + '\n' + playBlock + '\n' + plan + '\n_currentPeriod=' + JSON.stringify(o.period || 'monthly') + ';', ctx);
   return { ctx, log };
 }
 const run = (e, c) => vm.runInContext(c, e.ctx);
@@ -120,8 +121,30 @@ let n = 0; const ok = (m) => console.log('OK  ' + (++n) + ' ' + m);
     assert.strictEqual(e2.log.pr, 1); ok('PLAY: langganan website sudah habis / trial → boleh beli lewat Play');
     const e3 = makeEnv({ paidActive: true, source: 'play' });
     await run(e3, "llkPlayBuy('up_monthly')");
-    assert.strictEqual(e3.log.pr, 0); assert.ok(e3.log.els.some((x) => /dikelola Google Play/.test(x.innerHTML)), 'harus muncul pemberitahuan kelola di Play Store');
-    ok('PLAY: sudah berlangganan lewat Play → tidak membuat langganan kedua (tetap seperti sebelumnya)');
+    assert.strictEqual(e3.log.pr, 0);
+    ok('PLAY: sudah berlangganan lewat Play → tidak membuat langganan kedua');
+  }
+  // ── Petunjuk mengganti paket (penggantian langsung belum tersedia di aplikasi) ──
+  {
+    const e = makeEnv({ paidActive: true, source: 'play', tier: 'basic', endsMs: Date.now() + 864e5, autoRenew: true });
+    await run(e, "llkPlayBuy('up_monthly')");
+    const t = e.log.els.map((x) => x.innerHTML).join(' ');
+    assert.strictEqual(e.log.pr, 0);
+    assert.ok(/Pro Basic/.test(t) && /12 Des 2026/.test(t) && /Batalkan langganan/.test(t) && /Play Store/.test(t) && /mengganti paket/i.test(t));
+    ok('PLAY: masih berlangganan → petunjuk jelas: batalkan di Play Store, paket tetap aktif sampai tanggal, lalu pilih paket baru');
+    const e2 = makeEnv({ paidActive: true, source: 'play', tier: 'up', endsMs: Date.now() + 864e5, autoRenew: false });
+    await run(e2, "llkPlayBuy('unlimited_monthly')");
+    const t2 = e2.log.els.map((x) => x.innerHTML).join(' ');
+    assert.ok(/sudah dibatalkan/.test(t2) && /tetap aktif/.test(t2) && /Pro Up/.test(t2) && /12 Des 2026/.test(t2));
+    assert.ok(!/Batalkan langganan/.test(t2), 'yang sudah dibatalkan tidak disuruh membatalkan lagi');
+    ok('PLAY: sudah dibatalkan → pesan "tetap aktif sampai tanggal, lalu bisa pilih paket baru" (tidak disuruh batalkan lagi)');
+  }
+  // ── Catatan pajak hanya di aplikasi Play ──
+  {
+    const ep = makeEnv({ play: true }), ew = makeEnv({ play: false });
+    assert.ok(/belum termasuk pajak/i.test(run(ep, 'planCardsHtml({minTier:null})')));
+    assert.ok(!/pajak/i.test(run(ew, 'planCardsHtml({minTier:null})')));
+    ok('PLAY: kartu paket memberi catatan "harga belum termasuk pajak (PPN)"; website tidak');
   }
   console.log('\nSemua ' + n + ' pemeriksaan lolos');
 })().catch((e) => { console.error('GAGAL:', e && e.stack || e); process.exit(1); });

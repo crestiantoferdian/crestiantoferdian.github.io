@@ -57,6 +57,10 @@ _Terakhir diperbarui: 5 Nov 2026 (Play Store: pengajuan Produksi #1 perlu tambah
 - `applySubscriptionDoc` mengisi `_subWasPaid` (`!subActive && subscriptionEndsAt>0`), `showPaywall` memilih teks: **trial ditolak** → "Trial Gratis Sudah Pernah Dipakai"; **pernah berlangganan** → "Langganan Pro Kamu Sudah Berakhir" + "Terima kasih sudah berlangganan… Perpanjang supaya…"; **selain itu** → teks trial lama. Hanya teks layar paywall; logika akses/langganan/data tidak berubah. Teruji 6 kasus (trial habis, langganan habis, trial ditolak, langganan aktif, trial jalan, tester).
 - Catatan: `status:"active"` di Firestore tidak otomatis berubah saat `subscriptionEndsAt` lewat; aplikasi mengecek keduanya, jadi akun seperti itu kena paywall (benar). Akun keluarga/tester dibuka lewat kolom `isTester:true` (boolean) di `subscriptions/{uid}` lewat Firebase Console.
 
+## ✅ Play Billing: uji beli berhasil (10 Nov 2026)
+- `llk_basic_monthly` dibeli dengan akun penguji lisensi → aplikasi langsung PRO BASIC. Lembar bayar Google menampilkan "Rp35.000 + pajak" → kartu paket di aplikasi Play kini memberi catatan "belum termasuk pajak (PPN)".
+- **Ganti paket antar langganan Play belum ada**; aplikasi menampilkan petunjuk jelas (batalkan di Play Store → paket aktif sampai tanggal berakhir → pilih paket baru). Penggantian langsung (Digital Goods + proration) menunggu nama field resmi dari halaman Google (jangan menebak: risiko tagih ganda). Detail: `store/play/PANDUAN-RILIS.md` bagian G.
+
 ## 💳 Play: harga asli Google & anti tagih ganda (9 Nov 2026, di branch)
 - Komplain marketing: "Naik Paket" di aplikasi Play menampilkan diskon website (Rp50.000/Rp900.000) padahal Google menagih penuh. Perbaikan: di aplikasi Play **tanpa teks/harga diskon**, kartu paket memakai **harga asli Google** (getDetails; cadangan tabel); pelanggan **Midtrans yang masih aktif tidak bisa beli lewat Play** (pesan netral, tanpa mengarahkan ke website karena aturan steering Google); Play-aktif diarahkan ke Play Store; tester tetap boleh uji beli. Website tidak berubah (diskon tetap). Tes `cd tests && npm run test:play` (27 pemeriksaan).
 

@@ -195,6 +195,12 @@ Product ID harus PERSIS seperti di tabel (tidak bisa diubah setelah dibuat).
 - Sisa masa aktif: kalau Midtrans sudah habis lalu beli Play, masa aktif mulai dari Google (tidak ada sisa yang hilang karena pembelian baru hanya dibuka setelah Midtrans habis). Naik paket berdiskon tetap dilakukan pengguna sendiri di website.
 - Tes: `cd tests && npm run test:play` (27 pemeriksaan).
 
+### Hasil uji & ganti paket (9–10 Nov 2026)
+- ✅ **Uji beli BERHASIL**: `llk_basic_monthly` dibeli dengan akun penguji lisensi → aplikasi langsung **PRO BASIC** (verifikasi server + acknowledge jalan).
+- Harga di lembar pembayaran Google tampil **"Rp35.000 + pajak"** → pembeli membayar harga + PPN. Kartu paket di aplikasi Play kini memberi catatan "Harga belum termasuk pajak (PPN)".
+- **Ganti paket (upgrade/downgrade) antar langganan Play BELUM ada di aplikasi.** Jalan yang tersedia (petunjuk muncul di aplikasi): Play Store → Profil → Pembayaran & langganan → Langganan → LesLesanKu → **Batalkan**; paket tetap aktif sampai tanggal berakhir; setelah itu pilih paket baru di aplikasi. Sampai itu, pengguna yang butuh murid lebih banyak harus menunggu masa aktif habis.
+- **Penggantian langsung lewat Digital Goods API**: panduan resmi Google (chromeos.dev "Implement Play Billing in your PWA") menyebut upgrade/downgrade didukung dengan data tambahan di `PaymentRequest` + mode proration (dengan satu mode sementara dinonaktifkan karena risiko penipuan), **tetapi nama field persisnya belum terverifikasi** (halaman Google diblokir dari sesi Claude di repo). **Jangan menebak**: salah field bisa membuat pembelian BARU (tagih ganda). Untuk mengaktifkannya: baca bagian upgrade/downgrade halaman itu (sesi Claude di browser), kirim nama field + mode yang diizinkan ke Claude di repo; sisi server sudah aman (token baru mengaktifkan paket baru, token lama yang habis tidak mematikannya).
+
 ### Catatan
 - Pengguna yang membeli lewat Play lalu ganti ke paket lain: diarahkan ke Play Store (aplikasi sengaja tidak membuat langganan kedua).
 - Pengembalian dana/pembatalan oleh Google ikut tercatat lewat notifikasi real-time (status jadi `expired`).
