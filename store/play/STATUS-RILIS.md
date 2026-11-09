@@ -1,18 +1,25 @@
-# Status Rilis Google Play — LesLesanKu (per 9 Nov 2026, malam)
+# Status Rilis Google Play — LesLesanKu (per 10 Nov 2026)
 
 Ringkasan untuk melanjutkan di chat baru. Panduan langkah lengkap: `store/play/PANDUAN-RILIS.md`.
 Bahan listing & jawaban Data Safety: `store/play/LISTING.md`.
 
 > ⚠️ Repo ini publik: jangan tulis kata sandi, isi keystore, atau daftar email penguji di file mana pun.
 
-## 🆕 Update 9 Nov 2026 (malam) — yang berlaku sekarang
-(Catatan lengkap di Claude Doc "Progres Rilis LLK v2 – Google Play Billing". Bagian lama di bawah ini bisa tertinggal; yang ini yang terbaru.)
-- **Build v2** (com.leslesanku.app 1.0.1, kode 2, Play Billing, ikon opsi A) SUDAH dibuat & diunggah — **tidak perlu build ulang**. Perubahan web tidak butuh build baru (aplikasi memuat dari leslesanku.com).
-- **Jalur:** Internal (Tim LLK) = v2 dirilis 7 Nov · Tertutup "Peach Studio" (grup peach-studio-tech) = v2 dikirim review 9 Nov · Alpha (penguji-llk + peach-studio-tech) = v1, v2 masih draf.
+## 🆕 Update 10 Nov 2026 — yang berlaku sekarang
+(Catatan lengkap di Claude Doc "Progres Rilis LLK v2 – Google Play Billing"; laporan terakhir dari Claude Cowork via Play Console. Bagian lama di bawah ini bisa tertinggal; yang ini yang terbaru.)
+- **Build v2** (com.leslesanku.app 1.0.1, kode 2, Start URL `/?src=play`, Play Billing, ikon opsi A) SUDAH dibuat & diunggah — **tidak perlu build ulang**. Kunci lama (alias `my-key-alias`, sama dengan v1). Perubahan web tidak butuh build baru (aplikasi memuat dari leslesanku.com).
+- **Jalur:**
+  | Track | Penguji | Versi | Status |
+  |---|---|---|---|
+  | Pengujian internal | "Tim LLK" (8 akun pemilik) | 2 (1.0.1) | Aktif sejak 7 Nov |
+  | Tertutup – Peach Studio | grup `peach-studio-tech@googlegroups.com` | 2 (1.0.1) | **Disetujui, aktif 9 Nov** |
+  | Tertutup – Alpha | grup `penguji-llk` + `peach-studio-tech` | 2 (1.0.1) | **Dikirim untuk ditinjau 10 Nov** |
+  Link penguji tertutup: https://play.google.com/apps/testing/com.leslesanku.app
 - **5 langganan aktif** (Indonesia, belum termasuk PPN): basic_monthly 35rb, up_monthly 75rb, up_yearly 700rb, unlimited_monthly 100rb, unlimited_yearly 1jt.
-- **Server selesai:** API aktif, akun layanan aktif, RTDN (play-rtdn) tersambung; functions sudah di-deploy (81 tes). Penguji lisensi = gitarsaktipol@gmail.com saja.
-- **Teruji berhasil:** beli, naik paket langsung, turun paket (deferred) Unlimited → Basic, hanya satu langganan di Play Store. Belum diuji: ganti periode, batalkan + pulihkan.
-- **Berikutnya:** (1) tunggu persetujuan Peach Studio → kirim https://play.google.com/apps/testing/com.leslesanku.app ke penguji; (2) uji ganti periode, batalkan + pulihkan; (3) kirim draf v2 di Alpha; (4) ajukan Produksi setelah 12 penguji aktif 14 hari; (5) putuskan harga Play termasuk PPN atau tidak.
+- **Server selesai:** API aktif, akun layanan aktif, RTDN (play-rtdn) tersambung; functions di-deploy (81 tes). Penguji lisensi = gitarsaktipol@gmail.com saja (penguji lain membayar sungguhan — beri tahu mereka jangan menekan beli).
+- **Teruji berhasil (9–10 Nov, akun penguji lisensi):** beli; naik paket langsung; turun paket (deferred) Unlimited → Basic; Unlimited tahunan → Basic bulanan (Play Store menampilkan "Perubahan paket", hanya SATU langganan, tagihan berikutnya Rp35.000 = Basic). Aplikasi tetap PRO UNLIMITED sampai jam pergantian lalu PRO BASIC. Perbaikan turun paket = server membaca hak akses dari line item token baru (PR #173).
+- **Belum diuji:** batalkan + pulihkan (pesan "sudah dibatalkan", pasang ulang → Pulihkan Langganan).
+- **Berikutnya:** (1) tunggu persetujuan Alpha → pastikan penguji tahu cara memberi masukan; (2) uji batalkan + pulihkan; (3) ajukan akses Produksi setelah 12 penguji aktif 14 hari berturut-turut (lihat PENGAJUAN-PRODUKSI.md); (4) putuskan harga Play termasuk PPN atau tidak.
 
 ## Data aplikasi
 | Hal | Isi |
