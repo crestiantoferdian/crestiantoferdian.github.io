@@ -546,3 +546,5 @@ Hasil analisis + simulasi; semua di bawah sudah ditutup:
 - 9 Nov 2026: turun paket Play (deferred) dimatikan karena menyebabkan pengguna terkunci (terbukti 2x uji, data di playPurchases). Aplikasi menampilkan petunjuk aman. Server kini mencatat tanggal berakhir dari Google di playPurchases (butuh deploy ulang functions). Naik paket langsung tetap jalan.
 
 - 9 Nov 2026: pelanggan Play: tombol "Naik Paket" hanya sampai Up; di Unlimited tombol "Kelola Paket" membuka pesan dengan tombol ke halaman langganan Play Store (turun paket = batalkan di sana, tetap aktif sampai berakhir, lalu pilih paket baru). Tautan: play.google.com/store/account/subscriptions?package=com.leslesanku.app&sku=... (format dari ingatan; belum diverifikasi ke dokumen resmi, cek lewat riset AI browser).
+
+- 9 Nov 2026: server Play membaca hak akses dari line item token baru (penggantian deferred), token lama ditandai replacedBy, acknowledge pakai produk baru (81 tes functions). Paywall Play mengecek ulang ke Google tiap 60 dtk. Turun paket di aplikasi masih dimatikan sampai deploy + uji ulang.
