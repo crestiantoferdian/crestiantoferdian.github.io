@@ -28,7 +28,7 @@ function makeEnv(o) {
   };
   const win = { llkIsPlayApp: () => o.play !== false, PaymentRequest, getDigitalGoodsService: async () => { if (!svc) throw new Error('x'); return svc; } };
   const ctx = {
-    window: win, document: doc, console: { warn() {}, error() {}, log() {} }, PaymentRequest, setTimeout: () => 0,
+    window: win, document: doc, console: { warn() {}, error() {}, log() {} }, PaymentRequest, setTimeout: () => 0, clearTimeout() {},
     toast: (m) => log.toasts.push(m), setPaywallStatus() {}, llkI: () => '', escapeHtml: (s) => String(s), llkFmtDateMs: () => '12 Des 2026',
     activeStudentCount: () => 5,
     showGlobalLoading() {}, hideGlobalLoading() {}, currentUser: { uid: 'u1' },
