@@ -11452,19 +11452,26 @@ async function llkPlayBuy(plan){
   }finally{ _llkPlayBusy=false; }
 }
 /* Pulihkan langganan Play (ganti HP, install ulang, atau verifikasi tertunda). silent=true: tanpa pesan kalau tidak ada. */
+/* Batas waktu supaya layar tidak menggantung selamanya bila Google Play / server tidak menjawab. */
+function llkPlayWithTimeout(promise,ms,msg){
+  return new Promise(function(resolve,reject){
+    const t=setTimeout(function(){ reject(new Error(msg)); },ms);
+    Promise.resolve(promise).then(function(v){ clearTimeout(t); resolve(v); },function(e){ clearTimeout(t); reject(e); });
+  });
+}
 async function llkPlayRestore(silent){
   if(!llkPlayIsApp()||typeof currentUser==='undefined'||!currentUser||typeof firebase==='undefined'||!firebase.functions) return;
   const svc=await llkPlayService();
   if(!svc||typeof svc.listPurchases!=='function'){ if(!silent) toast('Pemulihan langganan belum tersedia di perangkat ini.',5000); return; }
   if(!silent) showGlobalLoading('Memeriksa langganan Google Play…');
   try{
-    let list=[]; try{ list=(await svc.listPurchases())||[]; }catch(e){ list=[]; }
+    let list=[], listErr=''; try{ list=(await llkPlayWithTimeout(svc.listPurchases(),15000,'Google Play tidak menjawab (daftar pembelian)'))||[]; }catch(e){ list=[]; listErr=llkPlayErrMsg(e); }
     list=list.filter(function(p){ return p&&p.purchaseToken&&Object.values(LLK_PLAY_SKUS).indexOf(p.itemId)>=0; });
-    if(!list.length){ if(!silent) toast('Tidak ada langganan Google Play yang ditemukan di akun Play ini.',5000); return; }
+    if(!list.length){ if(!silent) toast(listErr?'⚠️ '+listErr:'Tidak ada langganan Google Play yang ditemukan di akun Play ini.',6000); return; }
     let active=0, lastErr='';
     for(const p of list){
       try{
-        const r=(await firebase.functions().httpsCallable('verifyPlayPurchase')({productId:p.itemId,purchaseToken:p.purchaseToken})).data;
+        const r=(await llkPlayWithTimeout(firebase.functions().httpsCallable('verifyPlayPurchase')({productId:p.itemId,purchaseToken:p.purchaseToken}),30000,'Server tidak menjawab (verifikasi)')).data;
         if(r&&r.access) active++;
       }catch(e){ lastErr=llkPlayErrMsg(e); }
     }

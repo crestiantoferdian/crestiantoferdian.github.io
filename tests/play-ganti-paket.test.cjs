@@ -35,7 +35,7 @@ function makeEnv(o) {
   };
   const win = { llkIsPlayApp: () => true, PaymentRequest, getDigitalGoodsService: async () => { if (!svc) throw new Error('x'); return svc; } };
   const ctx = {
-    window: win, document: doc, console: { warn() {}, error() {}, log() {} }, PaymentRequest, setTimeout: () => 0,
+    window: win, document: doc, console: { warn() {}, error() {}, log() {} }, PaymentRequest, setTimeout: () => 0, clearTimeout() {},
     toast: (m) => log.toasts.push(m), setPaywallStatus: (m) => log.statuses.push(m), llkI: () => '', escapeHtml: (s) => String(s), llkFmtDateMs: () => '12 Des 2026',
     showGlobalLoading() {}, hideGlobalLoading() {}, currentUser: { uid: 'u1' },
     firebase: { functions: () => ({ httpsCallable: (n) => async (d) => { log.calls.push([n, JSON.parse(JSON.stringify(d))]); if (o.verifyError) throw new Error(o.verifyError); return { data: { access: true } }; } }) },
