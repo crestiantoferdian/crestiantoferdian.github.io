@@ -46,6 +46,7 @@ function makeEnv(o) {
   vm.createContext(ctx);
   vm.runInContext(tiers + '\n' + tierInfoSrc + '\n' + playBlock, ctx);
   vm.runInContext('llkPlayManageNotice=function(){ __manage(); };', Object.assign(ctx, { __manage: () => log.manage++ }));
+  if (!o.deferredOff) vm.runInContext('LLK_PLAY_DEFERRED=true;', ctx);
   if (o.autoConfirm !== false) vm.runInContext('llkPlayConfirmChange=async function(){ return true; };', ctx);
   return { ctx, log };
 }
@@ -197,6 +198,20 @@ let n = 0; const ok = (m) => console.log('OK  ' + (++n) + ' ' + m);
     const e4 = makeEnv(); e4.ctx._subPaidActive = false;
     assert.strictEqual(run(e4, 'llkPlayManagedSub()'), false);
     ok('tombol Ganti Paket hanya untuk langganan berbayar yang dikelola Play');
+  }
+  // ── Pengaturan bawaan: turun paket / ganti periode DIMATIKAN (kasus terkunci uji 9 Nov) ──
+  {
+    for (const [cur, tgt] of [['unlimited_monthly', 'basic_monthly'], ['up_monthly', 'up_yearly'], ['up_monthly', 'basic_monthly']]) {
+      const e = makeEnv({ cur, deferredOff: true, purchases: [{ itemId: 'llk_' + cur, purchaseToken: 'OLD' }] });
+      await run(e, `llkPlayBuy('${tgt}')`);
+      assert.strictEqual(e.log.pr.length, 0, 'tidak boleh membuka pembayaran Google'); assert.strictEqual(e.log.calls.length, 0);
+      assert.strictEqual(e.log.manage, 1, 'harus tampil petunjuk aman');
+    }
+    ok('BAWAAN: turun paket / ganti periode → hanya petunjuk (tanpa PaymentRequest, tanpa server) — mencegah terkunci');
+    const e = makeEnv({ cur: 'basic_monthly', deferredOff: true });
+    await run(e, "llkPlayBuy('up_monthly')");
+    assert.strictEqual(J(e.log.pr[0].methods)[0].data.prorationMode, 'immediateAndChargeProratedPrice');
+    ok('BAWAAN: naik paket langsung tetap jalan');
   }
   console.log('\nSemua ' + n + ' pemeriksaan lolos');
 })().catch((e) => { console.error('GAGAL:', e && e.stack || e); process.exit(1); });

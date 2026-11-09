@@ -200,7 +200,12 @@ function createPlayService({ db, Timestamp, client, now }) {
         }, { merge: true });
       }
       // Ikat token ke uid (sekali; token tidak bisa dipakai akun lain)
-      tx.set(bindRef, { uid, productId: play.productId, plan: planKey, lastState: play.state, updatedAt: Timestamp.now() }, { merge: true });
+      tx.set(bindRef, {
+        uid, productId: play.productId, plan: planKey, lastState: play.state, updatedAt: Timestamp.now(),
+        // Diagnosis (tanpa data sensitif): tanggal berakhir dari Google, apakah ditautkan ke token lama, status auto-renew
+        lastExpiryMs: play.expiryMs, hasLinkedToken: !!play.linkedToken, lastAutoRenew: play.autoRenew,
+      }, { merge: true });
+      console.log('playPurchase', JSON.stringify({ plan: planKey, state: play.state, expiryMs: play.expiryMs, linked: !!play.linkedToken, autoRenew: play.autoRenew, action: dec.action }));
       // Catatan riwayat pembelian (untuk halaman "Paket & Harga")
       if (dec.action === 'activate' && play.latestOrderId) {
         const plan = PLANS[planKey];
