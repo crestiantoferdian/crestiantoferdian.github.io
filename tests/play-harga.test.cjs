@@ -130,7 +130,7 @@ let n = 0; const ok = (m) => console.log('OK  ' + (++n) + ' ' + m);
     await run(e, "llkPlayBuy('up_monthly')");
     const t = e.log.els.map((x) => x.innerHTML).join(' ');
     assert.strictEqual(e.log.pr, 0);
-    assert.ok(/Pro Basic/.test(t) && /12 Des 2026/.test(t) && /Batalkan langganan/.test(t) && /Play Store/.test(t) && /mengganti paket/i.test(t));
+    assert.ok(/Pro Basic/.test(t) && /12 Des 2026/.test(t) && /Batalkan langganan/.test(t) && /Play Store/.test(t) && /turun paket/i.test(t));
     ok('PLAY: masih berlangganan → petunjuk jelas: batalkan di Play Store, paket tetap aktif sampai tanggal, lalu pilih paket baru');
     const e2 = makeEnv({ paidActive: true, source: 'play', tier: 'up', endsMs: Date.now() + 864e5, autoRenew: false });
     await run(e2, "llkPlayBuy('unlimited_monthly')");
