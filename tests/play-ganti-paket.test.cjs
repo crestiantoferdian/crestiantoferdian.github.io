@@ -46,7 +46,7 @@ function makeEnv(o) {
   vm.createContext(ctx);
   vm.runInContext(tiers + '\n' + tierInfoSrc + '\n' + playBlock, ctx);
   if (!o.realNotice) vm.runInContext('llkPlayManageNotice=function(){ __manage(); };', Object.assign(ctx, { __manage: () => log.manage++ }));
-  if (!o.deferredOff) vm.runInContext('LLK_PLAY_DEFERRED=true;', ctx);
+  vm.runInContext('LLK_PLAY_DEFERRED=' + (o.deferredOff ? 'false' : 'true') + ';', ctx);
   if (o.autoConfirm !== false) vm.runInContext('llkPlayConfirmChange=async function(){ return true; };', ctx);
   return { ctx, log };
 }
@@ -199,7 +199,7 @@ let n = 0; const ok = (m) => console.log('OK  ' + (++n) + ' ' + m);
     assert.strictEqual(run(e4, 'llkPlayManagedSub()'), false);
     ok('tombol Ganti Paket hanya untuk langganan berbayar yang dikelola Play');
   }
-  // ── Pengaturan bawaan: turun paket / ganti periode DIMATIKAN (kasus terkunci uji 9 Nov) ──
+  // ── Bila fitur deferred dimatikan (LLK_PLAY_DEFERRED=false): hanya petunjuk, tanpa pembayaran ──
   {
     for (const [cur, tgt] of [['unlimited_monthly', 'basic_monthly'], ['up_monthly', 'up_yearly'], ['up_monthly', 'basic_monthly']]) {
       const e = makeEnv({ cur, deferredOff: true, purchases: [{ itemId: 'llk_' + cur, purchaseToken: 'OLD' }] });
@@ -207,11 +207,11 @@ let n = 0; const ok = (m) => console.log('OK  ' + (++n) + ' ' + m);
       assert.strictEqual(e.log.pr.length, 0, 'tidak boleh membuka pembayaran Google'); assert.strictEqual(e.log.calls.length, 0);
       assert.strictEqual(e.log.manage, 1, 'harus tampil petunjuk aman');
     }
-    ok('BAWAAN: turun paket / ganti periode → hanya petunjuk (tanpa PaymentRequest, tanpa server) — mencegah terkunci');
+    ok('SAKLAR MATI: turun paket / ganti periode → hanya petunjuk (tanpa PaymentRequest, tanpa server)');
     const e = makeEnv({ cur: 'basic_monthly', deferredOff: true });
     await run(e, "llkPlayBuy('up_monthly')");
     assert.strictEqual(J(e.log.pr[0].methods)[0].data.prorationMode, 'immediateAndChargeProratedPrice');
-    ok('BAWAAN: naik paket langsung tetap jalan');
+    ok('SAKLAR MATI: naik paket langsung tetap jalan');
   }
   // ── Tombol pengelolaan langganan di Play Store ──
   {
