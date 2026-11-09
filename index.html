@@ -10831,7 +10831,8 @@ function showPaywall(){
   if(!playApp&&!window._llkAutoPayCheckDone){ window._llkAutoPayCheckDone=true; cekStatusPembayaran(true); }
   // Aplikasi Play: sekali per sesi, pulihkan langganan Google Play diam-diam
   // (mis. ganti HP / install ulang / perpanjangan otomatis yang belum tercatat).
-  if(playApp&&!_llkPlayRestoreDone){ _llkPlayRestoreDone=true; setTimeout(function(){ llkPlayRestore(true); },1500); }
+  // Paywall muncul di aplikasi Play: cek ulang ke Google (mis. paket baru dari pergantian deferred baru berlaku). Paling sering 1x per 60 dtk.
+  if(playApp&&(!_llkPlayRestoreDone||Date.now()-(window._llkPlayPwRestoreAt||0)>60000)){ _llkPlayRestoreDone=true; window._llkPlayPwRestoreAt=Date.now(); setTimeout(function(){ llkPlayRestore(true); },1500); }
 }
 
 /* Tanya status pembayaran yang masih tertunda langsung ke Midtrans (lewat

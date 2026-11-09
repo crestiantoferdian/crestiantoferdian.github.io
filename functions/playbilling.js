@@ -54,11 +54,20 @@ function tokenKey(purchaseToken) {
   return crypto.createHash('sha256').update(String(purchaseToken)).digest('hex');
 }
 
-/** Ringkas respons subscriptionsv2 menjadi bentuk yang kita pakai. */
-function parsePlaySubscription(resp) {
+/**
+ * Ringkas respons subscriptionsv2 menjadi bentuk yang kita pakai.
+ * Satu token bisa punya BEBERAPA line item (penggantian "deferred": item lama yang masih berlaku + item baru yang
+ * expiryTime-nya belum terisi; setelah perpanjangan pertama, item lama berakhir & item baru berlaku).
+ * Hak akses = line item yang expiryTime-nya masih di masa depan (yang terlama bila ada beberapa).
+ * Sumber: developer.android.com/google/play/billing/subscriptions "Handle deferred replacement".
+ */
+function parsePlaySubscription(resp, nowMs) {
+  const now = Number.isFinite(nowMs) ? nowMs : Date.now();
   const items = (resp && resp.lineItems) || [];
-  const li = items[0] || {};
-  const expiryMs = li.expiryTime ? Date.parse(li.expiryTime) : 0;
+  const exp = (x) => { const m = x && x.expiryTime ? Date.parse(x.expiryTime) : 0; return Number.isFinite(m) ? m : 0; };
+  const live = items.filter((x) => exp(x) > now).sort((a, b) => exp(b) - exp(a));
+  const li = live[0] || items.slice().sort((a, b) => exp(b) - exp(a))[0] || {};
+  const expiryMs = exp(li);
   const startMs = resp && resp.startTime ? Date.parse(resp.startTime) : 0;
   return {
     state: (resp && resp.subscriptionState) || '',
@@ -72,6 +81,8 @@ function parsePlaySubscription(resp) {
     test: !!(resp && resp.testPurchase),
     // Penggantian paket: token baru menunjuk ke token lama yang digantikannya
     linkedToken: (resp && resp.linkedPurchaseToken) || '',
+    // Produk yang akan menggantikan item ini saat perpanjangan berikutnya (penggantian deferred)
+    deferredTo: (li.deferredItemReplacement && li.deferredItemReplacement.productId) || '',
   };
 }
 
@@ -89,7 +100,7 @@ function hasAccess(play, nowMs) {
  *  - expire  : token ini adalah langganan Play yang sedang berlaku dan sudah tidak ada akses.
  *  - noop    : token lama/tidak relevan (mis. diganti paket lain) → jangan mengubah apa pun.
  */
-function decideSubscriptionUpdate(cur, play, planKey, key, nowMs) {
+function decideSubscriptionUpdate(cur, play, planKey, key, nowMs, opts) {
   const plan = PLANS[planKey];
   if (!plan) throw new Error('Plan tidak dikenal: ' + planKey);
   if (hasAccess(play, nowMs)) {
@@ -105,7 +116,9 @@ function decideSubscriptionUpdate(cur, play, planKey, key, nowMs) {
       },
     };
   }
-  const isCurrentPlay = !!cur && cur.source === 'play' && cur.playTokenKey === key;
+  // Token yang sudah DIGANTIKAN token lain (upgrade/downgrade) memang EXPIRED di Google; itu tidak boleh mencabut akses.
+  const replaced = !!(opts && opts.replaced);
+  const isCurrentPlay = !!cur && cur.source === 'play' && cur.playTokenKey === key && !replaced;
   if (isCurrentPlay) {
     return { action: 'expire', fields: { status: 'expired', playState: play.state, playAutoRenew: false, subscriptionEndsMs: play.expiryMs } };
   }
@@ -168,7 +181,8 @@ function createPlayService({ db, Timestamp, client, now }) {
       throw e;
     }
 
-    const play = parsePlaySubscription(await client.getSubscription(purchaseToken));
+    const now = nowMs();
+    const play = parsePlaySubscription(await client.getSubscription(purchaseToken), now);
     const planKey = resolvePlayPlan(play.productId, play.basePlanId);
     if (!planKey) {
       const e = new Error('Produk Play tidak dikenal: ' + play.productId);
@@ -176,7 +190,7 @@ function createPlayService({ db, Timestamp, client, now }) {
       throw e;
     }
 
-    const now = nowMs();
+    const replaced = bind.exists && !!bind.data().replacedBy;
     const result = await db.runTransaction(async (tx) => {
       const subRef = db.collection('subscriptions').doc(uid);
       const subSnap = await tx.get(subRef);
@@ -185,7 +199,7 @@ function createPlayService({ db, Timestamp, client, now }) {
         status: d.status, tier: d.tier, source: d.source, playTokenKey: d.playTokenKey,
         subscriptionEndsMs: d.subscriptionEndsAt ? d.subscriptionEndsAt.toMillis() : 0,
       };
-      const dec = decideSubscriptionUpdate(cur, play, planKey, key, now);
+      const dec = decideSubscriptionUpdate(cur, play, planKey, key, now, { replaced });
       if (dec.action === 'activate' || dec.action === 'expire') {
         const f = dec.fields;
         tx.set(subRef, {
@@ -219,10 +233,20 @@ function createPlayService({ db, Timestamp, client, now }) {
       return { action: dec.action, plan: planKey, tier: PLANS[planKey].tier, state: play.state, endsMs: play.expiryMs, access: hasAccess(play, now) };
     });
 
+    // Token baru hasil penggantian: tandai token lama sebagai "sudah digantikan" (milik akun yang sama) supaya EXPIRED-nya tak mencabut akses.
+    if (play.linkedToken) {
+      try {
+        const lref = db.collection('playPurchases').doc(tokenKey(play.linkedToken));
+        const ls = await lref.get();
+        if (ls.exists && ls.data().uid === uid) await lref.set({ replacedBy: key, updatedAt: Timestamp.now() }, { merge: true });
+      } catch (e) { console.error('Menandai token lama gagal (diabaikan):', e.message); }
+    }
+
     // Acknowledge wajib dalam 3 hari, kalau tidak Google membatalkan & mengembalikan dana.
     // Hanya untuk pembelian yang memang memberi akses (bukan PENDING).
     if (play.ackPending && hasAccess(play, now)) {
-      try { await client.acknowledge(play.productId, purchaseToken); result.acknowledged = true; }
+      // Pada penggantian deferred, token ini dibeli untuk produk BARU (deferredTo) walau item yang berlaku masih yang lama.
+      try { await client.acknowledge(play.deferredTo || play.productId, purchaseToken); result.acknowledged = true; }
       catch (e) { console.error('Acknowledge Play gagal (akan dicoba lagi saat verifikasi berikutnya):', e.message); result.acknowledged = false; }
     }
     return result;

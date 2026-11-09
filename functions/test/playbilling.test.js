@@ -320,3 +320,62 @@ test('penggantian segera: token baru aktif sebagai paket baru; token lama yang h
   await s.handleNotification({ subscriptionNotification: { purchaseToken: 'OLD' } });
   assert.strictEqual(db.store.get('subscriptions/u1').tier, 'up'); assert.strictEqual(db.store.get('subscriptions/u1').status, 'active');
 });
+
+// ── Penggantian DEFERRED (turun paket): token lama sengaja EXPIRED, hak akses dibaca dari token baru ──
+const deferredNew = ({ oldExpiry, newExpiry }) => ({
+  ...sub({ productId: 'llk_unlimited_monthly', orderId: 'GPA.DEF1', ack: 'ACKNOWLEDGEMENT_STATE_PENDING' }),
+  linkedPurchaseToken: 'OLD',
+  lineItems: [
+    { productId: 'llk_unlimited_monthly', expiryTime: new Date(oldExpiry).toISOString(), autoRenewingPlan: { autoRenewEnabled: false },
+      deferredItemReplacement: { productId: 'llk_basic_monthly' } },
+    { productId: 'llk_basic_monthly', ...(newExpiry ? { expiryTime: new Date(newExpiry).toISOString(), autoRenewingPlan: { autoRenewEnabled: true } } : {}) },
+  ],
+});
+
+test('DEFERRED: token baru memberi akses paket LAMA sampai masa lama habis; token lama EXPIRED tidak mencabut akses', async () => {
+  const db = makeDb();
+  const oldExpiry = NOW + 5 * 60 * 1000;
+  const client = makeClient({ OLD: sub({ productId: 'llk_unlimited_monthly', expiryMs: oldExpiry, ack: 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED' }) });
+  const s = svc(db, client);
+  await s.applyPurchase('u1', 'OLD', { fromUser: true });
+  assert.strictEqual(db.store.get('subscriptions/u1').tier, 'unlimited');
+  // pengguna memilih turun ke Basic (deferred): Google membuat token baru & menandai token lama EXPIRED (sesuai dokumentasi)
+  client.responses.NEW = deferredNew({ oldExpiry });
+  client.responses.OLD = sub({ productId: 'llk_unlimited_monthly', state: 'SUBSCRIPTION_STATE_EXPIRED', expiryMs: oldExpiry, ack: 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED' });
+  const r = await s.applyPurchase('u1', 'NEW', { fromUser: true });
+  assert.strictEqual(r.access, true); assert.strictEqual(r.plan, 'unlimited_monthly'); assert.strictEqual(r.endsMs, oldExpiry);
+  const cur = db.store.get('subscriptions/u1');
+  assert.strictEqual(cur.status, 'active'); assert.strictEqual(cur.tier, 'unlimited');
+  assert.deepStrictEqual(client.acks.pop(), ['llk_basic_monthly', 'NEW'], 'acknowledge memakai produk BARU');
+  assert.ok(db.store.get('playPurchases/' + PB.tokenKey('OLD')).replacedBy, 'token lama ditandai sudah digantikan');
+  // RTDN SUBSCRIPTION_EXPIRED / pemulihan untuk token lama: tidak boleh mencabut akses
+  await s.handleNotification({ subscriptionNotification: { purchaseToken: 'OLD' } });
+  await s.applyPurchase('u1', 'OLD', { fromUser: true });
+  assert.strictEqual(db.store.get('subscriptions/u1').status, 'active'); assert.strictEqual(db.store.get('subscriptions/u1').tier, 'unlimited');
+});
+
+test('DEFERRED: setelah masa lama habis, token baru berlaku sebagai paket BARU', async () => {
+  const db = makeDb();
+  const oldExpiry = NOW + 5 * 60 * 1000;
+  const client = makeClient({
+    OLD: sub({ productId: 'llk_unlimited_monthly', state: 'SUBSCRIPTION_STATE_EXPIRED', expiryMs: oldExpiry, ack: 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED' }),
+    NEW: deferredNew({ oldExpiry }),
+  });
+  const s1 = svc(db, client);
+  await s1.applyPurchase('u1', 'NEW', { fromUser: true });
+  // 10 menit kemudian: item lama lewat, item baru (Basic) berlaku
+  const later = NOW + 10 * 60 * 1000;
+  client.responses.NEW = deferredNew({ oldExpiry, newExpiry: later + 5 * 60 * 1000 });
+  const s2 = PB.createPlayService({ db, Timestamp, client, now: () => later });
+  const r = await s2.applyPurchase('u1', 'NEW', { fromUser: true });
+  assert.strictEqual(r.plan, 'basic_monthly'); assert.strictEqual(r.access, true);
+  const cur = db.store.get('subscriptions/u1');
+  assert.strictEqual(cur.status, 'active'); assert.strictEqual(cur.tier, 'basic');
+});
+
+test('parse: banyak line item → yang masih berlaku dipilih; item tanpa expiryTime diabaikan', () => {
+  const p = PB.parsePlaySubscription(deferredNew({ oldExpiry: NOW + 1000 }), NOW);
+  assert.strictEqual(p.productId, 'llk_unlimited_monthly'); assert.strictEqual(p.deferredTo, 'llk_basic_monthly'); assert.strictEqual(p.expiryMs, NOW + 1000);
+  const q = PB.parsePlaySubscription(deferredNew({ oldExpiry: NOW - 1000, newExpiry: NOW + 9000 }), NOW);
+  assert.strictEqual(q.productId, 'llk_basic_monthly'); assert.strictEqual(q.expiryMs, NOW + 9000); assert.strictEqual(q.deferredTo, '');
+});
