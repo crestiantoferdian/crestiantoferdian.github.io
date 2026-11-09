@@ -11007,9 +11007,9 @@ function showUpgradeOffer(fromLimit){
     : fromLimit&&t
     ? '<div class="llk-dialog-ic warn">'+llkI('lock')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:8px">Batas Murid '+escapeHtml(t.name)+' Tercapai</div>'
       +'<div style="font-size:0.9rem;color:var(--text2);max-width:360px;margin:0 auto 22px;line-height:1.6">Paket '+escapeHtml(t.name)+' maksimal <b>'+t.limit+' murid aktif</b>, dan kamu sudah punya <b>'+n+'</b>. Naik paket untuk menambah murid — atau nonaktifkan murid yang sudah berhenti les (riwayatnya tetap tersimpan).</div>'
-    : '<div class="llk-dialog-ic">'+llkI('arrow-up')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:22px">'+(llkPlayManagedSub()?'Ganti Paket':'Naik Paket')+'</div>';
+    : '<div class="llk-dialog-ic">'+llkI('arrow-up')+'</div><div style="font-family:var(--font-display);font-size:1.45rem;font-weight:600;color:var(--text);margin-bottom:22px">Naik Paket</div>';
   const upgrade=!isTransfer&&_subPaidActive&&!(_subBadgeInfo&&_subBadgeInfo.isTester)&&!llkPlayIsApp();
-  el.innerHTML=head+planCardsHtml({minTier:(isTransfer||llkPlayManagedSub())?null:_currentTier, upgrade:upgrade})
+  el.innerHTML=head+planCardsHtml({minTier:isTransfer?null:_currentTier, upgrade:upgrade})
     +'<div style="font-size:0.8rem;color:var(--muted);max-width:340px;margin:4px auto 18px;line-height:1.55">'+(llkPlayIsApp()?'Harga dan penagihan mengikuti Google Play.':'Paket baru berlaku mulai hari ini. Sisa masa aktif paket lama tidak dibawa ke paket baru.')+'</div>'
     +((window.llkIsPlayApp&&window.llkIsPlayApp())?llkPlayRestoreHtml():'<button onclick="cekStatusPembayaran(false)" class="llk-btn secondary sm" style="margin:0 auto 6px;display:flex">'+llkI('refresh','sm')+' Sudah bayar? Cek status pembayaran</button>')
     +'<button onclick="closeUpgradeOffer()" style="background:none;border:none;color:var(--text2);font-size:0.9rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:12px">Nanti saja</button>';
@@ -11264,6 +11264,11 @@ async function llkPlayService(){
 function llkPlayErrMsg(err){
   const m=err&&(err.message||err.code); return m?String(m).replace(/^functions\//,'').slice(0,120):'';
 }
+/* Halaman langganan LesLesanKu di Play Store (milik Google): di sana pengguna membatalkan / mengelola langganan. */
+function llkPlayManageUrl(){
+  const sku=_subPlanKey&&LLK_PLAY_SKUS[_subPlanKey];
+  return 'https://play.google.com/store/account/subscriptions?package=com.leslesanku.app'+(sku?'&sku='+encodeURIComponent(sku):'');
+}
 function llkPlayManageNotice(){
   /* Langganan Play yang masih aktif. Penggantian paket langsung (upgrade/downgrade) belum tersedia di aplikasi:
      jalannya = batalkan di Play Store (paket tetap aktif sampai tanggal berakhir), lalu beli paket baru setelah itu. */
@@ -11276,12 +11281,13 @@ function llkPlayManageNotice(){
   const title=cancelled?'Langgananmu sudah dibatalkan':'Kamu sudah berlangganan';
   const body=cancelled
     ?'Paket <b>'+escapeHtml(nama)+'</b> tetap aktif'+(until?' sampai <b>'+until+'</b>':'')+'. Setelah masa aktif berakhir, kamu bisa memilih paket baru di sini.'
-    :'Paket <b>'+escapeHtml(nama)+'</b> aktif'+(until?' sampai <b>'+until+'</b>':'')+'.<br><br>Untuk <b>mengganti paket</b>: buka <b>Play Store → Profil → Pembayaran &amp; langganan → Langganan → LesLesanKu → Batalkan langganan</b>. Paketmu tetap aktif sampai '+(until?'<b>'+until+'</b>':'masa aktif berakhir')+', lalu pilih paket baru di sini.';
+    :'Paket <b>'+escapeHtml(nama)+'</b> aktif'+(until?' sampai <b>'+until+'</b>':'')+'.<br><br>Untuk <b>turun paket</b> atau <b>berhenti</b>: tekan tombol di bawah, lalu pilih <b>Batalkan langganan</b>. Paketmu <b>tetap aktif sampai '+(until?until:'masa aktif berakhir')+'</b>, tidak hangus. Setelah itu kamu bisa memilih paket baru di sini.<br><br><span style="color:var(--muted);font-size:0.82rem">Atau buka manual: Play Store → Profil → Pembayaran &amp; langganan → Langganan → LesLesanKu.</span>';
   el.innerHTML='<div style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:24px 20px 18px;text-align:center;box-shadow:var(--shadow-lg)">'
     +'<div class="llk-dialog-ic">'+llkI('crown')+'</div>'
     +'<div style="font-family:var(--font-display);font-size:1.25rem;font-weight:600;color:var(--text);margin-bottom:8px">'+title+'</div>'
     +'<div style="font-size:0.9rem;color:var(--text2);line-height:1.6;margin-bottom:18px;text-align:left">'+body+'</div>'
-    +'<button class="llk-btn ink" style="width:100%" onclick="document.getElementById(\'llkPlayPay\').remove()">Mengerti</button></div>';
+    +'<a class="llk-btn ink" style="width:100%;display:flex;justify-content:center;text-decoration:none;margin-bottom:8px" target="_blank" rel="noopener" href="'+escapeHtml(llkPlayManageUrl())+'">'+llkI('external','sm')+' Buka Pengelolaan Langganan</a>'
+    +'<button class="llk-btn secondary" style="width:100%" onclick="document.getElementById(\'llkPlayPay\').remove()">Tutup</button></div>';
   el.addEventListener('click',function(e){ if(e.target===el) el.remove(); });
   document.body.appendChild(el);
 }
@@ -12228,8 +12234,11 @@ function renderAccountSection(){
         // Akun tester (isTester:true di Firestore) tetap dikasih tombol "Jadi Pro"
         // supaya gampang buka lagi layar Selamat Datang buat preview. Dulu dicek
         // lewat daftar email yang ditulis langsung di kode (ikut terbaca publik).
-        if(!_subBadgeInfo.isTester && _currentTier && (_currentTier!=='unlimited'||llkPlayManagedSub())){
-          upgradeBtnHtml='<button onclick="showUpgradeOffer(false)" class="llk-btn ink sm" style="flex-shrink:0;height:30px;padding:0 10px;font-size:0.74rem;border-radius:var(--r-pill)">'+llkI('arrow-up','sm')+(llkPlayManagedSub()?' Ganti Paket':' Naik Paket')+'</button>';
+        if(!_subBadgeInfo.isTester && _currentTier && _currentTier==='unlimited' && llkPlayManagedSub()){
+          // Paket tertinggi di Play: tidak ada paket di atasnya, tapi pengguna perlu jalan untuk turun paket / berhenti → pengelolaan di Play Store
+          upgradeBtnHtml='<button onclick="llkPlayManageNotice()" class="llk-btn ink sm" style="flex-shrink:0;height:30px;padding:0 10px;font-size:0.74rem;border-radius:var(--r-pill)">'+llkI('card','sm')+' Kelola Paket</button>';
+        } else if(!_subBadgeInfo.isTester && _currentTier && _currentTier!=='unlimited'){
+          upgradeBtnHtml='<button onclick="showUpgradeOffer(false)" class="llk-btn ink sm" style="flex-shrink:0;height:30px;padding:0 10px;font-size:0.74rem;border-radius:var(--r-pill)">'+llkI('arrow-up','sm')+' Naik Paket</button>';
         }
         if(_subBadgeInfo.isTester){
           upgradeBtnHtml='<button onclick="showWelcomePricing()" class="llk-btn ink sm" style="flex-shrink:0;height:30px;padding:0 10px;font-size:0.74rem;border-radius:var(--r-pill)">'+llkI('star','sm')+' Jadi Pro</button>';

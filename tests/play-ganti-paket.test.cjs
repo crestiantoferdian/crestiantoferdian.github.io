@@ -45,7 +45,7 @@ function makeEnv(o) {
   };
   vm.createContext(ctx);
   vm.runInContext(tiers + '\n' + tierInfoSrc + '\n' + playBlock, ctx);
-  vm.runInContext('llkPlayManageNotice=function(){ __manage(); };', Object.assign(ctx, { __manage: () => log.manage++ }));
+  if (!o.realNotice) vm.runInContext('llkPlayManageNotice=function(){ __manage(); };', Object.assign(ctx, { __manage: () => log.manage++ }));
   if (!o.deferredOff) vm.runInContext('LLK_PLAY_DEFERRED=true;', ctx);
   if (o.autoConfirm !== false) vm.runInContext('llkPlayConfirmChange=async function(){ return true; };', ctx);
   return { ctx, log };
@@ -212,6 +212,20 @@ let n = 0; const ok = (m) => console.log('OK  ' + (++n) + ' ' + m);
     await run(e, "llkPlayBuy('up_monthly')");
     assert.strictEqual(J(e.log.pr[0].methods)[0].data.prorationMode, 'immediateAndChargeProratedPrice');
     ok('BAWAAN: naik paket langsung tetap jalan');
+  }
+  // ── Tombol pengelolaan langganan di Play Store ──
+  {
+    const e = makeEnv({ cur: 'unlimited_monthly', realNotice: true });
+    const url = run(e, 'llkPlayManageUrl()');
+    assert.strictEqual(url, 'https://play.google.com/store/account/subscriptions?package=com.leslesanku.app&sku=llk_unlimited_monthly');
+    run(e, 'llkPlayManageNotice()');
+    const h = e.log.els.map((x) => x.innerHTML).join(' ');
+    assert.ok(h.includes(url) && /Buka Pengelolaan Langganan/.test(h) && /Batalkan langganan/.test(h) && /tidak hangus/.test(h));
+    assert.ok(!/website|midtrans|situs|leslesanku\.com|diskon/i.test(h), 'tidak boleh mengarahkan ke cara bayar lain');
+    ok('PESAN turun paket: tombol "Buka Pengelolaan Langganan" → halaman langganan Play (package+sku), netral tanpa menyebut website');
+    const e2 = makeEnv({ cur: null, realNotice: true });
+    assert.strictEqual(run(e2, 'llkPlayManageUrl()'), 'https://play.google.com/store/account/subscriptions?package=com.leslesanku.app');
+    ok('tautan tetap valid walau paket sekarang tidak diketahui (tanpa sku)');
   }
   console.log('\nSemua ' + n + ' pemeriksaan lolos');
 })().catch((e) => { console.error('GAGAL:', e && e.stack || e); process.exit(1); });
