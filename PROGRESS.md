@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 5 Nov 2026 (Play Store: pengajuan Produksi #1 perlu tambahan uji 14 hari)_
+_Terakhir diperbarui: 14 Nov 2026 (bug reschedule ulang jam dari penguji diperbaiki)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,15 @@ _Terakhir diperbarui: 5 Nov 2026 (Play Store: pengajuan Produksi #1 perlu tambah
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 🐞 V1: jam reschedule tidak bisa dipindah lagi (14 Nov 2026, laporan penguji)
+- Laporan penguji: "Ga iso dipindah jam e". Pemilih jam bulatnya sendiri normal (tap & geser teruji).
+- **Penyebab:** tombol Reschedule di **kartu hasil pindah** mengirim hari les pertama murid (`s.day`), bukan hari yang dipindah (`_rescheduleDay`). Untuk murid yang les >1 hari/minggu (mis. Rabu + Sabtu, yang dipindah Sabtu), jendela Reschedule membuka data hari lain. Akibatnya jam baru tidak masuk ke sesi yang dipindah, dan malah tersimpan reschedule nyasar untuk hari lain (mis. `day:'Rabu'`). Kartu tujuan **Sesi Tambahan yang dipindah** juga salah: dibuka sebagai reschedule biasa, bukan sesi tambahannya.
+- **Perbaikan** (`renderAbsensi`, `rsExtraIdx`): kartu hasil pindah mengirim `_rescheduleDay`, kartu tujuan sesi tambahan mengirim `_extraIdx`. Data lama tidak diubah. Reschedule nyasar yang mungkin sudah tersimpan masih bisa dihapus manual lewat tombol Hapus di jendela Reschedule hari tersebut.
+- Diuji dengan Playwright (emulasi Pixel 7): murid 1 hari, murid 2 hari, dan sesi tambahan yang dipindah. Ketiganya berhasil diganti dari 15:00 ke 16:00, dan tidak ada reschedule nyasar.
+- **Status (14 Nov 2026): BELUM di-merge ke `main`.** Perbaikan masih di branch `ccr-a71cfcb7-rohcx7` (commit `0a48027`), jadi leslesanku.com masih versi lama. Penguji melapor lagi "GK bisa di pindah jamnya", kemungkinan besar karena masih memakai versi lama itu.
+- **Langkah berikutnya:** (1) merge branch/PR ke `main`; (2) tunggu 1–2 menit, lalu penguji menutup aplikasi sampai benar-benar tertutup dan membukanya lagi (di browser: muat ulang halaman); (3) uji ulang: reschedule murid, lalu ganti jamnya lagi lewat kartu hasil pindah.
+- **Kalau masih gagal, tanyakan ke penguji:** (A) jarum di pemilih jam **tidak bergerak** waktu angka diketuk atau digeser, atau (B) jarum bisa digeser tapi **jam di kartu murid tidak berubah** setelah Simpan? Tanyakan juga apakah Narendra les lebih dari 1 hari per minggu, dan dibuka lewat aplikasi Play atau browser. Kalau ternyata A, tambahkan cara cadangan (tombol ▲▼ di angka jam/menit) supaya jam tetap bisa diubah di HP mana pun.
 
 ## 📧 Email bisnis LLK @leslesanku.com (diperbarui 5 Nov 2026)
 > ⚠️ Repo publik: **jangan** tulis alamat login akun Resend/Cloudflare, nama atau lokasi API key, maupun kata sandi di sini. Catatan lengkap itu disimpan pemilik secara pribadi.
