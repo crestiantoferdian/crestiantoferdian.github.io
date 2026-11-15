@@ -3,6 +3,7 @@
 <!-- LesLesanKu (LLK) · Hak Cipta © 2026 FerTune Studio. Seluruh hak dilindungi. Dilarang menyalin, mengubah, atau menerbitkan ulang tanpa izin tertulis. -->
 <head>
 <meta charset="UTF-8"/>
+<script src="llk-macet.js"></script>
 <script>
 // Pengunjung yang membuka leslesanku.com di browser melihat halaman pilih peran DI ALAMAT INI
 // (Guru Lepas · Pemilik Lembaga Les · Guru Mitra), lihat window.llkPicking di bawah.
@@ -10500,6 +10501,24 @@ function requireLoginOrBlock(){
   return false;
 }
 
+// ── Tab basi: akun Google berganti di tab/jendela lain ──────────────
+let _llkTabUid=null;       // akun yang datanya sedang dipakai tab ini
+let _llkTabLoginAt=0;      // kapan tombol login ditekan di tab ini
+let _llkTabStale=false;
+function llkMarkTabStale(){
+  if(_llkTabStale) return;
+  _llkTabStale=true;
+  try{ clearTimeout(_cloudSyncTimer); }catch(e){}
+  _cloudReadyToPush=false; // jangan kirim data tab ini ke cloud lagi
+  if(window.llkShowStuck) window.llkShowStuck('akun');
+  else alert('Akun berganti di tab lain. Muat ulang halaman ini.');
+}
+// Tab lain sudah memuat data akun lain ke HP ini (llk_data_owner berubah)
+window.addEventListener('storage', function(e){
+  if(e.key!=='llk_data_owner' || !e.newValue || !_llkTabUid) return;
+  try{ const o=JSON.parse(e.newValue); if(o&&o.uid&&o.uid!==_llkTabUid) llkMarkTabStale(); }catch(err){}
+});
+
 function initFirebase(){
   if(FIREBASE_CONFIG.apiKey.startsWith('GANTI_DENGAN')){
     // Belum di-setup — sembunyikan gate, app tetap jalan 100% lokal seperti sebelumnya.
@@ -10544,6 +10563,15 @@ function initFirebase(){
   fbAuth.onAuthStateChanged(function(user){
     _authResolved=true;
     if(window.llkPicking) return; // halaman pilih peran sedang tampil: V1 belum dipakai di sini
+    if(_llkTabStale) return;
+    // Akun berganti dari tab/jendela LAIN di browser yang sama (login Google dipakai
+    // bersama antar-tab). Data di memori tab ini masih milik akun lama → jangan
+    // diproses/dikirim; minta muat ulang. Data tidak diubah sama sekali.
+    if(user && _llkTabUid && user.uid!==_llkTabUid && Date.now()-_llkTabLoginAt>120000){
+      llkMarkTabStale();
+      return;
+    }
+    if(user) _llkTabUid=user.uid;
     currentUser=user;
     _cloudReadyToPush=false; // reset tiap kali status login berubah — harus tarik/putuskan dulu sebelum boleh kirim
     if(user){
@@ -11581,6 +11609,7 @@ function isProbablyBareWebView(){
 }
 
 function loginWithGoogle(){
+  _llkTabLoginAt=Date.now(); // login dimulai dari tab ini (bukan dari tab lain) — lihat _llkTabUid
   if(!fbAuth){
     if(_llkFirebaseUnavailable){
       if(navigator.onLine){ setLoginGateStatus('Memuat ulang…'); location.reload(); }
@@ -11671,6 +11700,7 @@ function logoutFirebase(skipDirtyCheck){
   }
   clearTimeout(_cloudSyncTimer);
   _cloudReadyToPush=false;
+  _llkTabUid=null; // logout dari tab ini: login akun lain di tab ini sah
   fbAuth.signOut().then(function(){
     currentUser=null;
     if(_subUnsub){ _subUnsub(); _subUnsub=null; }

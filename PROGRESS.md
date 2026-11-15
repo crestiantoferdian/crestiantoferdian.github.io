@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 14 Nov 2026 (bug reschedule ulang jam dari penguji diperbaiki)_
+_Terakhir diperbarui: 15 Nov 2026 (layar "Aplikasi macet → Muat Ulang" + pengaman ganti akun di tab lain)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,13 @@ _Terakhir diperbarui: 14 Nov 2026 (bug reschedule ulang jam dari penguji diperba
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 🔄 Layar "Aplikasi macet → Muat Ulang" (15 Nov 2026, di branch)
+- Laporan pemilik: LLK dibuka di 2 tab/jendela browser, lalu salah satunya login akun Google lain → layar putih kosong (pulih setelah refresh).
+- **`llk-macet.js`** (baru, dipasang paling atas `<head>` `index.html`, `v2/index.html`, `v2/guru.html`): berdiri sendiri, tidak menyentuh data. Tiap 4 dtk mengecek layar kosong (12 titik `elementFromPoint`, kosong = tidak ada teks/gambar/tombol). Kosong 2x berturut-turut, atau 1x kosong setelah ada error/promise gagal → kartu animasi "Aplikasi sedang macet" + tombol **Muat Ulang Sekarang** (ikon berputar, tombol berdenyut, tangan mengetuk) + cara cadangan (browser: ⟳/tarik ke bawah/F5; aplikasi terpasang: tutup lalu buka lagi). Bisa dipanggil manual: `window.llkShowStuck('macet'|'akun')`.
+- **Pengaman ganti akun di tab lain (V1):** login Google dipakai bersama antar-tab, jadi tab lama ikut menerima akun baru padahal data di memorinya milik akun lama (berisiko tercampur). Sekarang `_llkTabUid` mencatat akun tab ini; kalau `onAuthStateChanged` membawa akun lain yang tidak dimulai dari tab ini (tombol login tab ini tidak ditekan ≤2 menit terakhir), atau `llk_data_owner` diubah tab lain ke akun lain (event `storage`) → `llkMarkTabStale()`: kirim cloud tab ini dihentikan (`_cloudReadyToPush=false`, timer sync dibatalkan) dan tampil kartu "Akun berganti di tab lain" → Muat Ulang. Logout dari tab sendiri mengosongkan `_llkTabUid` (ganti akun di tab yang sama tetap normal). Data tidak diubah.
+- Teruji Playwright: kondisi normal V1/pilih peran/V2/Guru Mitra tidak memunculkan kartu; layar dikosongkan + error → kartu muncul; 2 tab, owner diubah ke uid lain → tab lama terkunci, uid sama → tidak.
+- Uji pemilik setelah merge: buka 2 tab LLK, logout & login akun lain di tab ke-2 → tab ke-1 harus menampilkan "Akun berganti di tab lain".
 
 ## 🐞 V1: jam reschedule tidak bisa dipindah lagi (14 Nov 2026, laporan penguji)
 - Laporan penguji: "Ga iso dipindah jam e". Pemilih jam bulatnya sendiri normal (tap & geser teruji).
