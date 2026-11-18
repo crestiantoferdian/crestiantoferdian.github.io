@@ -695,6 +695,10 @@ button:disabled{opacity:.55;cursor:default}
 .hist-no-note{font-size:0.8rem;color:var(--muted);font-style:italic}
 
 /* Blok catatan (progress / alasan / PR) */
+.llk-pay-due{display:inline-flex;align-items:center;gap:6px;background:var(--alpa);color:#fff;font-size:0.76rem;font-weight:700;padding:5px 10px;border-radius:999px;white-space:nowrap}
+.llk-pay-dot{width:7px;height:7px;border-radius:50%;background:#fff;animation:llkPayPulse 1.4s ease-in-out infinite}
+@keyframes llkPayPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+@media (prefers-reduced-motion:reduce){.llk-pay-dot{animation:none}}
 .llk-note{display:flex;gap:8px;align-items:flex-start;font-size:0.86rem;color:var(--text);background:var(--card2);border-radius:var(--r-sm);padding:9px 11px;margin-top:6px;border-left:3px solid var(--border);white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto;line-height:1.55}
 .llk-note>.ico{width:16px;height:16px;margin-top:2px;flex-shrink:0}
 .llk-note.is-progress{border-left-color:var(--blue);background:var(--blue-bg)}
@@ -5927,10 +5931,29 @@ function openStudentReport(el, from){
   window._profileName = name;
   window._profileFrom = from || 'siswa';
   window._profilePeriod = 'all';
+  window._llkPayOpen = {}; // Info Pembayaran tertutup lagi tiap profil dibuka
   const fromTab = from || currentTab || 'siswa';
   history.pushState({tab:fromTab, view:'sub', profile:name, profileFrom:fromTab},'');
   llkPageEnter();
   renderStudentProfile(name, window._profilePeriod);
+  // Profil selalu dibuka dari paling atas (nama + Edit Murid terlihat),
+  // bukan ikut posisi scroll halaman jadwal/daftar sebelumnya.
+  try{ window.scrollTo({top:0,left:0,behavior:'instant'}); }catch(e){ window.scrollTo(0,0); }
+}
+// Lipat/buka kartu Info Pembayaran di profil murid. Hanya tampilan (tidak
+// disimpan ke data murid); default tertutup setiap profil dibuka.
+function llkTogglePayCard(name){
+  window._llkPayOpen=window._llkPayOpen||{};
+  const open=!window._llkPayOpen[name];
+  window._llkPayOpen[name]=open;
+  const body=document.getElementById('llkPayBody');
+  const head=document.getElementById('llkPayHead');
+  if(body) body.style.display=open?'':'none';
+  if(head){
+    head.setAttribute('aria-expanded',open?'true':'false');
+    const chev=head.querySelector('.llk-pay-chev');
+    if(chev) chev.style.transform='rotate('+(open?'0deg':'-90deg')+')';
+  }
 }
 
 function renderStudentProfile(name, period){
@@ -6061,8 +6084,19 @@ function renderStudentProfile(name, period){
     +(s.day2?' & '+s.day2+' '+(s.time2a||'')+(s.time2b?'–'+s.time2b:''):'')+(s.day3?' & '+s.day3+' '+(s.time3a||'')+(s.time3b?'–'+s.time3b:''):'')+(s.day4?' & '+s.day4+' '+(s.time4a||'')+(s.time4b?'–'+s.time4b:''):'');
 
   // Billing card
-  const billingCard = paymentMode==='off'?'':'<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin-bottom:12px">'
-    +'<div class="llk-section-label" style="padding-top:0">'+llkI('card')+'Info Pembayaran</div>'
+  const payOpen = !!(window._llkPayOpen||{})[name];
+  const payStatusTxt = llkStripLeadEmoji(paymentStatusText(s,payInfo));
+  const billingCard = paymentMode==='off'?'':'<div style="background:var(--card);border:1px solid '+(isDue?'var(--alpa)':'var(--border)')+';border-radius:var(--r-lg);padding:4px 16px;margin-bottom:12px">'
+    +'<div id="llkPayHead" role="button" tabindex="0" aria-expanded="'+(payOpen?'true':'false')+'" onclick="llkTogglePayCard(\''+jsAttr(name)+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click()}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px;cursor:pointer">'
+      +'<div class="llk-section-label" style="padding:0">'+llkI('card')+'Info Pembayaran</div>'
+      +'<div style="display:flex;align-items:center;gap:8px;min-width:0">'
+        +(isDue
+          ?'<span class="llk-pay-due">'+'<span class="llk-pay-dot"></span>Waktunya Bayar</span>'
+          :'<span style="font-size:0.8rem;font-weight:700;color:var(--hadir);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(payStatusTxt)+'</span>')
+        +'<span class="llk-pay-chev" style="display:inline-flex;color:var(--muted);flex-shrink:0;transition:transform var(--d2) var(--ease-out);transform:rotate('+(payOpen?'0deg':'-90deg')+')">'+llkI('chevron-down')+'</span>'
+      +'</div>'
+    +'</div>'
+    +'<div id="llkPayBody" style="padding:4px 0 12px;'+(payOpen?'':'display:none')+'">'
     +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid var(--border2);border-radius:var(--r-md);overflow:hidden">'
       +'<div style="text-align:center;background:var(--card2);padding:12px 6px">'
         +'<div style="font-family:var(--font-display);font-size:1.5rem;font-weight:600;color:var(--hadir);font-variant-numeric:lining-nums">'+billing+'</div>'
@@ -6082,6 +6116,7 @@ function renderStudentProfile(name, period){
     +'<button onclick="openCustomPay(\''+jsAttr(name)+'\')" class="llk-btn block secondary" style="margin-top:8px">'+llkI('wallet')+' Pembayaran Custom</button>'
     +(!isDue&&llkLastReceipt(s)?'<button onclick="openInvoice(\''+jsAttr(name)+'\',\''+jsAttr(llkLastReceipt(s).no)+'\')" class="llk-btn block soft" style="margin-top:8px">'+llkI('receipt')+' Kirim Ulang Kuitansi</button>':'')
     +invoiceHistoryHtml(s)
+    +'</div>'
   +'</div>';
 
   // Curriculum card — cuma muncul kalau ada template kurikulum yang cocok
