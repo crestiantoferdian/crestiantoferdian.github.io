@@ -5151,6 +5151,23 @@ function onNoteStatusChange(){
   document.getElementById('notePhotoWrap').style.display=st==='off'?'none':'';
   document.getElementById('noteReason').placeholder=st==='off'?'Guru sakit, ada acara, libur, dll...':'Sakit, acara keluarga, dll...';
 }
+// Jendela Catat Kehadiran: selama guru sedang mengetik (kolom teks fokus), ketukan pada
+// bagian yang bukan kolom/tombol (mis. "Lihat progres terakhir", "Jam sesi ini salah?",
+// label, area kosong) tidak boleh menutup keyboard. Keyboard tetap terbuka sampai
+// Simpan/Batal. Mencegah aksi bawaan mousedown = fokus tidak pindah (Android/Chrome).
+document.addEventListener('mousedown', function(e){
+  const modal=e.target&&e.target.closest&&e.target.closest('#noteOverlay .modal');
+  if(!modal) return;
+  const ae=document.activeElement;
+  if(!ae||!modal.contains(ae)||!/^(TEXTAREA|INPUT)$/.test(ae.tagName)) return;
+  if(e.target.closest('input,textarea,select,button,a,label[for]')) return;
+  e.preventDefault();
+}, true);
+// Catat kolom yang baru saja lepas fokus (cadangan untuk HP yang tetap menutup keyboard)
+document.addEventListener('focusout', function(e){
+  const t=e.target;
+  if(t&&/^(TEXTAREA|INPUT)$/.test(t.tagName)&&t.closest&&t.closest('#noteOverlay .modal')) window._llkNoteLastField={el:t,at:Date.now()};
+}, true);
 // Progres terakhir siswa di jendela Catat Kehadiran (hanya membaca catatan lama).
 function llkLastProgReset(){
   const w=document.getElementById('noteLastProgWrap'), ic=document.getElementById('noteLastProgIcon');
@@ -5173,6 +5190,9 @@ function llkLastProgEntries(name, beforeKey, max){
 function toggleNoteLastProg(){
   const w=document.getElementById('noteLastProgWrap'), ic=document.getElementById('noteLastProgIcon');
   if(!w||!noteStudent) return;
+  let typing=document.activeElement; // kolom yang sedang diketik (kalau ada)
+  const lf=window._llkNoteLastField;
+  if(!(typing&&/^(TEXTAREA|INPUT)$/.test(typing.tagName)) && lf && Date.now()-lf.at<1500) typing=lf.el;
   const open=w.style.display==='none';
   if(open){
     const list=llkLastProgEntries(noteStudent.displayName||noteStudent.name, noteStudent.dateKey||todayStr(), 3);
@@ -5190,6 +5210,11 @@ function toggleNoteLastProg(){
   }
   w.style.display=open?'block':'none';
   if(ic) ic.innerHTML=llkI(open?'chevron-down':'chevron-right');
+  // Cadangan: kalau fokus sempat lepas, kembalikan ke kolom yang sedang diketik
+  if(typing&&/^(TEXTAREA|INPUT)$/.test(typing.tagName)&&document.activeElement!==typing){
+    try{ typing.focus({preventScroll:true}); }catch(e){ typing.focus(); }
+  }
+  if(open){ try{ w.scrollIntoView({block:'nearest'}); }catch(e){} }
 }
 function toggleNoteTimeEdit(){
   const wrap=document.getElementById('noteTimeEditWrap');
