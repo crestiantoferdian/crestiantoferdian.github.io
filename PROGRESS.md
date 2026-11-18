@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 18 Nov 2026 (profil murid dibuka dari atas + Info Pembayaran bisa dilipat)_
+_Terakhir diperbarui: 18 Nov 2026 (kartu Info Pembayaran desain baru: progres + dompet)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -12,7 +12,8 @@ _Terakhir diperbarui: 18 Nov 2026 (profil murid dibuka dari atas + Info Pembayar
 ## 👤 V1: profil murid dibuka dari atas + Info Pembayaran dilipat (18 Nov 2026, di branch)
 - Laporan pemilik: tap nama murid di jadwal → profil terbuka di tengah (ikut posisi scroll jadwal), tombol Edit Murid tidak terlihat. Perbaikan: `openStudentReport` melompat ke paling atas (`scrollTo` instan, karena `html` memakai smooth scroll). Re-render di profil (ganti periode, centang kurikulum) tidak ikut melompat.
 - Kartu **Info Pembayaran** sekarang bisa dilipat (`llkTogglePayCard`), **default tertutup** tiap profil dibuka. Header menampilkan ringkasan status (mis. "7/8x · 1x lagi"); kalau ada tagihan → lencana merah berdenyut **Waktunya Bayar** dan bingkai kartu merah. Status buka/tutup hanya di memori (`window._llkPayOpen`), tidak disimpan ke data murid.
-- Teruji Playwright (Pixel 7): scroll 1500 → 0 saat profil dibuka, kartu tertutup, lencana merah muncul saat jatuh tempo, tap → rincian terbuka.
+- Teruji Playwright (Pixel 7): scroll 1500 → 0 saat profil dibuka, kartu tertutup, lencana merah muncul saat jatuh tempo, tap → rincian terbuka. **Di-merge PR #182.**
+- **Desain ulang header kartu (18 Nov 2026, pilihan pemilik "Opsi A" + dompet transparan):** `.llk-pay-card` — ikon kotak (kartu hijau / peringatan merah), judul "Pembayaran"/"Waktunya Bayar!", keterangan (mis. "Bayar di belakang · 4 sesi lagi" / "9 sesi belum dibayar · tap untuk tagih"), angka besar `sesi/paket`, garis progres per sesi (>12 sesi → 1 garis persen; mode Bulanan tanpa angka & garis), ilustrasi dompet transparan di pojok kanan (`.llk-pay-wm`). Kartu merah muda saat jatuh tempo.
 
 ## 🔄 Layar "Aplikasi macet → Muat Ulang" (15 Nov 2026, di branch)
 - Laporan pemilik: LLK dibuka di 2 tab/jendela browser, lalu salah satunya login akun Google lain → layar putih kosong (pulih setelah refresh).
