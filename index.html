@@ -1687,6 +1687,12 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
         </div>
       </div>
     </div>
+    <div style="margin:-8px 0 14px">
+      <div onclick="toggleNoteLastProg()" role="button" tabindex="0" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:0.84rem;color:var(--blue);font-weight:600;padding:6px 0">
+        <span id="noteLastProgIcon" style="display:inline-flex"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></span> <svg class="ico" aria-hidden="true"><use href="#i-note"/></svg> <span>Lihat progres terakhir siswa</span>
+      </div>
+      <div id="noteLastProgWrap" style="display:none;margin-top:8px"></div>
+    </div>
     <div class="mfield" id="noteReasonWrap">
       <label>Alasan / Keterangan</label>
       <textarea id="noteReason" rows="3" placeholder="Sakit, acara keluarga, dll..."></textarea>
@@ -5114,6 +5120,7 @@ function openNoteModal(attKey, status, displayName, dateOverride, timeOverride, 
     document.getElementById('noteTimeInput').value=snapTime;
     document.getElementById('noteTime2Input').value=snapTime2;
     document.getElementById('noteTimeEditWrap').style.display='none';
+    llkLastProgReset();
     document.getElementById('noteTimeToggleIcon').innerHTML=llkI('chevron-right');
     document.getElementById('noteStatus').value=status;
     const noteKey=dateKey+'_'+name;
@@ -5143,6 +5150,46 @@ function onNoteStatusChange(){
   // Off (guru berhalangan): cukup alasan, tanpa foto/progres
   document.getElementById('notePhotoWrap').style.display=st==='off'?'none':'';
   document.getElementById('noteReason').placeholder=st==='off'?'Guru sakit, ada acara, libur, dll...':'Sakit, acara keluarga, dll...';
+}
+// Progres terakhir siswa di jendela Catat Kehadiran (hanya membaca catatan lama).
+function llkLastProgReset(){
+  const w=document.getElementById('noteLastProgWrap'), ic=document.getElementById('noteLastProgIcon');
+  if(w){ w.style.display='none'; w.innerHTML=''; }
+  if(ic) ic.innerHTML=llkI('chevron-right');
+}
+function llkLastProgEntries(name, beforeKey, max){
+  const out=[];
+  Object.keys(attNotes||{}).forEach(k=>{
+    const dk=k.slice(0,10), ak=k.slice(11);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(dk) || dk>=beforeKey) return;
+    if(ak!==name && ak.indexOf(name+'_extra_')!==0) return;
+    const n=attNotes[k]||{};
+    if(!(n.progress||n.prSiswa||n.reason)) return;
+    out.push({dk, ak, n, st:(attendance[dk]||{})[ak]});
+  });
+  out.sort((a,b)=>a.dk<b.dk?1:a.dk>b.dk?-1:0);
+  return out.slice(0,max||3);
+}
+function toggleNoteLastProg(){
+  const w=document.getElementById('noteLastProgWrap'), ic=document.getElementById('noteLastProgIcon');
+  if(!w||!noteStudent) return;
+  const open=w.style.display==='none';
+  if(open){
+    const list=llkLastProgEntries(noteStudent.displayName||noteStudent.name, noteStudent.dateKey||todayStr(), 3);
+    w.innerHTML=list.length?list.map(e=>{
+      const stLabel=e.st==='hadir'?'Hadir':e.st==='izin'?'Izin':e.st==='alpa'?'Alpa':e.st==='off'?'Off':'';
+      const stColor=e.st==='hadir'?'var(--hadir)':e.st==='izin'?'var(--izin)':e.st==='off'?'var(--off)':'var(--alpa)';
+      return '<div style="background:var(--card2);border:1px solid var(--border2);border-left:3px solid '+(e.st?stColor:'var(--border)')+';border-radius:var(--r-sm);padding:9px 11px;margin-bottom:8px">'
+        +'<div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:2px">'+escapeHtml(fmtPretty(e.dk))
+          +(stLabel?' <span style="color:'+stColor+';font-weight:700">· '+stLabel+'</span>':'')+'</div>'
+        +(e.n.progress?'<div style="font-size:0.84rem;color:var(--text);white-space:pre-wrap;word-break:break-word;line-height:1.5">'+escapeHtml(e.n.progress)+'</div>':'')
+        +(e.n.prSiswa?'<div style="font-size:0.8rem;color:var(--text2);margin-top:3px;white-space:pre-wrap;word-break:break-word"><b>PR:</b> '+escapeHtml(e.n.prSiswa)+'</div>':'')
+        +(!e.n.progress&&e.n.reason?'<div style="font-size:0.8rem;color:var(--text2);white-space:pre-wrap;word-break:break-word">'+escapeHtml(e.n.reason)+'</div>':'')
+      +'</div>';
+    }).join(''):'<div class="llk-hint" style="padding:4px 0">Belum ada catatan progres sebelumnya.</div>';
+  }
+  w.style.display=open?'block':'none';
+  if(ic) ic.innerHTML=llkI(open?'chevron-down':'chevron-right');
 }
 function toggleNoteTimeEdit(){
   const wrap=document.getElementById('noteTimeEditWrap');
@@ -5363,6 +5410,7 @@ function openTrackEditModal(attKey, status, displayName, dateKey){
     document.getElementById('noteTimeInput').value=snapTime;
     document.getElementById('noteTime2Input').value=snapTime2;
     document.getElementById('noteTimeEditWrap').style.display='none';
+    llkLastProgReset();
     document.getElementById('noteTimeToggleIcon').innerHTML=llkI('chevron-right');
     document.getElementById('noteStatus').value=status;
     const existing=attNotes[noteKey]||{};

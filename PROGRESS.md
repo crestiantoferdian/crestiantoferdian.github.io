@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 18 Nov 2026 (kartu Info Pembayaran desain baru: progres + dompet)_
+_Terakhir diperbarui: 18 Nov 2026 (tombol "Lihat progres terakhir siswa" di Catat Kehadiran)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,11 @@ _Terakhir diperbarui: 18 Nov 2026 (kartu Info Pembayaran desain baru: progres + 
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 📝 V1: "Lihat progres terakhir siswa" di Catat Kehadiran (18 Nov 2026, di branch)
+- Permintaan pemilik: di bawah "Jam sesi ini salah? Perbaiki di sini" ada tombol untuk melihat progres terakhir murid.
+- `toggleNoteLastProg` / `llkLastProgEntries`: lipatan (default tertutup tiap jendela dibuka, `llkLastProgReset`) berisi **3 catatan terakhir sebelum tanggal sesi** (termasuk sesi tambahan `_extra_`): tanggal, status, progres, PR (atau alasan izin). Hanya membaca `attNotes`, tidak menyimpan apa pun. Berlaku juga untuk jendela edit dari Track/profil.
+- Teruji Playwright: urutan terbaru dulu, catatan hari ini & yang lebih lama dari 3 terakhir tidak tampil, tanpa error.
 
 ## 👤 V1: profil murid dibuka dari atas + Info Pembayaran dilipat (18 Nov 2026, di branch)
 - Laporan pemilik: tap nama murid di jadwal → profil terbuka di tengah (ikut posisi scroll jadwal), tombol Edit Murid tidak terlihat. Perbaikan: `openStudentReport` melompat ke paling atas (`scrollTo` instan, karena `html` memakai smooth scroll). Re-render di profil (ganti periode, centang kurikulum) tidak ikut melompat.
