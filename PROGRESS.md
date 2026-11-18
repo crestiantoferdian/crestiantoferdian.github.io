@@ -12,7 +12,8 @@ _Terakhir diperbarui: 18 Nov 2026 (tombol "Lihat progres terakhir siswa" di Cata
 ## 📝 V1: "Lihat progres terakhir siswa" di Catat Kehadiran (18 Nov 2026, di branch)
 - Permintaan pemilik: di bawah "Jam sesi ini salah? Perbaiki di sini" ada tombol untuk melihat progres terakhir murid.
 - `toggleNoteLastProg` / `llkLastProgEntries`: lipatan (default tertutup tiap jendela dibuka, `llkLastProgReset`) berisi **3 catatan terakhir sebelum tanggal sesi** (termasuk sesi tambahan `_extra_`): tanggal, status, progres, PR (atau alasan izin). Hanya membaca `attNotes`, tidak menyimpan apa pun. Berlaku juga untuk jendela edit dari Track/profil.
-- Teruji Playwright: urutan terbaru dulu, catatan hari ini & yang lebih lama dari 3 terakhir tidak tampil, tanpa error.
+- Teruji Playwright: urutan terbaru dulu, catatan hari ini & yang lebih lama dari 3 terakhir tidak tampil, tanpa error. **Di-merge PR #184.**
+- **Keyboard tidak tertutup (18 Nov 2026, laporan pemilik):** saat mengetik progres lalu mengetuk "Lihat progres terakhir", keyboard HP tertutup. Sekarang di jendela Catat Kehadiran, selama kolom teks fokus, `mousedown` pada bagian yang bukan kolom/tombol/select dicegah (fokus tidak pindah) → keyboard tetap terbuka sampai Simpan/Batal. Cadangan: `toggleNoteLastProg` mengembalikan fokus ke kolom terakhir (≤1,5 dtk, `_llkNoteLastField`). Teruji: ketuk kedua lipatan → fokus tetap di Catatan Progres, ketikan berlanjut; dropdown Status tetap bisa dipilih.
 
 ## 👤 V1: profil murid dibuka dari atas + Info Pembayaran dilipat (18 Nov 2026, di branch)
 - Laporan pemilik: tap nama murid di jadwal → profil terbuka di tengah (ikut posisi scroll jadwal), tombol Edit Murid tidak terlihat. Perbaikan: `openStudentReport` melompat ke paling atas (`scrollTo` instan, karena `html` memakai smooth scroll). Re-render di profil (ganti periode, centang kurikulum) tidak ikut melompat.
