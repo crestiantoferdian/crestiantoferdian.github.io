@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 15 Nov 2026 (layar "Aplikasi macet → Muat Ulang" + pengaman ganti akun di tab lain)_
+_Terakhir diperbarui: 18 Nov 2026 (profil murid dibuka dari atas + Info Pembayaran bisa dilipat)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,11 @@ _Terakhir diperbarui: 15 Nov 2026 (layar "Aplikasi macet → Muat Ulang" + penga
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 👤 V1: profil murid dibuka dari atas + Info Pembayaran dilipat (18 Nov 2026, di branch)
+- Laporan pemilik: tap nama murid di jadwal → profil terbuka di tengah (ikut posisi scroll jadwal), tombol Edit Murid tidak terlihat. Perbaikan: `openStudentReport` melompat ke paling atas (`scrollTo` instan, karena `html` memakai smooth scroll). Re-render di profil (ganti periode, centang kurikulum) tidak ikut melompat.
+- Kartu **Info Pembayaran** sekarang bisa dilipat (`llkTogglePayCard`), **default tertutup** tiap profil dibuka. Header menampilkan ringkasan status (mis. "7/8x · 1x lagi"); kalau ada tagihan → lencana merah berdenyut **Waktunya Bayar** dan bingkai kartu merah. Status buka/tutup hanya di memori (`window._llkPayOpen`), tidak disimpan ke data murid.
+- Teruji Playwright (Pixel 7): scroll 1500 → 0 saat profil dibuka, kartu tertutup, lencana merah muncul saat jatuh tempo, tap → rincian terbuka.
 
 ## 🔄 Layar "Aplikasi macet → Muat Ulang" (15 Nov 2026, di branch)
 - Laporan pemilik: LLK dibuka di 2 tab/jendela browser, lalu salah satunya login akun Google lain → layar putih kosong (pulih setelah refresh).
