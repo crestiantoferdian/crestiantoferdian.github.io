@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 18 Nov 2026 (tombol "Lihat progres terakhir siswa" di Catat Kehadiran)_
+_Terakhir diperbarui: 21 Nov 2026 (Tanggal Bayar kuitansi bisa diubah)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,13 @@ _Terakhir diperbarui: 18 Nov 2026 (tombol "Lihat progres terakhir siswa" di Cata
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 🧾 V1: "Tanggal Bayar" kuitansi bisa diubah (21 Nov 2026, di branch)
+- Laporan pemilik: ortu bayar tgl 17, kuitansi baru dibuat tgl 21 → kuitansi otomatis bertanggal hari ini, tidak bisa diubah.
+- Di layar **Kuitansi Lunas** ada baris **Tanggal Bayar** (pemilih tanggal, maks. hari ini). `llkSetInvoicePaidDate` hanya mengubah `inv.paidAt` di `s.invoices` (status lunas, saldo sesi, `undo` tidak disentuh). Waktu pencatatan asli disimpan sekali di `paidRecordedAt`; `paidAtEditedAt` = kapan diubah.
+- Ikut berubah: tulisan "Dibayar …", **TANGGAL** di pojok kanan kuitansi (kuitansi lunas sekarang memakai tanggal bayar; invoice belum lunas tetap tanggal dibuat), teks WA "Status: LUNAS (…)", dan laporan Uang Masuk (filter Tanggal Bayar).
+- Pengaman: label "Salinan" & `llkLastReceipt` (tombol Batalkan Pembayaran) memakai `paidRecordedAt||paidAt`, jadi memundurkan tanggal tidak membuat kuitansi baru dianggap salinan / Batalkan salah sasaran. Sinkron cloud: tanggal yang diubah paling baru (`paidAtEditedAt`) menang.
+- Teruji Playwright: ubah 21→17 Nov → gambar & teks WA 17 Nov, dibuka ulang tetap "Kuitansi Lunas", Batalkan masih tersedia, tanpa error.
 
 ## 📝 V1: "Lihat progres terakhir siswa" di Catat Kehadiran (18 Nov 2026, di branch)
 - Permintaan pemilik: di bawah "Jam sesi ini salah? Perbaiki di sini" ada tombol untuk melihat progres terakhir murid.

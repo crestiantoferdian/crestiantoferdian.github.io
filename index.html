@@ -4346,7 +4346,7 @@ async function renderInvoiceCanvas(inv, copyDate){
   c.fillStyle='#6b7280'; c.font=font(700,22); c.fillText('DITAGIHKAN KEPADA',M,y);
   c.textAlign='right'; c.fillText('TANGGAL',W-M,y); c.textAlign='left';
   y+=46; c.fillStyle='#1c1c1e'; c.font=font(800,36); c.fillText('Orang tua/wali '+inv.studentName,M,y);
-  c.textAlign='right'; c.font=font(600,28); c.fillText(new Date(inv.createdAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),W-M,y); c.textAlign='left';
+  c.textAlign='right'; c.font=font(600,28); c.fillText(new Date((inv.paidAt&&!inv.voidAt)?inv.paidAt:inv.createdAt).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}),W-M,y); c.textAlign='left';
   // Mode bayar (depan/belakang) tidak ditampilkan ke ortu — cukup mata pelajarannya
   if(inv.instrument){ y+=40; c.fillStyle='#4b5563'; c.font=font(500,26); c.fillText(inv.instrument,M,y); }
   y+=40; c.fillStyle='#1c1c1e'; c.font=font(600,26);
@@ -4492,7 +4492,7 @@ function openInvoice(name, invoiceNo){
   }
   _currentInvoice=Object.assign({},inv);
   // Kuitansi yang dibuka lagi (sudah pernah dikirim / dibayar di hari lain) = salinan
-  _currentInvoiceCopy=(inv.paidAt&&!inv.voidAt&&(inv.receiptSentAt||dateKeyOfDate(new Date(inv.paidAt))<todayStr()))?todayStr():null;
+  _currentInvoiceCopy=(inv.paidAt&&!inv.voidAt&&(inv.receiptSentAt||dateKeyOfDate(new Date(inv.paidRecordedAt||inv.paidAt))<todayStr()))?todayStr():null;
   showInvoiceModal();
 }
 async function showInvoiceModal(){
@@ -4519,6 +4519,7 @@ async function showInvoiceModal(){
       <div id="invoicePreviewWrap" style="border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;background:var(--card2);min-height:160px;display:flex;align-items:center;justify-content:center;margin-bottom:12px">
         <div style="width:100%;padding:18px"><div class="llk-skel" style="height:22px;width:50%"></div><div class="llk-skel" style="height:12px;width:80%;margin-top:14px"></div><div class="llk-skel" style="height:12px;width:70%;margin-top:8px"></div><div class="llk-skel" style="height:60px;margin-top:14px"></div><div style="font-size:0.84rem;color:var(--muted);text-align:center;margin-top:12px">Menyiapkan invoice…</div></div>
       </div>
+      ${(inv.paidAt&&!inv.voidAt)?'<label style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--card2)"><span style="font-size:0.86rem;font-weight:700;color:var(--text)">'+llkI('calendar')+' Tanggal Bayar</span><input type="date" id="llkInvPaidDate" value="'+dateKeyOfDate(new Date(inv.paidAt))+'" max="'+todayStr()+'" onchange="llkSetInvoicePaidDate(this.value)" style="font:inherit;font-size:0.9rem;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);color:var(--text)"></label>':''}
       <div id="llkInvChips" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:12px">${llkInvChipsHtml()}</div>
       ${inv.items.length?'':'<div class="llk-callout danger" style="margin-bottom:10px;font-size:0.84rem">'+llkI('alert')+'<div>Belum ada pertemuan yang perlu ditagih untuk murid ini.</div></div>'}
       <div style="display:grid;grid-template-columns:1fr;gap:8px">
@@ -4547,6 +4548,28 @@ async function llkRefreshInvoicePreview(inv){
     const wrap=document.getElementById('invoicePreviewWrap');
     if(wrap) wrap.innerHTML='<div style="font-size:0.8rem;color:var(--alpa);padding:30px">Gagal membuat gambar invoice</div>';
   }
+}
+// Ubah TANGGAL BAYAR kuitansi (mis. ortu bayar tgl 17, kuitansi baru dibuat tgl 21).
+// Hanya mengubah inv.paidAt (tampilan kuitansi & laporan Uang Masuk); status lunas,
+// jumlah sesi terbayar, dan tombol Batalkan tidak berubah. Waktu pencatatan asli
+// disimpan di paidRecordedAt; paidAtEditedAt dipakai saat sinkron antar-perangkat.
+async function llkSetInvoicePaidDate(dk){
+  const cur=_currentInvoice; if(!cur||!cur.paidAt||cur.voidAt) return;
+  const inp=document.getElementById('llkInvPaidDate');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dk||'')||dk>todayStr()){ toast('⚠️ Tanggal bayar tidak valid'); if(inp) inp.value=dateKeyOfDate(new Date(cur.paidAt)); return; }
+  const s=students.find(x=>x.name===cur.studentName);
+  const rec=s&&(s.invoices||[]).find(x=>x.no===cur.no);
+  if(!rec||!rec.paidAt){ toast('❌ Kuitansi tidak ditemukan'); return; }
+  if(dateKeyOfDate(new Date(rec.paidAt))===dk) return;
+  const now=new Date().toISOString();
+  if(!rec.paidRecordedAt) rec.paidRecordedAt=rec.paidAt;
+  rec.paidAt=(dateKeyOfDate(new Date(rec.paidRecordedAt))===dk)?rec.paidRecordedAt:new Date(dk+'T12:00:00').toISOString();
+  rec.paidAtEditedAt=now;
+  ['paidAt','paidRecordedAt','paidAtEditedAt'].forEach(k=>{ cur[k]=rec[k]; });
+  save();
+  _currentInvoiceCanvas=null;
+  await llkRefreshInvoicePreview(cur);
+  toast('✅ Tanggal bayar diubah ke '+new Date(dk+'T12:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}));
 }
 // Pintasan "Tampilan Invoice" di layar invoice — sama dengan saklar di Pengaturan Pembayaran
 function llkInvChipsHtml(){
@@ -4703,7 +4726,7 @@ function llkMonthlyUnpaidCount(s, mk, withUpcoming){
 }
 // Kuitansi terakhir yang masih berlaku
 function llkLastReceipt(s){
-  return (s.invoices||[]).filter(x=>x.paidAt&&!x.voidAt).sort((a,b)=>String(a.paidAt).localeCompare(String(b.paidAt))).pop()||null;
+  return (s.invoices||[]).filter(x=>x.paidAt&&!x.voidAt).sort((a,b)=>String(a.paidRecordedAt||a.paidAt).localeCompare(String(b.paidRecordedAt||b.paidAt))).pop()||null;
 }
 // Daftar pertemuan yang bisa dipilih: yang sudah berjalan tapi belum dibayar,
 // lalu jadwal berikutnya. prepaid = jadwal yang sudah dibayar di muka.
@@ -12004,6 +12027,8 @@ function mergeStudentLists(L, C){
         else {
           if(ci.paidAt&&!li.paidAt&&!(li.unpaidAt&&li.unpaidAt>ci.paidAt)) li.paidAt=ci.paidAt;
           if(ci.voidAt&&!li.voidAt) li.voidAt=ci.voidAt; // invoice yang dibatalkan tetap batal
+          // Tanggal bayar yang diubah manual: perubahan terbaru menang
+          if(ci.paidAt&&li.paidAt&&ci.paidAtEditedAt&&ci.paidAtEditedAt>(li.paidAtEditedAt||'')){ li.paidAt=ci.paidAt; li.paidAtEditedAt=ci.paidAtEditedAt; if(ci.paidRecordedAt) li.paidRecordedAt=ci.paidRecordedAt; }
         }
       });
       invs.sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
