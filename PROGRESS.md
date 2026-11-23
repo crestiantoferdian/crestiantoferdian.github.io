@@ -9,7 +9,11 @@ _Terakhir diperbarui: 21 Nov 2026 (Tanggal Bayar kuitansi bisa diubah)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
-## 🔍 V1: tanggal terpilih di Absensi diberi efek zoom (23 Nov 2026, di branch)
+## ✨ V1: tombol "Hari ini" di Absensi bersinar (23 Nov 2026)
+- Tombol tanggal hari ini selalu punya cahaya merah yang berdenyut pelan, juga saat sedang melihat tanggal lain (bingkainya jadi merah tebal), supaya guru tidak salah membaca jadwal kemarin.
+- Teknik: `::before` + animasi `opacity` (ringan di HP). Padding strip tanggal 18px atas-bawah agar cahaya tidak terpotong.
+
+## 🔍 V1: tanggal terpilih di Absensi diberi efek zoom (23 Nov 2026, sudah merge PR #188)
 - Tombol tanggal yang aktif (mis. "Hari ini 23") di strip tanggal Absensi kini tampil membesar (skala 1,12) dan "memantul" saat dipilih.
 - Hanya CSS + 1 baris di `selectAbsDate`; tidak menyentuh data. Menghormati setelan "kurangi animasi".
 
