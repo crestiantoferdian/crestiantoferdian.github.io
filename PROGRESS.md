@@ -11,6 +11,7 @@ _Terakhir diperbarui: 21 Nov 2026 (Tanggal Bayar kuitansi bisa diubah)_
 
 ## ✨ V1: tombol "Hari ini" di Absensi bersinar (23 Nov 2026)
 - Tombol "Hari ini" juga menempel di pinggir kiri/kanan strip (`position:sticky`) saat strip digeser, jadi selalu terlihat walau sedang membuka tanggal jauh.
+- Saat menempel, bentuknya berubah jadi tanda panah berwarna penuh (sisi datar di pinggir layar, ujung segitiga menunjuk ke dalam). Class `stuck-l`/`stuck-r` dipasang oleh `llkDayBarStuck()` (dipanggil saat strip di-scroll dan setelah `llkCenterDayBar`).
 - Tombol tanggal hari ini selalu punya cahaya merah yang berdenyut pelan, juga saat sedang melihat tanggal lain (bingkainya jadi merah tebal), supaya guru tidak salah membaca jadwal kemarin.
 - Teknik: `::before` + animasi `opacity` (ringan di HP). Padding strip tanggal 18px atas-bawah agar cahaya tidak terpotong.
 

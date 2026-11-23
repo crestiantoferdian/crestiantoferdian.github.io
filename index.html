@@ -464,6 +464,12 @@ button:disabled{opacity:.55;cursor:default}
 .date-pill.is-today::before{content:'';position:absolute;inset:-1px;border-radius:inherit;pointer-events:none;z-index:-1;
   box-shadow:0 0 12px 3px color-mix(in srgb,var(--red) 60%,transparent);animation:llkTodayGlow 1.8s ease-in-out infinite}
 .date-pill.is-today{isolation:isolate;position:sticky;left:-16px;right:-16px;z-index:2}
+/* Saat menempel di pinggir: berubah jadi tanda panah (segitiga) yang menunjuk ke dalam */
+.date-pill.is-today.stuck-l,.date-pill.is-today.stuck-r{background:var(--red);color:var(--on-red);border-color:transparent}
+.date-pill.is-today.stuck-l .dp-d,.date-pill.is-today.stuck-r .dp-d{opacity:1}
+.date-pill.is-today.stuck-l::before,.date-pill.is-today.stuck-r::before,.date-pill.is-today.stuck-l::after,.date-pill.is-today.stuck-r::after{display:none}
+.date-pill.is-today.stuck-l{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,0 100%)}
+.date-pill.is-today.stuck-r{clip-path:polygon(14px 0,100% 0,100% 100%,14px 100%,0 50%)}
 @keyframes llkTodayGlow{0%,100%{opacity:.35}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.date-pill.active.zoom-pop{animation:none}.date-pill.is-today::before{animation:none;opacity:.8}}
 .cal-pill{display:inline-flex;align-items:center;gap:6px;border-style:dashed;color:var(--blue);border-radius:var(--r-md)}
@@ -3319,8 +3325,24 @@ function llkCenterDayBar(smooth){
     if(!bar||!active) return;
     const left=active.offsetLeft-(bar.offsetWidth/2)+(active.offsetWidth/2);
     if(smooth) bar.scrollTo({left,behavior:'smooth'}); else bar.scrollLeft=left;
+    llkDayBarStuck();
   },50);
 }
+// Tombol "Hari ini" menempel (sticky) di pinggir strip: beri class stuck-l / stuck-r
+// supaya bentuknya berubah jadi tanda panah. Deteksi = tombol menimpa tetangganya.
+function llkDayBarStuck(){
+  const bar=document.getElementById('dayBar');
+  const t=bar&&bar.querySelector('.date-pill.is-today');
+  if(!t) return;
+  const r=t.getBoundingClientRect();
+  const prev=t.previousElementSibling, next=t.nextElementSibling;
+  // Menempel di KIRI → tanggal sesudahnya lewat di bawahnya (tetangga kanan menimpa), dan sebaliknya.
+  const l=!!next&&next.getBoundingClientRect().left<r.right-1;
+  const rr=!l&&!!prev&&prev.getBoundingClientRect().right>r.left+1;
+  t.classList.toggle('stuck-l',l);
+  t.classList.toggle('stuck-r',rr);
+}
+document.addEventListener('scroll',e=>{ if(e.target&&e.target.id==='dayBar') llkDayBarStuck(); },{capture:true,passive:true});
 function selectAbsDate(dk){
   selectedAbsDate=(dk===todayStr())?'':dk;
   selectedDay=dayNameFromDate(dk);
