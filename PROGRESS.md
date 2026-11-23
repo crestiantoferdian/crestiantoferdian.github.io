@@ -9,6 +9,10 @@ _Terakhir diperbarui: 21 Nov 2026 (Tanggal Bayar kuitansi bisa diubah)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## 🔍 V1: tanggal terpilih di Absensi diberi efek zoom (23 Nov 2026, di branch)
+- Tombol tanggal yang aktif (mis. "Hari ini 23") di strip tanggal Absensi kini tampil membesar (skala 1,12) dan "memantul" saat dipilih.
+- Hanya CSS + 1 baris di `selectAbsDate`; tidak menyentuh data. Menghormati setelan "kurangi animasi".
+
 ## 🧾 V1: "Tanggal Bayar" kuitansi bisa diubah (21 Nov 2026, di branch)
 - Laporan pemilik: ortu bayar tgl 17, kuitansi baru dibuat tgl 21 → kuitansi otomatis bertanggal hari ini, tidak bisa diubah.
 - Di layar **Kuitansi Lunas** ada baris **Tanggal Bayar** (pemilih tanggal, maks. hari ini). `llkSetInvoicePaidDate` hanya mengubah `inv.paidAt` di `s.invoices` (status lunas, saldo sesi, `undo` tidak disentuh). Waktu pencatatan asli disimpan sekali di `paidRecordedAt`; `paidAtEditedAt` = kapan diubah.
