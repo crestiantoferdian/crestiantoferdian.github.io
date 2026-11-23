@@ -514,7 +514,7 @@ test('notifikasi: belum diisi di .env → diam, pembayaran tetap aktif; token ti
 });
 
 // ── Pengingat H-3 / H-1 sebelum lembaga berakhir ───────────────────
-test('pengingat lembaga: H-3 & H-1 (hari WIB), sekali per tanggal berakhir, email + Telegram', async () => {
+test('pengingat lembaga: H-3 & H-1 (hari WIB), sekali per tanggal berakhir, email saja (tanpa Telegram)', async () => {
   const R = require('../reminders.js'), N = require('../notify.js'), OP = require('../orgPlans.js');
   const sentMail = [], sentTg = [];
   const N2 = Object.assign({}, N, { sendEmail: async (m) => { sentMail.push(m); return { ok: true }; }, sendTelegram: async (t) => { sentTg.push(t); return { ok: true }; } });
@@ -530,7 +530,7 @@ test('pengingat lembaga: H-3 & H-1 (hari WIB), sekali per tanggal berakhir, emai
   assert.deepStrictEqual(sentMail.map(m => m.to).sort(), ['dimas@gmail.com', 'rani@gmail.com']);
   assert.ok(sentMail.find(m => m.to === 'rani@gmail.com').subject.includes('3 hari lagi'));
   assert.ok(sentMail.find(m => m.to === 'dimas@gmail.com').subject.includes('uji coba') && sentMail.find(m => m.to === 'dimas@gmail.com').subject.includes('besok'));
-  assert.ok(sentTg.some(t => t.includes('Les A') && t.includes('3 hari lagi')) && sentTg.some(t => t.includes('Les B') && t.includes('BESOK')));
+  assert.strictEqual(sentTg.length, 0, 'pengingat berakhir tidak dikirim ke Telegram');
   // dijalankan lagi di hari yang sama → tidak dobel
   assert.strictEqual(await R.runOrgEndReminders({ db: firestore(), getUser, N: N2, OP, nowMs: now + 3600e3 }), 0);
   // diperpanjang → tanggal berakhir baru → pengingat baru boleh terkirim lagi nanti

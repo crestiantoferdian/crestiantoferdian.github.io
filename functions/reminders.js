@@ -1,6 +1,7 @@
 /**
  * Pengingat sebelum langganan / uji coba LLK Lembaga (V2) berakhir:
- * H-3 dan H-1 (hitungan hari kalender WIB) → email ke pemilik lembaga + Telegram ke pemilik LLK.
+ * H-3 dan H-1 (hitungan hari kalender WIB) → email ke pemilik lembaga saja
+ * (tidak ada pesan Telegram ke pemilik LLK — permintaan pemilik, 23 Nov 2026).
  * Dijalankan tiap pagi oleh orgEndReminders (index.js). Tiap pengingat hanya sekali per tanggal
  * berakhir (dicatat di orgs/{id}.endReminders), jadi kalau diperpanjang, pengingat baru ikut berlaku.
  */
@@ -24,10 +25,7 @@ async function runOrgEndReminders({ db, getUser, N, OP, nowMs }) {
     try { const u = await getUser(o.ownerUid); email = u.email || null; name = u.displayName || null; } catch (e) { console.warn('Pemilik lembaga tidak ditemukan:', o.ownerUid); }
     const info = { name, email, orgName: o.name || 'Lembaga', paid: o.plan === 'pro', daysLeft, endsMs };
     const mail = N.orgEndingEmail(info);
-    await Promise.all([
-      N.sendEmail({ to: email, subject: mail.subject, html: mail.html }),
-      N.sendTelegram(N.tgOrgEnding(info)),
-    ]);
+    await N.sendEmail({ to: email, subject: mail.subject, html: mail.html });
     await d.ref.update({ endReminders: Object.assign({}, done, { [key]: endsMs }) });
     sent++;
   }
