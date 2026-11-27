@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 21 Nov 2026 (Tanggal Bayar kuitansi bisa diubah)_
+_Terakhir diperbarui: 27 Nov 2026 (uji sebagai pengguna, form murid bertahap, tunggakan bulanan)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -8,6 +8,15 @@ _Terakhir diperbarui: 21 Nov 2026 (Tanggal Bayar kuitansi bisa diubah)_
 2. Uji bayar **sandbox** pakai akun Google lain (jendela Samaran): Jadi Pro → Pro Basic → bayar lewat simulator.sandbox.midtrans.com → badge jadi PRO BASIC, murid ke-11 bergembok.
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
+
+## 🧪 V1: uji sebagai pengguna + form murid bertahap + tunggakan bulanan (27 Nov 2026, di branch `claude/llk-uji-pengguna-wizard`)
+**Simulasi Playwright (Pixel 7, jam dipalsukan 2 Nov → 5 Jan):** 5 murid per sesi (bayar belakang, bayar depan, 2 jadwal/minggu + pertemuan awal 3, bayar mendadak lewat Pembayaran Custom, hanya Tambahan Kelas) + 5 murid mode Bulanan (belakang, depan, mendadak, pindah belakang→depan di tengah bulan, tunggakan Oktober). Absen lewat tombol kartu: Hadir+progres+PR, Izin+alasan, Alpa, Off; kirim progres ke WA; Sudah Bayar (2x ketuk); Batalkan Pembayaran; ganti nama murid; Izin di masa depan (boleh) & Hadir di masa depan (ditolak); Nonaktifkan. Semua angka per sesi cocok dengan hitungan manual, tanpa error.
+- **Bug ditemukan & diperbaiki (mode Bulanan):** tagihan bulan yang terlewat hilang. (1) Oktober belum dibayar → bulan Desember yang ditagih hanya November, Oktober tidak muncul lagi. (2) Murid dipindah ke Bayar di Depan di tengah bulan → di 3 hari terakhir bulan tagihan loncat ke bulan depan, pertemuan bulan itu tidak pernah ditagih (uang hilang). Perbaikan: `llkMonthlyArrearsMk(s)` mencari bulan tertua yang masih punya pertemuan belum dibayar (maks. 2 bulan sebelum bulan tagihan normal, tidak sebelum Mulai Les, setelah `monthlyPaidThru`). Kalau ada → status "Belum bayar bulan Oktober · 5x", invoice bulan itu, Sudah Bayar melunasi bulan itu dulu lalu bulan berikutnya muncul. Dipakai di `computeIsDue`, `paymentStatusText`, `buildInvoiceDraft`, `confirmMarkPaid`, `llkCustomPayCandidates`. Hanya hitungan; data tidak diubah. Catatan: tunggakan lebih dari 2 bulan sebelum bulan tagihan tidak dilacak (supaya riwayat lama yang tidak pernah dicatat bayarnya tidak membanjiri tagihan).
+- **Kartu Pembayaran di profil:** murid Bayar di Depan yang jatuh tempo dulu menampilkan angka "0x" → sekarang ukuran paket (mis. "4x").
+- **Tambah Murid per halaman (permintaan pemilik):** form dipecah jadi 4 halaman dengan penanda langkah di atas (1 Murid · 2 Jadwal · 3 Bayar · 4 Selesai), tombol Kembali/Lanjut, cek nama & jadwal sebelum lanjut, halaman 4 berisi ringkasan + tombol "Ubah" per baris lalu Simpan. Semua id kolom tetap sama, jadi `doSave` tidak berubah; error dari `doSave` melompat ke halaman yang salah. Tutorial coachmark ikut pindah halaman (urutan langkah disesuaikan).
+- **Edit Murid / "tambah jam terlalu bawah" (komplain pengguna):** Edit Murid memakai halaman yang sama sebagai **tab** (langsung ketuk "2 Jadwal") dan Simpan selalu ada. Jadwal Rutin 2–4 tidak lagi accordion tersembunyi: tombol besar **"+ Tambah Jadwal Hari Lain"** (jam ikut terisi dari Jadwal 1) + tombol Hapus per jadwal; Tambahan Kelas langsung terbuka. Di profil murid ada tombol baru **"Jadwal & Jam"** di samping Edit Murid → membuka Edit Murid langsung di halaman Jadwal (`openEdit(idx, 2)`). Nonaktifkan/Hapus Permanen dipindah ke halaman 4.
+- `v2/v1.css` disinkron ulang (`tools/sync-v1-to-v2.py`).
+- **Uji pemilik setelah merge:** tambah murid baru lewat 4 halaman; buka profil murid → "Jadwal & Jam" → Tambah Jadwal Hari Lain → Simpan; mode Bulanan: cek murid yang bulan lalu belum dibayar.
 
 ## ✨ V1: tombol "Hari ini" di Absensi bersinar (23 Nov 2026)
 - Tombol "Hari ini" juga menempel di pinggir kiri/kanan strip (`position:sticky`) saat strip digeser, jadi selalu terlihat walau sedang membuka tanggal jauh.
