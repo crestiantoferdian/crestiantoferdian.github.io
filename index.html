@@ -908,6 +908,33 @@ button:disabled{opacity:.55;cursor:default}
 .llk-statbox.i .n{color:var(--izin)}  .llk-statbox.i .l::before{background:var(--izin-solid)}
 .llk-statbox.a .n{color:var(--alpa)}  .llk-statbox.a .l::before{background:var(--alpa-solid)}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* ── Form murid bertahap (wizard 4 halaman) ── */
+.llk-wiz-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0 14px;position:sticky;top:-12px;z-index:5;background:var(--card);padding:10px 0 8px;box-shadow:0 1px 0 var(--border2)}
+@media (min-width:900px){.llk-wiz-steps{top:-26px}}
+.llk-wiz-step{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;padding:4px 0;cursor:pointer;color:var(--muted);font:inherit;font-size:0.74rem;font-weight:700;position:relative}
+.llk-wiz-step b{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--card2);border:1.5px solid var(--border);font-size:0.86rem;color:var(--text2);transition:all var(--d2,.2s)}
+.llk-wiz-step::after{content:'';position:absolute;top:19px;left:calc(50% + 19px);right:calc(-50% + 19px);height:2px;background:var(--border);border-radius:2px}
+.llk-wiz-step:last-child::after{display:none}
+.llk-wiz-step.done b{background:var(--hadir-bg);border-color:var(--hadir);color:var(--hadir)}
+.llk-wiz-step.done::after{background:var(--hadir)}
+.llk-wiz-step.on{color:var(--text)}
+.llk-wiz-step.on b{background:var(--text);border-color:var(--text);color:var(--card);transform:scale(1.08)}
+.llk-wiz-page{display:none;animation:llkWizIn .22s ease both}
+.llk-wiz-page.on{display:block}
+@keyframes llkWizIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.llk-wiz-page{animation:none}}
+.llk-wiz-ptitle{font-family:var(--font-display);font-size:1.12rem;font-weight:700;color:var(--text)}
+.llk-wiz-psub{font-size:0.84rem;color:var(--muted);margin:2px 0 14px;line-height:1.5}
+.llk-wiz-slot{background:var(--card2);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px 2px;margin-bottom:10px}
+.llk-wiz-slot-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:0.86rem;font-weight:700;color:var(--blue);margin-bottom:6px;min-height:34px}
+.llk-wiz-slot-h span{display:inline-flex;align-items:center;gap:6px}
+.llk-wiz-summary{background:var(--card2);border:1px solid var(--border);border-radius:var(--r-md);padding:4px 14px;margin-bottom:14px}
+.llk-wiz-sum-row{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--border);font-size:0.88rem}
+.llk-wiz-sum-row:last-child{border-bottom:none}
+.llk-wiz-sum-row .k{color:var(--muted);flex-shrink:0}
+.llk-wiz-sum-row .v{font-weight:700;color:var(--text);text-align:right;min-width:0;overflow-wrap:anywhere}
+.llk-wiz-sum-row .e{background:none;border:none;color:var(--blue);font:inherit;font-size:0.8rem;font-weight:700;cursor:pointer;padding:0 0 0 6px}
+
 .mactions{
   display:flex;gap:8px;margin-top:20px;
   position:sticky;bottom:0;
@@ -1491,6 +1518,15 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
       <button type="button" onclick="restartAddStudentTutorial()" title="Lihat tutorial cara isi form ini" aria-label="Tutorial" style="position:absolute;right:-4px;width:38px;height:38px;border-radius:50%;background:var(--blue-bg);border:none;color:var(--blue);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="ico" aria-hidden="true"><use href="#i-help"/></svg></button>
     </div>
     <div class="modal-sub" id="modalSub" style="display:none"></div>
+    <div class="llk-wiz-steps" id="llkWizSteps" role="tablist" aria-label="Langkah isi data murid">
+      <button type="button" class="llk-wiz-step" data-step="1" onclick="llkWizGo(1)"><b>1</b><span>Murid</span></button>
+      <button type="button" class="llk-wiz-step" data-step="2" onclick="llkWizGo(2)"><b>2</b><span>Jadwal</span></button>
+      <button type="button" class="llk-wiz-step" data-step="3" onclick="llkWizGo(3)"><b>3</b><span>Bayar</span></button>
+      <button type="button" class="llk-wiz-step" data-step="4" onclick="llkWizGo(4)"><b>4</b><span>Selesai</span></button>
+    </div>
+    <div class="llk-wiz-page" data-page="1">
+      <div class="llk-wiz-ptitle">Data murid</div>
+      <div class="llk-wiz-psub">Siapa muridnya dan apa yang diajarkan.</div>
     <div class="mrow" id="tut-step-name">
       <div class="mfield"><label>Nama *</label><input id="f_name" type="text" placeholder="cth: Alya Putri"/></div>
       <div class="mfield"><label>Mata Pelajaran</label><input id="f_inst" type="text" placeholder="cth: Piano, Matematika, Bahasa Inggris"/></div>
@@ -1501,94 +1537,115 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
         <option value="">Otomatis (ikut Mata Pelajaran di atas)</option>
       </select>
     </div>
-    <!-- JADWAL RUTIN 1 - selalu tampil -->
-    <div class="mfield" id="startDateWrap" style="margin-top:2px">
-      <label><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Masuk Pertama kali pada tanggal</label>
-      <input type="date" id="f_startDate"/>
-    </div>
-    <div style="padding:14px 0 4px;border-top:1px dashed var(--border);margin-top:4px" id="tut-step-jadwal">
-      <button type="button" onclick="toggleJadwal(1)" id="jadwal-header-1" class="llk-acc" style="background:var(--blue-bg);border-color:transparent">
-        <span class="llk-acc-label" style="color:var(--blue)"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Jadwal Rutin 1 <small>(opsional)</small></span>
-        <span id="jadwal-arrow-1" class="llk-acc-arrow" style="color:var(--blue)"><svg class="ico" aria-hidden="true"><use href="#i-chevron-down"/></svg></span>
-      </button>
-      <div id="jadwal-body-1" style="margin-top:8px">
-        <div class="mrow">
-          <div class="mfield"><label>Hari</label>
-            <select id="f_day">
-              <option value="">Tidak ada</option>
-              <option>Senin</option><option>Selasa</option><option>Rabu</option>
-              <option>Kamis</option><option>Jumat</option><option>Sabtu</option><option>Minggu</option>
-            </select>
-          </div>
-          <div class="mfield"><label>Jam Mulai</label><input id="f_time" type="time" value="09:00"/></div>
-        </div>
-        <div class="mrow">
-          <div class="mfield"><label>Jam Selesai</label><input id="f_time2" type="time" value="09:45"/></div>
-          <div class="mfield"></div>
-        </div>
-      </div>
-    </div>
-    <!-- JADWAL RUTIN 2 -->
-    <div style="padding:6px 0 4px;margin-top:4px">
-      <button type="button" onclick="toggleJadwal(2)" id="jadwal-header-2" class="llk-acc" style="background:var(--card2);border-color:var(--border)">
-        <span class="llk-acc-label" style="color:var(--text2)"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Jadwal Rutin 2 <small>(opsional)</small></span>
-        <span id="jadwal-arrow-2" class="llk-acc-arrow" style="color:var(--text2)"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></span>
-      </button>
-      <div id="jadwal-body-2" style="display:none;margin-top:8px">
-        <div class="mrow">
-          <div class="mfield"><label>Hari</label>
-            <select id="f_day2"><option value="">Tidak ada</option><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Jumat</option><option>Sabtu</option><option>Minggu</option></select>
-          </div>
-          <div class="mfield"><label>Jam Mulai</label><input id="f_time2a" type="time"/></div>
-        </div>
-        <div class="mrow">
-          <div class="mfield"><label>Jam Selesai</label><input id="f_time2b" type="time"/></div>
-          <div class="mfield"></div>
-        </div>
-      </div>
-    </div>
-    <!-- JADWAL RUTIN 3 -->
-    <div style="padding:6px 0 4px;margin-top:4px">
-      <button type="button" onclick="toggleJadwal(3)" id="jadwal-header-3" class="llk-acc" style="background:var(--card2);border-color:var(--border)">
-        <span class="llk-acc-label" style="color:var(--text2)"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Jadwal Rutin 3 <small>(opsional)</small></span>
-        <span id="jadwal-arrow-3" class="llk-acc-arrow" style="color:var(--text2)"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></span>
-      </button>
-      <div id="jadwal-body-3" style="display:none;margin-top:8px">
-        <div class="mrow">
-          <div class="mfield"><label>Hari</label>
-            <select id="f_day3"><option value="">Tidak ada</option><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Jumat</option><option>Sabtu</option><option>Minggu</option></select>
-          </div>
-          <div class="mfield"><label>Jam Mulai</label><input id="f_time3a" type="time"/></div>
-        </div>
-        <div class="mrow">
-          <div class="mfield"><label>Jam Selesai</label><input id="f_time3b" type="time"/></div>
-          <div class="mfield"></div>
-        </div>
-      </div>
-    </div>
-    <!-- JADWAL RUTIN 4 -->
-    <div style="padding:6px 0 4px;margin-top:4px">
-      <button type="button" onclick="toggleJadwal(4)" id="jadwal-header-4" class="llk-acc" style="background:var(--card2);border-color:var(--border)">
-        <span class="llk-acc-label" style="color:var(--text2)"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Jadwal Rutin 4 <small>(opsional)</small></span>
-        <span id="jadwal-arrow-4" class="llk-acc-arrow" style="color:var(--text2)"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></span>
-      </button>
-      <div id="jadwal-body-4" style="display:none;margin-top:8px">
-        <div class="mrow">
-          <div class="mfield"><label>Hari</label>
-            <select id="f_day4"><option value="">Tidak ada</option><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Jumat</option><option>Sabtu</option><option>Minggu</option></select>
-          </div>
-          <div class="mfield"><label>Jam Mulai</label><input id="f_time4a" type="time"/></div>
-        </div>
-        <div class="mrow">
-          <div class="mfield"><label>Jam Selesai</label><input id="f_time4b" type="time"/></div>
-          <div class="mfield"></div>
-        </div>
-      </div>
-    </div>
     <div class="mrow" id="tut-step-phone">
       <div class="mfield"><label>No. HP / WA Siswa/Ortu</label><input id="f_phone" type="tel" placeholder="cth: 08123456789"/></div>
       <div class="mfield"><label>Catatan</label><input id="f_notes" type="text" placeholder="Opsional"/></div>
     </div>
+    </div>
+    <div class="llk-wiz-page" data-page="2">
+      <div class="llk-wiz-ptitle">Jadwal les</div>
+      <div class="llk-wiz-psub">Kapan muridnya les? Jadwal ini yang membuat murid muncul di Absensi.</div>
+    <div class="mfield" id="startDateWrap" style="margin-top:2px">
+      <label><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Masuk Pertama kali pada tanggal</label>
+      <input type="date" id="f_startDate"/>
+    </div>
+    <div id="tut-step-jadwal" class="llk-wiz-jadwal">
+      <div class="llk-wiz-slot" id="jadwal-slot-1">
+        <div class="llk-wiz-slot-h"><span><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Jadwal Rutin 1</span></div>
+        <div id="jadwal-body-1">
+          <div class="mrow">
+            <div class="mfield"><label>Hari</label>
+              <select id="f_day" onchange="llkWizSyncSlots()">
+                <option value="">Tidak ada</option>
+                <option>Senin</option><option>Selasa</option><option>Rabu</option>
+                <option>Kamis</option><option>Jumat</option><option>Sabtu</option><option>Minggu</option>
+              </select>
+            </div>
+            <div class="mfield"><label>Jam Mulai</label><input id="f_time" type="time" value="09:00"/></div>
+          </div>
+          <div class="mrow">
+            <div class="mfield"><label>Jam Selesai</label><input id="f_time2" type="time" value="09:45"/></div>
+            <div class="mfield"></div>
+          </div>
+        </div>
+      </div>
+      <div class="llk-wiz-slot" id="jadwal-slot-2" style="display:none">
+        <div class="llk-wiz-slot-h"><span><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Jadwal Rutin 2</span><button type="button" class="llk-btn soft sm" onclick="llkWizRemoveSlot(2)" aria-label="Hapus jadwal 2"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg> Hapus</button></div>
+        <div id="jadwal-body-2">
+          <div class="mrow">
+            <div class="mfield"><label>Hari</label>
+              <select id="f_day2" onchange="llkWizSyncSlots()"><option value="">Tidak ada</option><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Jumat</option><option>Sabtu</option><option>Minggu</option></select>
+            </div>
+            <div class="mfield"><label>Jam Mulai</label><input id="f_time2a" type="time"/></div>
+          </div>
+          <div class="mrow">
+            <div class="mfield"><label>Jam Selesai</label><input id="f_time2b" type="time"/></div>
+            <div class="mfield"></div>
+          </div>
+        </div>
+      </div>
+      <div class="llk-wiz-slot" id="jadwal-slot-3" style="display:none">
+        <div class="llk-wiz-slot-h"><span><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Jadwal Rutin 3</span><button type="button" class="llk-btn soft sm" onclick="llkWizRemoveSlot(3)" aria-label="Hapus jadwal 3"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg> Hapus</button></div>
+        <div id="jadwal-body-3">
+          <div class="mrow">
+            <div class="mfield"><label>Hari</label>
+              <select id="f_day3" onchange="llkWizSyncSlots()"><option value="">Tidak ada</option><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Jumat</option><option>Sabtu</option><option>Minggu</option></select>
+            </div>
+            <div class="mfield"><label>Jam Mulai</label><input id="f_time3a" type="time"/></div>
+          </div>
+          <div class="mrow">
+            <div class="mfield"><label>Jam Selesai</label><input id="f_time3b" type="time"/></div>
+            <div class="mfield"></div>
+          </div>
+        </div>
+      </div>
+      <div class="llk-wiz-slot" id="jadwal-slot-4" style="display:none">
+        <div class="llk-wiz-slot-h"><span><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg> Jadwal Rutin 4</span><button type="button" class="llk-btn soft sm" onclick="llkWizRemoveSlot(4)" aria-label="Hapus jadwal 4"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg> Hapus</button></div>
+        <div id="jadwal-body-4">
+          <div class="mrow">
+            <div class="mfield"><label>Hari</label>
+              <select id="f_day4" onchange="llkWizSyncSlots()"><option value="">Tidak ada</option><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Jumat</option><option>Sabtu</option><option>Minggu</option></select>
+            </div>
+            <div class="mfield"><label>Jam Mulai</label><input id="f_time4a" type="time"/></div>
+          </div>
+          <div class="mrow">
+            <div class="mfield"><label>Jam Selesai</label><input id="f_time4b" type="time"/></div>
+            <div class="mfield"></div>
+          </div>
+        </div>
+      </div>
+      <button type="button" id="llkWizAddSlotBtn" class="llk-btn info block" onclick="llkWizAddSlot()"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> Tambah Jadwal Hari Lain</button>
+      <div class="llk-hint" style="margin-top:6px">Les lebih dari 1x seminggu? Tambah jadwal hari/jam lain di sini (maks. 4).</div>
+    </div>
+    <!-- TAMBAHAN KELAS -->
+    <div style="border-top:1px dashed var(--border);margin-top:16px;padding-top:14px" id="tut-step-extra">
+      <div id="extra-header-form" onclick="toggleFormSection('extra-body-form','extra-arrow-form')" class="llk-acc">
+        <span id="extra-header-label" class="llk-acc-label"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> Tambahan Kelas <small>(opsional)</small></span>
+        <span id="extra-arrow-form" class="llk-acc-arrow"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></span>
+      </div>
+      <div id="extra-body-form" style="display:none;margin-top:10px">
+        <div class="mfield"><label>Keterangan</label><input id="f_extra_note" type="text" placeholder="cth: Persiapan Lomba"/></div>
+        <div class="mfield">
+          <label>Tanggal-tanggal Tambahan</label>
+          <div id="extraDatesWrap" style="display:flex;flex-direction:column;gap:6px;margin-top:4px"></div>
+          <button type="button" onclick="addExtraDate()" class="llk-btn info block sm" style="margin-top:6px"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> Tambah Tanggal</button>
+        </div>
+      </div>
+    </div>
+    <!-- RIWAYAT RESCHEDULE -->
+    <div id="reschedule-section-form" style="display:none;border-top:1px dashed var(--border);margin-top:14px;padding-top:14px">
+      <div id="rescue-header-form" onclick="toggleFormSection('rescue-body-form','rescue-arrow-form')" class="llk-acc">
+        <span class="llk-acc-label"><svg class="ico" aria-hidden="true"><use href="#i-swap"/></svg> Riwayat Reschedule</span>
+        <span id="rescue-arrow-form" class="llk-acc-arrow"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></span>
+      </div>
+      <div id="rescue-body-form" style="display:none;margin-top:10px">
+        <div id="form-reschedule-list" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+    </div>
+    </div>
+    <div class="llk-wiz-page" data-page="3">
+      <div class="llk-wiz-ptitle">Pembayaran</div>
+      <div class="llk-wiz-psub">Tarif dan kapan orang tua membayar.</div>
     <div class="mrow" id="tut-step-tarif">
       <div class="mfield"><label>Tarif per Sesi (Rp)</label><input id="f_rate" type="number" min="0" step="1000" placeholder="Default: 40.000"/></div>
       <div class="mfield"><label>Siklus Bayar</label>
@@ -1615,45 +1672,27 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
         <div class="llk-hint">Pertemuan sebelum memakai aplikasi (opsional) — otomatis ditandai Hadir di jadwal sebelum hari ini</div>
       </div>
     </div>
+    </div>
+    <div class="llk-wiz-page" data-page="4">
+      <div class="llk-wiz-ptitle">Periksa & simpan</div>
+      <div class="llk-wiz-psub">Cek lagi ringkasannya, lalu tekan Simpan.</div>
+    <div id="llkWizSummary" class="llk-wiz-summary"></div>
     <div class="mfield" id="tut-step-sheet">
       <label><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg> Link Google Sheet Siswa</label>
       <input id="f_sheet_link" type="url" placeholder="https://docs.google.com/spreadsheets/..."/>
       <div class="llk-hint">Link untuk orang tua memantau progres (opsional)</div>
     </div>
 
-    <!-- TAMBAHAN KELAS -->
-    <div style="border-top:1px dashed var(--border);margin-top:14px;padding-top:14px" id="tut-step-extra">
-      <div id="extra-header-form" onclick="toggleFormSection('extra-body-form','extra-arrow-form')" class="llk-acc">
-        <span id="extra-header-label" class="llk-acc-label"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> Tambahan Kelas <small>(opsional)</small></span>
-        <span id="extra-arrow-form" class="llk-acc-arrow"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></span>
-      </div>
-      <div id="extra-body-form" style="display:none;margin-top:10px">
-        <div class="mfield"><label>Keterangan</label><input id="f_extra_note" type="text" placeholder="cth: Persiapan Lomba"/></div>
-        <div class="mfield">
-          <label>Tanggal-tanggal Tambahan</label>
-          <div id="extraDatesWrap" style="display:flex;flex-direction:column;gap:6px;margin-top:4px"></div>
-          <button type="button" onclick="addExtraDate()" class="llk-btn info block sm" style="margin-top:6px"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg> Tambah Tanggal</button>
-        </div>
-      </div>
-    </div>
-    <!-- RIWAYAT RESCHEDULE -->
-    <div id="reschedule-section-form" style="display:none;border-top:1px dashed var(--border);margin-top:14px;padding-top:14px">
-      <div id="rescue-header-form" onclick="toggleFormSection('rescue-body-form','rescue-arrow-form')" class="llk-acc">
-        <span class="llk-acc-label"><svg class="ico" aria-hidden="true"><use href="#i-swap"/></svg> Riwayat Reschedule</span>
-        <span id="rescue-arrow-form" class="llk-acc-arrow"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></span>
-      </div>
-      <div id="rescue-body-form" style="display:none;margin-top:10px">
-        <div id="form-reschedule-list" style="display:flex;flex-direction:column;gap:6px"></div>
-      </div>
-    </div>
     <div class="mfield" id="inactiveSinceWrap" style="display:none">
       <label>Nonaktif Sejak Tanggal</label>
       <input type="date" id="f_inactiveSince"/>
       <div class="llk-hint">Jadwal siswa ini akan hilang dari Kalender mulai tanggal ini dan seterusnya. Riwayat kehadiran sebelum tanggal ini tetap tersimpan.</div>
     </div>
+    </div>
     <div class="mactions">
-      <button class="mbtn mbtn-cancel" onclick="closeModal()">Batal</button>
+      <button class="mbtn mbtn-cancel" id="llkWizBackBtn" onclick="llkWizBack()">Batal</button>
       <button class="mbtn mbtn-del" id="inactiveToggleBtn" onclick="toggleInactiveFromModal()" style="display:none"></button>
+      <button class="mbtn mbtn-save" id="llkWizNextBtn" onclick="llkWizNext()" style="display:none">Lanjut <svg class="ico" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
       <button class="mbtn mbtn-save" onclick="doSave()" id="tut-step-savebtn"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg> Simpan</button>
     </div>
     <div id="inactiveHint" style="display:none;font-size:0.76rem;color:var(--muted);text-align:center;margin-top:6px;line-height:1.5">Nonaktifkan kalau siswa berhenti sementara/permanen — riwayat absensi & pembayaran tetap tersimpan aman. Hapus permanen akan menghilangkan semua riwayatnya.</div>
@@ -3862,12 +3901,41 @@ function getBillingMonthKey(){
   // (yang sudah pasti selesai dan seharusnya sudah dibayar)
   return getMonthKey(new Date(d.getFullYear(), d.getMonth()-1, 1));
 }
+// Mode Bulanan: bulan TERTUA yang masih punya pertemuan belum dibayar
+// (tunggakan). Dulu yang dicek hanya 1 bulan (bulan lalu / bulan depan), jadi
+// tagihan yang terlewat ikut hilang begitu bulan berganti: mis. Oktober belum
+// dibayar → di bulan Desember yang ditagih hanya November, atau murid yang
+// dipindah ke Bayar di Depan di tengah bulan → pertemuan bulan itu tidak pernah
+// ditagih. Dilihat maks. 2 bulan sebelum bulan tagihan normal (& tidak sebelum
+// tanggal mulai les) supaya riwayat lama yang memang tidak dicatat bayarnya di
+// aplikasi tidak tiba-tiba muncul sebagai tunggakan. Mengembalikan '' kalau
+// tidak ada tunggakan. Hanya MEMBACA data.
+function llkMonthlyArrearsMk(s){
+  if(paymentMode!=='monthly'||!s) return '';
+  const base=getPayTiming(s)==='depan'?getPrepaidMonthKey():getBillingMonthKey();
+  const startMk=s.startDate?s.startDate.slice(0,7):'';
+  const list=countedSessionList(s.name);
+  for(let k=2;k>=1;k--){
+    const mk=llkMonthAdd(base,-k);
+    if(s.monthlyPaidThru&&mk<=s.monthlyPaidThru) continue;
+    if(startMk&&mk<startMk) continue;
+    if(list.some(x=>x.date&&x.date.startsWith(mk)&&llkDateUnpaidMonthly(s,x.date))) return mk;
+  }
+  return '';
+}
 function computeIsDue(s){
   // timing: 'belakang' = bayar setelah pertemuan berlangsung (cara lama),
   //         'depan'    = bayar dulu untuk paket pertemuan / bulan berikutnya
   const timing=getPayTiming(s);
   const cycle=s.payCycle||4;
   let billingMonth=null, total=0, isDue=false, credit=null;
+  const arrMk=llkMonthlyArrearsMk(s);
+  if(arrMk){
+    // Tunggakan bulan sebelumnya ditagih dulu (per bulan, dari yang paling lama)
+    billingMonth=arrMk;
+    total=llkMonthlyUnpaidCount(s, arrMk, false);
+    return {total,cycle,isDue:true,billingMonth,timing,credit,arrears:true};
+  }
   if(paymentMode==='monthly'){
     if(timing==='depan'){
       billingMonth=getPrepaidMonthKey();
@@ -3921,6 +3989,7 @@ function paymentStatusText(s, d){
   d=d||computeIsDue(s);
   const monthName=mk=>mk?getMonthNameID(new Date(mk+'-01T00:00:00')):'';
   if(paymentMode==='monthly'){
+    if(d.arrears) return '💳 Belum bayar bulan '+monthName(d.billingMonth)+' · '+d.total+'x';
     if(!d.isDue && s.monthlyPaidThru && s.monthlyPaidThru>=getMonthKey()) return '✅ Lunas s/d '+monthName(s.monthlyPaidThru);
     if(!d.isDue && s.paidThruDate && s.paidThruDate>=todayStr()) return '✅ Terbayar s/d '+fmtInvDate(s.paidThruDate);
     if(d.timing==='depan') return d.isDue?('💳 Bayar di depan · bulan '+monthName(d.billingMonth)):('✅ Lunas s/d '+monthName(s.monthlyPaidThru));
@@ -4176,7 +4245,12 @@ function buildInvoiceDraft(s){
       desc='Pembayaran di depan untuk '+cycle+'x pertemuan berikutnya'+(arrears.length?' + '+arrears.length+'x pertemuan yang belum dibayar':'');
     }
   } else {
-    if(timing==='belakang'){
+    const arrMk=llkMonthlyArrearsMk(s);
+    if(arrMk){
+      items=countedSessionList(s.name).filter(x=>x.date&&x.date.startsWith(arrMk)&&llkDateUnpaidMonthly(s,x.date));
+      period=arrMk;
+      desc='Pembayaran les bulan '+monthKeyToLabel(arrMk)+' yang belum dibayar ('+items.length+'x pertemuan)';
+    } else if(timing==='belakang'){
       const mk=getBillingMonthKey();
       items=countedSessionList(s.name).filter(x=>x.date&&x.date.startsWith(mk)&&llkDateUnpaidMonthly(s,x.date));
       period=mk;
@@ -4767,7 +4841,7 @@ function llkCustomPayCandidates(s){
   const today=todayStr();
   const timing=getPayTiming(s);
   if(paymentMode==='monthly'){
-    const bm=timing==='depan'?getPrepaidMonthKey():getBillingMonthKey();
+    const bm=llkMonthlyArrearsMk(s)||(timing==='depan'?getPrepaidMonthKey():getBillingMonthKey());
     const startMonth=(s.monthlyPaidThru&&s.monthlyPaidThru>=bm)?llkMonthAdd(s.monthlyPaidThru,1):bm;
     const from=startMonth+'-01', pd=s.paidThruDate||'';
     const past=countedSessionList(s.name).filter(x=>x.date&&x.date>=from&&x.date>pd).map(x=>Object.assign({},x,{past:true}));
@@ -5667,7 +5741,11 @@ function confirmMarkPaid(btn, studentName){
     const draftBeforePay=buildInvoiceDraft(sp); // isi tagihan SEBELUM status diubah (untuk kuitansi)
     const prevPay=llkPaySnapshot(sp); // untuk "Batalkan Pembayaran Ini"
     const hadOpenInv=(sp.invoices||[]).some(x=>!x.paidAt&&!x.voidAt);
-    if(paymentMode==='monthly' && timing==='depan'){
+    const arrMk=llkMonthlyArrearsMk(sp);
+    if(arrMk){
+      // Lunasi tunggakan bulan tertua dulu (bulan berikutnya ditagih setelahnya)
+      sp.monthlyPaidThru = arrMk;
+    }else if(paymentMode==='monthly' && timing==='depan'){
       sp.monthlyPaidThru = getPrepaidMonthKey();
     }else if(paymentMode!=='monthly' && timing==='depan'){
       // Bayar di depan: semua sesi yang sudah berjalan dianggap lunas, plus
@@ -6229,7 +6307,7 @@ function renderStudentProfile(name, period){
   const paySub = isDue
     ? ((!payMonthly&&payInfo.timing!=='depan')?billing+' sesi belum dibayar · tap untuk tagih':payStatusTxt)
     : ((!payMonthly&&!payAhead)?'Bayar di belakang · '+remaining+' sesi lagi':payStatusTxt);
-  const payNum = payMonthly?'':(isDue&&payInfo.timing!=='depan'?billing+'/'+cycle:(payAhead?remaining+'x':billing+'/'+cycle));
+  const payNum = payMonthly?'':(isDue?(payInfo.timing==='depan'?cycle+'x':billing+'/'+cycle):(payAhead?remaining+'x':billing+'/'+cycle)); // Bayar di Depan & jatuh tempo: tampilkan paket yang perlu dibayar (dulu "0x" membingungkan)
   const payCol = isDue?'var(--alpa)':'var(--hadir)';
   const payFill = isDue?cycle:Math.min(cycle, payAhead?remaining:billing);
   const payBar = payMonthly?'':(cycle<=12
@@ -6345,7 +6423,7 @@ function renderStudentProfile(name, period){
     '<div class="page-title-area">'
       +'<div style="display:flex;align-items:center;justify-content:space-between">'
         +'<div class="hist-back" onclick="window._profileFrom===\'absensi\'?setTab(\'absensi\'):(window._profileFrom===\'track\'?setTab(\'track\'):renderSiswa())"><span>'+llkI('chevron-left')+'</span><div class="hist-back-label">Kembali</div></div>'
-        +(studentIdx>=0?'<button onclick="openEdit('+studentIdx+')" class="llk-btn secondary sm">'+llkI('edit')+' Edit Murid</button>':'')
+        +(studentIdx>=0?'<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button onclick="openEdit('+studentIdx+',2)" class="llk-btn info sm" title="Tambah jadwal/jam les atau sesi tambahan">'+llkI('clock')+' Jadwal & Jam</button><button onclick="openEdit('+studentIdx+')" class="llk-btn secondary sm">'+llkI('edit')+' Edit Murid</button></div>':'')
       +'</div>'
       +'<div style="display:flex;align-items:center;gap:14px;margin-top:14px">'
         +'<div class="track-avatar '+(isVokal?'vocal':'')+'" style="width:60px;height:60px;border-radius:18px;flex-shrink:0">'+llkSubjectIcon(s.instrument)+'</div>'
@@ -9003,39 +9081,6 @@ function toggleFormSection(bodyId, arrowId){
   if(arrow) arrow.innerHTML = llkI(isOpen ? 'chevron-right' : 'chevron-down');
 }
 
-function toggleJadwal(n){
-  const body = document.getElementById('jadwal-body-'+n);
-  const arrow = document.getElementById('jadwal-arrow-'+n);
-  const header = document.getElementById('jadwal-header-'+n);
-  if(!body) return;
-  const isOpen = body.style.display !== 'none';
-  body.style.display = isOpen ? 'none' : 'block';
-  if(arrow){
-    arrow.innerHTML = llkI(isOpen ? 'chevron-right' : 'chevron-down');
-    arrow.style.color = isOpen ? 'var(--text2)' : 'var(--blue)';
-  }
-  if(header){
-    header.style.background = isOpen ? 'var(--card2)' : 'var(--blue-bg)';
-    header.style.borderColor = isOpen ? 'var(--border)' : 'transparent';
-    const label = header.querySelector('span');
-    if(label) label.style.color = isOpen ? 'var(--text2)' : 'var(--blue)';
-  }
-}
-
-function openJadwalIfFilled(n, dayVal){
-  if(!dayVal) return;
-  const body = document.getElementById('jadwal-body-'+n);
-  const arrow = document.getElementById('jadwal-arrow-'+n);
-  const header = document.getElementById('jadwal-header-'+n);
-  if(body) body.style.display = 'block';
-  if(arrow){ arrow.innerHTML=llkI('chevron-down'); arrow.style.color='var(--blue)'; }
-  if(header){
-    header.style.background='var(--blue-bg)';
-    header.style.borderColor='transparent';
-    const label=header.querySelector('span');
-    if(label) label.style.color='var(--blue)';
-  }
-}
 
 function openAdd(){
   if(!requireLoginOrBlock()) return;
@@ -9061,6 +9106,7 @@ function openAdd(){
   document.getElementById('f_time2').value='09:45';
   document.getElementById('f_startDate').value=todayStr();
   populateCurriculumSelect('');
+  llkWizInit('add',1);
   document.getElementById('overlay').classList.add('open');
   setTimeout(()=>document.getElementById('f_name').focus(),300);
   // Tutorial coachmark — hanya untuk pengguna yang BELUM PERNAH punya murid & belum pernah lihat tutorial ini
@@ -9069,19 +9115,145 @@ function openAdd(){
   }
 }
 
+
+/* ═══ FORM MURID BERTAHAP (WIZARD) ═══
+   Tambah Murid diisi per halaman (Murid → Jadwal → Bayar → Selesai) supaya
+   tidak bingung mengisi 1 lembar panjang. Edit Murid memakai halaman yang sama
+   sebagai tab (bisa langsung loncat ke "Jadwal" untuk menambah jam) dan tombol
+   Simpan selalu tersedia. Semua kolom tetap memakai id lama, jadi doSave tidak
+   berubah. */
+let _llkWizPage=1, _llkWizMode='add';
+const _llkSlotOpen={};
+function llkWizInit(mode, page){
+  _llkWizMode=mode;
+  [2,3,4].forEach(n=>{ _llkSlotOpen[n]=false; });
+  llkWizSyncSlots();
+  const ex=document.getElementById('extra-body-form'), exA=document.getElementById('extra-arrow-form');
+  if(ex){ ex.style.display='block'; if(exA) exA.innerHTML=llkI('chevron-down'); }
+  llkWizGo(page||1,{force:true});
+}
+function llkWizPageOf(el){ const pg=el&&el.closest?el.closest('.llk-wiz-page'):null; return pg?parseInt(pg.dataset.page,10):0; }
+function llkWizValid(n){
+  if(n===1){
+    const nm=(document.getElementById('f_name').value||'').trim();
+    if(!nm){ toast('❌ Nama murid wajib diisi'); setTimeout(()=>document.getElementById('f_name').focus(),50); return false; }
+    const lower=nm.toLowerCase();
+    const oldName=editIdx!==null&&students[editIdx]?students[editIdx].name:null;
+    if(nm!==oldName && students.some((x,i)=>i!==editIdx&&(x.name||'').trim().toLowerCase()===lower)){
+      toast('❌ Sudah ada murid bernama "'+nm+'" — pakai nama yang beda (mis. tambah inisial)',4000); return false;
+    }
+  }
+  if(n===2){
+    const anyDay=['f_day','f_day2','f_day3','f_day4'].some(id=>document.getElementById(id).value);
+    const anyExtra=(extraDates||[]).some(ed=>ed.date);
+    if(!anyDay&&!anyExtra){ toast('❌ Pilih hari les di Jadwal Rutin 1, atau tambahkan tanggal di "Tambahan Kelas"',4500); return false; }
+  }
+  return true;
+}
+function llkWizGo(n, opts){
+  opts=opts||{};
+  n=Math.max(1,Math.min(4,n|0));
+  // Tambah Murid: maju ke halaman berikutnya harus lolos cek halaman sebelumnya
+  if(!opts.force && _llkWizMode==='add' && n>_llkWizPage){
+    for(let i=_llkWizPage;i<n;i++){ if(!llkWizValid(i)){ if(i!==_llkWizPage) llkWizGo(i,{force:true}); return; } }
+  }
+  _llkWizPage=n;
+  document.querySelectorAll('#studentModal .llk-wiz-page').forEach(pg=>pg.classList.toggle('on', parseInt(pg.dataset.page,10)===n));
+  document.querySelectorAll('#llkWizSteps .llk-wiz-step').forEach(b=>{
+    const k=parseInt(b.dataset.step,10);
+    b.classList.toggle('on',k===n);
+    b.classList.toggle('done',_llkWizMode==='add'&&k<n);
+    b.setAttribute('aria-selected',k===n?'true':'false');
+  });
+  const isEdit=_llkWizMode==='edit';
+  const back=document.getElementById('llkWizBackBtn'), next=document.getElementById('llkWizNextBtn'), save=document.getElementById('tut-step-savebtn');
+  if(back) back.innerHTML=(!isEdit&&n>1)?llkI('arrow-left')+' Kembali':'Batal';
+  if(next) next.style.display=(!isEdit&&n<4)?'':'none';
+  if(save) save.style.display=(isEdit||n===4)?'':'none';
+  const inact=document.getElementById('inactiveToggleBtn');
+  if(inact) inact.style.display=(isEdit&&n===4)?'flex':'none';
+  const hint=document.getElementById('inactiveHint'), del=document.getElementById('delBtn');
+  if(hint) hint.style.display=(isEdit&&n===4)?'block':'none';
+  if(del) del.style.display=(isEdit&&n===4)?'flex':'none';
+  if(n===4) llkWizRenderSummary();
+  if(!opts.keepScroll){ const m=document.getElementById('studentModal'); if(m) m.scrollTop=0; }
+}
+function llkWizNext(){ llkWizGo(_llkWizPage+1); }
+function llkWizBack(){
+  if(_llkWizMode==='add'&&_llkWizPage>1){ llkWizGo(_llkWizPage-1,{force:true}); return; }
+  closeModal();
+}
+// Jadwal Rutin 2–4: muncul kalau sudah terisi atau tombol "Tambah Jadwal Hari Lain" ditekan
+function llkWizSyncSlots(){
+  let shown=1;
+  [2,3,4].forEach(n=>{
+    const el=document.getElementById('jadwal-slot-'+n);
+    const on=!!document.getElementById('f_day'+n).value||_llkSlotOpen[n];
+    if(el) el.style.display=on?'':'none';
+    if(on) shown++;
+  });
+  const btn=document.getElementById('llkWizAddSlotBtn');
+  if(btn) btn.style.display=shown>=4?'none':'';
+}
+function llkWizAddSlot(){
+  const n=[2,3,4].find(k=>document.getElementById('jadwal-slot-'+k).style.display==='none');
+  if(!n) return;
+  _llkSlotOpen[n]=true;
+  const t1=document.getElementById('f_time').value, t2=document.getElementById('f_time2').value;
+  const a=document.getElementById('f_time'+n+'a'), b=document.getElementById('f_time'+n+'b');
+  if(a&&!a.value&&t1) a.value=t1;
+  if(b&&!b.value&&t2) b.value=t2;
+  llkWizSyncSlots();
+  const el=document.getElementById('jadwal-slot-'+n);
+  if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); }
+  setTimeout(()=>{ const d=document.getElementById('f_day'+n); if(d) d.focus(); },250);
+}
+function llkWizRemoveSlot(n){
+  ['f_day'+n,'f_time'+n+'a','f_time'+n+'b'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  _llkSlotOpen[n]=false;
+  llkWizSyncSlots();
+}
+// Kompatibel dengan pemanggil lama (accordion Jadwal Rutin 2/3/4)
+function toggleJadwal(n){ if(n>1){ _llkSlotOpen[n]=true; llkWizSyncSlots(); } }
+function openJadwalIfFilled(n, dayVal){ if(dayVal){ _llkSlotOpen[n]=true; llkWizSyncSlots(); } }
+function llkWizRenderSummary(){
+  const box=document.getElementById('llkWizSummary'); if(!box) return;
+  const v=id=>(document.getElementById(id)||{}).value||'';
+  const slots=[['f_day','f_time','f_time2'],['f_day2','f_time2a','f_time2b'],['f_day3','f_time3a','f_time3b'],['f_day4','f_time4a','f_time4b']]
+    .filter(x=>v(x[0])).map(x=>v(x[0])+' '+v(x[1])+(v(x[2])?'–'+v(x[2]):''));
+  const ex=(extraDates||[]).filter(ed=>ed.date);
+  const timingSel=document.getElementById('f_pay_timing');
+  const timing=timingSel&&timingSel.selectedIndex>=0?timingSel.options[timingSel.selectedIndex].text:'';
+  const rate=parseInt(v('f_rate'))||40000;
+  const cyc=v('f_pay_cycle')||'4';
+  const init=parseInt(v('f_initial_sessions'))||0;
+  const row=(k,val,pg)=>'<div class="llk-wiz-sum-row"><span class="k">'+k+'</span><span class="v">'+val+(pg?'<button type="button" class="e" onclick="llkWizGo('+pg+',{force:true})">Ubah</button>':'')+'</span></div>';
+  let h='';
+  h+=row('Nama',escapeHtml(v('f_name')||'—'),1);
+  if(v('f_inst')) h+=row('Mata pelajaran',escapeHtml(v('f_inst')),1);
+  h+=row('No. WA',escapeHtml(v('f_phone')||'belum diisi'),1);
+  h+=row('Jadwal',slots.length?slots.map(escapeHtml).join('<br>'):'Tanpa jadwal rutin',2);
+  if(v('f_startDate')) h+=row('Mulai les',escapeHtml(fmtInvDate(v('f_startDate'))),2);
+  if(ex.length) h+=row('Tambahan kelas',ex.length+' tanggal',2);
+  h+=row('Tarif',escapeHtml(formatRupiah(rate))+' / sesi',3);
+  h+=row('Tagih tiap',(paymentMode==='monthly'?'akhir bulan':cyc+'x pertemuan'),3);
+  h+=row('Waktu bayar',escapeHtml(timing),3);
+  if(init) h+=row('Pertemuan awal',init+'x (ditandai Hadir)',3);
+  box.innerHTML=h;
+}
 /* ═══ TUTORIAL "BUAT JADWAL MURID PERTAMA" — coachmark step-by-step ═══
    Menyorot tiap bagian form satu-satu dan menjelaskan fungsinya, khusus
    untuk pengguna yang baru pertama kali buka form Tambah Murid. */
 const TUTORIAL_ADD_STUDENT_STEPS=[
   {id:'tut-step-name', title:'1. Nama & Mata Pelajaran', desc:'Isi nama muridnya, dan apa yang diajarkan — bisa musik (Piano, Vokal), pelajaran sekolah (Matematika), atau apa saja sesuai les yang kamu ajar.'},
   {id:'tut-step-curriculum', title:'2. Kurikulum (opsional)', desc:'Kalau kamu sudah bikin kurikulum/silabus di tab Materi, pilih di sini supaya materi & PR otomatis tersambung ke murid ini. Kalau belum ada, biarkan "Otomatis" saja.'},
-  {id:'tut-step-jadwal', title:'3. Jadwal Rutin Mingguan', desc:'Ini jadwal les tetapnya — pilih hari & jam mulai/selesai. Jadwal ini yang bikin muridnya muncul otomatis di tab Absensi tiap hari itu. Kalau les-nya lebih dari 1x seminggu, buka "Jadwal Rutin Harian 2/3/4" untuk tambah jadwal lain.'},
-  {id:'tut-step-phone', title:'4. No. HP/WA & Catatan', desc:'Nomor ini dipakai buat kirim pengingat pembayaran & laporan progres langsung ke WhatsApp orang tua/murid. Catatan bisa diisi hal-hal tambahan, misal alamat atau kondisi khusus.'},
-  {id:'tut-step-tarif', title:'5. Tarif & Siklus Bayar', desc:'Tarif per sesi buat itungan pendapatan kamu di tab Track. Siklus Bayar menentukan setelah berapa kali pertemuan, tombol pengingat pembayaran akan muncul (misal tiap 4x pertemuan).'},
-  {id:'tut-step-initial', title:'6. Pertemuan Awal (opsional)', desc:'Kalau muridnya sudah les sama kamu SEBELUM pakai aplikasi ini, isi jumlah sesi yang sudah berjalan di sini — supaya hitungan siklus pembayarannya nyambung, tidak mulai dari nol lagi.'},
-  {id:'tut-step-sheet', title:'7. Link Google Sheet (opsional)', desc:'Kalau kamu punya catatan progress terpisah di Google Sheet, tempel linknya di sini. Nanti bisa dibuka cepat lewat tombol 📨 di kartu absensi murid ini.'},
-  {id:'tut-step-extra', title:'8. Tambahan Kelas (opsional)', desc:'Buat jadwal TIDAK rutin, misal les tambahan sebelum ujian/lomba di tanggal-tanggal tertentu — beda dari jadwal mingguan biasa di atas.'},
-  {id:'tut-step-savebtn', title:'9. Selesai!', desc:'Setelah semua terisi, tinggal tekan tombol ini untuk menyimpan. Murid pertamamu akan langsung muncul di jadwal absensi hari ini (kalau hari ini sesuai jadwalnya).'},
+  {id:'tut-step-phone', title:'3. No. HP/WA & Catatan', desc:'Nomor ini dipakai buat kirim pengingat pembayaran & laporan progres langsung ke WhatsApp orang tua/murid. Catatan bisa diisi hal-hal tambahan, misal alamat atau kondisi khusus.'},
+  {id:'tut-step-jadwal', title:'4. Jadwal Rutin Mingguan', desc:'Ini jadwal les tetapnya — pilih hari & jam mulai/selesai. Jadwal ini yang bikin muridnya muncul otomatis di tab Absensi tiap hari itu. Kalau les-nya lebih dari 1x seminggu, tekan "Tambah Jadwal Hari Lain" untuk menambah hari/jam lain.'},
+  {id:'tut-step-extra', title:'5. Tambahan Kelas (opsional)', desc:'Buat jadwal TIDAK rutin, misal les tambahan sebelum ujian/lomba di tanggal-tanggal tertentu — beda dari jadwal mingguan biasa di atas.'},
+  {id:'tut-step-tarif', title:'6. Tarif & Siklus Bayar', desc:'Tarif per sesi buat itungan pendapatan kamu di tab Track. Siklus Bayar menentukan setelah berapa kali pertemuan, tombol pengingat pembayaran akan muncul (misal tiap 4x pertemuan).'},
+  {id:'tut-step-initial', title:'7. Pertemuan Awal (opsional)', desc:'Kalau muridnya sudah les sama kamu SEBELUM pakai aplikasi ini, isi jumlah sesi yang sudah berjalan di sini — supaya hitungan siklus pembayarannya nyambung, tidak mulai dari nol lagi.'},
+  {id:'tut-step-sheet', title:'8. Link Google Sheet (opsional)', desc:'Kalau kamu punya catatan progress terpisah di Google Sheet, tempel linknya di sini. Nanti bisa dibuka cepat lewat tombol 📨 di kartu absensi murid ini.'},
+  {id:'tut-step-savebtn', title:'9. Selesai!', desc:'Form ini diisi per halaman: tekan Lanjut untuk pindah halaman, dan di halaman terakhir cek ringkasannya lalu tekan Simpan. Murid pertamamu akan langsung muncul di jadwal absensi hari ini (kalau hari ini sesuai jadwalnya).'},
 ];
 let _tutStepIdx=0;
 function startAddStudentTutorial(){
@@ -9126,6 +9298,7 @@ function tutorialShowStep(i){
       <button class="tut-next" onclick="tutorialNext()">${isLast?'Mengerti, mulai isi!':'Lanjut '+llkI('arrow-right','sm')}</button>
     </div>`;
   const target=document.getElementById(step.id);
+  if(target&&typeof llkWizGo==='function'){ const pg=step.id==='tut-step-savebtn'?4:llkWizPageOf(target); if(pg&&pg!==_llkWizPage) llkWizGo(pg,{force:true,keepScroll:true}); }
   if(target){
     const cardH=card.offsetHeight||220;
     target.style.scrollMarginTop=(cardH+16)+'px';
@@ -9147,7 +9320,7 @@ function tutorialFinish(){
   localStorage.setItem('llk_tutorial_add_student_done','1');
 }
 
-function openEdit(idx){
+function openEdit(idx, page){
   if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
   editIdx=idx;
   history.pushState({tab:currentTab, view:'modal'},'');
@@ -9217,6 +9390,7 @@ function openEdit(idx){
     if(rsArrow) rsArrow.innerHTML=llkI('chevron-right');
     renderFormRescheduleList(s);
   }
+  llkWizInit('edit', page||1);
   document.getElementById('overlay').classList.add('open');
 }
 
@@ -9438,7 +9612,7 @@ function doSave(){
   // Tanggal mulai les: jadwal rutin tidak muncul di tanggal sebelum ini (kosong = sejak dulu)
   const startDk=document.getElementById('f_startDate').value||'';
   if(startDk) s.startDate=startDk;
-  if(!s.name){toast('❌ Nama wajib diisi!');return}
+  if(!s.name){toast('❌ Nama wajib diisi!');if(typeof llkWizGo==='function')llkWizGo(1,{force:true});return}
   // Semua riwayat absensi/catatan/tagihan disimpan pakai NAMA murid sebagai
   // kunci — jadi 2 murid dengan nama sama akan riwayatnya tercampur. Tolak
   // nama kembar (tidak peduli huruf besar/kecil). Murid lama yang kebetulan
@@ -9447,7 +9621,7 @@ function doSave(){
   if(s.name!==oldNameForDup){
     const lower=s.name.toLowerCase();
     const dup=students.some((x,i)=>i!==editIdx&&(x.name||'').trim().toLowerCase()===lower);
-    if(dup){toast('❌ Sudah ada murid bernama "'+s.name+'" — pakai nama yang beda (mis. tambah inisial)',4000);return}
+    if(dup){toast('❌ Sudah ada murid bernama "'+s.name+'" — pakai nama yang beda (mis. tambah inisial)',4000);if(typeof llkWizGo==='function')llkWizGo(1,{force:true});return}
   }
   // Jadwal Rutin 1 dikosongkan tapi Jadwal 2/3/4 masih ada (mis. les 2x seminggu dikurangi jadi 1x):
   // jadwal yang tersisa naik urutan supaya Jadwal 1 tetap jadwal utama. Riwayat absensi tidak berubah
@@ -9462,7 +9636,7 @@ function doSave(){
       llkShifted=true;
     }
   }
-  if(!s.day&&!s.extraDates.length){toast('❌ Isi jadwal rutin, atau tambahkan minimal 1 tanggal di "Tambahan Kelas"');return}
+  if(!s.day&&!s.extraDates.length){toast('❌ Isi jadwal rutin, atau tambahkan minimal 1 tanggal di "Tambahan Kelas"');if(typeof llkWizGo==='function')llkWizGo(2,{force:true});return}
   if(editIdx===null && typeof isStudentLimitReached==='function' && isStudentLimitReached()){ closeModal(); showUpgradeOffer(true); return; }
   window._llkEditInitSnap=null;
   if(editIdx!==null){
