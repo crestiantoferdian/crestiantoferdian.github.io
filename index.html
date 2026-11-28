@@ -3117,6 +3117,16 @@ checkAutoBackup();
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target===document.getElementById('overlay'))closeModal()});
 document.getElementById('noteOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('noteOverlay'))closeNoteModal()});
 document.getElementById('linkOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('linkOverlay'))closeLinkModal()});
+// LLK_HIST: setiap riwayat menyimpan kedalamannya (state.d, 0 = paling bawah).
+// history.back()/go() dari kode sendiri ditandai supaya handler Back mengabaikannya.
+(function(){
+  const H=history, P=History.prototype;
+  H.pushState=function(st,tt,u){ const d=((H.state&&H.state.d)||0)+1; return P.pushState.call(H,Object.assign({},st||{},{d:d}),tt,u); };
+  H.replaceState=function(st,tt,u){ const d=(H.state&&H.state.d)||0; return P.replaceState.call(H,Object.assign({},st||{},{d:d}),tt,u); };
+  // Back dari kode tidak boleh keluar aplikasi: di riwayat paling bawah diabaikan
+  H.back=function(){ if(!((H.state&&H.state.d)>0)){ window._llkSkipPop=false; return; } window._llkProgPop=(window._llkProgPop||0)+1; return P.back.call(H); };
+  H.go=function(n){ if(!n) return P.go.call(H,n); if(n<0&&-n>((H.state&&H.state.d)||0)) n=-((H.state&&H.state.d)||0); if(!n){ window._llkSkipPop=false; return; } window._llkProgPop=(window._llkProgPop||0)+1; return P.go.call(H,n); };
+})();
 history.replaceState({tab:'absensi',view:'main'},'');
 // Dibuka dari tombol notifikasi → langsung ke halaman terkait
 (function(){
@@ -3187,131 +3197,96 @@ document.addEventListener('DOMContentLoaded', function(){
 render();
 
 // ── TOMBOL BACK HP ─────────────────────────────────────
+// Aturan (perbaikan 28 Nov 2026 — dulu banyak jendela langsung keluar aplikasi):
+// 1. Satu tekan Back = satu langkah: tutup jendela teratas → tutup halaman
+//    (profil, sub-halaman) → kembali ke tab Absensi → "Tekan sekali lagi untuk keluar".
+// 2. Handler ini TIDAK PERNAH menambah riwayat (pushState). Chrome Android menandai
+//    riwayat yang ditambah tanpa sentuhan pengguna sebagai "boleh dilewati", sehingga
+//    Back berikutnya melompat keluar aplikasi.
+// 3. Riwayat ditambah setelah pengguna mengetuk (llkEnsureBackDepth): jumlahnya
+//    dicukupkan untuk semua jendela/halaman yang sedang terbuka — termasuk jendela
+//    yang tidak menambah riwayat sendiri (Reschedule, Absen/Catatan, dll).
+// Kedalaman riwayat disimpan di state.d (dibungkus di LLK_HIST di atas).
+const LLK_BACK_LAYERS=[ // urutan: yang paling atas dulu
+  ['genericConfirmOverlay',el=>{ el.classList.remove('open'); window._genericConfirmCallback=null; }],
+  ['resetConfirmOverlay',el=>{ el.classList.remove('open'); window._pendingReset=null; }],
+  ['deleteConfirmOverlay',()=>closeDeleteConfirm()],
+  ['llkSchedEffOv',el=>el.remove()],
+  ['imgViewerOverlay',el=>el.remove()],
+  ['photoLightboxOverlay',el=>el.classList.remove('open')],
+  ['sheetPopup',el=>el.remove()],
+  ['customPayOverlay',el=>{ el.remove(); window._cp=null; }],
+  ['invoiceOverlay',el=>{ el.remove(); _currentInvoice=null; _currentInvoiceCanvas=null; _currentInvoiceCopy=null; }],
+  ['uangMasukOverlay',el=>el.remove()],
+  ['rescheduleOverlay',()=>closeRescheduleModal()],
+  ['noteOverlay',()=>closeNoteModal()],
+  ['curriculumOverlay',()=>closeCurrModal()],
+  ['linkOverlay',()=>closeLinkModal()],
+  ['overlay',()=>closeModal()],
+];
+function llkOpenBackLayers(){
+  return LLK_BACK_LAYERS.filter(([id])=>{
+    const el=document.getElementById(id); if(!el) return false;
+    return el.classList.contains('overlay')?el.classList.contains('open'):true;
+  });
+}
+function llkPageLevelOpen(){
+  const mc=document.getElementById('mainContent');
+  return !!(viewingStudent||viewingLinkFolder||viewingCurriculumSubject||materiSection||window._profileName||(mc&&mc.querySelector('.hist-back')));
+}
+// Dipanggil sesudah setiap ketukan: pastikan ada cukup riwayat untuk semua langkah Back
+function llkEnsureBackDepth(){
+  if(window.llkPicking) return;
+  let need=1+llkOpenBackLayers().length+(llkPageLevelOpen()?1:0)+(currentTab!=='absensi'?1:0)+(document.getElementById('llkClockOv')?1:0);
+  let d=(history.state&&history.state.d)||0;
+  while(d<need){ history.pushState({tab:currentTab,view:'main',pad:1},''); d++; }
+}
+document.addEventListener('click',function(){ setTimeout(llkEnsureBackDepth,0); },true);
+
 let _backPressedOnce=false, _backTimer=null;
 window.addEventListener('popstate',function(e){
-  const state=e.state||{};
-  // Pop yang dipicu tombol tutup lembar (invoice / Pembayaran Custom): sudah ditutup, jangan navigasi
+  // Back yang dipanggil kode sendiri (tutup lembar lewat tombol, dll): sudah ditangani
+  if(window._llkProgPop>0){ window._llkProgPop--; window._llkSkipPop=false; return; }
   if(window._llkSkipPop){ window._llkSkipPop=false; return; }
   if(window.llkClockOnPop&&window.llkClockOnPop()) return;
-  const cpov=document.getElementById('customPayOverlay');
-  if(cpov){ cpov.remove(); window._cp=null; return; }
-  const invov=document.getElementById('invoiceOverlay');
-  if(invov){ invov.remove(); _currentInvoice=null; _currentInvoiceCanvas=null; _currentInvoiceCopy=null; return; }
-  const umov=document.getElementById('uangMasukOverlay');
-  if(umov){ umov.remove(); return; }
 
-  // 0. Tutup popup "Kirim Progres/Sheet" jika terbuka (dibuat dinamis, bukan overlay tetap)
-  const spop=document.getElementById('sheetPopup');
-  if(spop){ spop.remove(); return; }
+  // 1. Tutup jendela teratas
+  const open=llkOpenBackLayers();
+  if(open.length){ const [id,fn]=open[0]; fn(document.getElementById(id)); return; }
 
-  // 1. Tutup modal jika terbuka
-  const ov=document.getElementById('overlay');
-  const nov=document.getElementById('noteOverlay');
-  const rov=document.getElementById('rescheduleOverlay');
-  const lov=document.getElementById('linkOverlay');
-  const curov=document.getElementById('curriculumOverlay');
-  const pov=document.getElementById('photoLightboxOverlay');
-  const gcov=document.getElementById('genericConfirmOverlay');
-  if(gcov&&gcov.classList.contains('open')){
-    gcov.classList.remove('open'); window._genericConfirmCallback=null; return;
-  }
-  if(pov&&pov.classList.contains('open')){
-    pov.classList.remove('open'); return;
-  }
-  if(ov&&ov.classList.contains('open')){
-    closeModal(); history.pushState({tab:currentTab,view:'main'},''); return;
-  }
-  if(nov&&nov.classList.contains('open')){
-    closeNoteModal(); history.pushState({tab:currentTab,view:'main'},''); return;
-  }
-  if(rov&&rov.classList.contains('open')){
-    closeRescheduleModal(); history.pushState({tab:currentTab,view:'main'},''); return;
-  }
-  if(lov&&lov.classList.contains('open')){
-    closeLinkModal(); history.pushState({tab:currentTab,view:'main'},''); return;
-  }
-  if(curov&&curov.classList.contains('open')){
-    closeCurrModal(); history.pushState({tab:currentTab,view:'main'},''); return;
-  }
-
-  // 2. Kembali dari halaman detail murid (track)
-  if(viewingStudent){
-    viewingStudent=null;
-    currentTab='track';
-    renderTrack();
-    history.pushState({tab:'track',view:'main'},''); return;
-  }
-
-  // 2c. Kembali dari sub-folder Link
-  if(viewingLinkFolder){
-    viewingLinkFolder=null;
-    currentTab='links';
-    renderLinks();
-    history.pushState({tab:'links',view:'main'},''); return;
-  }
-
-  // 2c1. Kembali dari halaman topik 1 mata pelajaran ke daftar mata pelajaran
-  if(viewingCurriculumSubject){
-    viewingCurriculumSubject=null;
-    currentTab='links';
-    renderLinks();
-    history.pushState({tab:'links',view:'main'},''); return;
-  }
-
-  // 2c2. Kembali dari halaman Materi/PR Guru/Kurikulum ke landing tab Materi
-  if(materiSection){
-    materiSection=null;
-    currentTab='links';
-    renderLinks();
-    history.pushState({tab:'links',view:'main'},''); return;
-  }
-
-  // 2b. Kembali dari profil siswa
+  // 2. Tutup halaman detail
+  if(viewingStudent){ viewingStudent=null; currentTab='track'; renderTrack(); return; }
+  if(viewingLinkFolder){ viewingLinkFolder=null; currentTab='links'; renderLinks(); return; }
+  if(viewingCurriculumSubject){ viewingCurriculumSubject=null; currentTab='links'; renderLinks(); return; }
+  if(materiSection){ materiSection=null; currentTab='links'; renderLinks(); return; }
   if(window._profileName){
-    const backTo = state.profileFrom || state.tab || window._profileFrom || 'siswa';
-    window._profileName = null;
-    window._profileFrom = null;
-    currentTab = backTo;
-    render();
-    history.pushState({tab:currentTab,view:'main'},''); return;
-  }
-
-  // 3. Kembali dari sub-halaman (backup, import, pengaturan, delete confirm)
-  const dc=document.getElementById('deleteConfirmOverlay');
-  if(dc&&dc.classList.contains('open')){
-    closeDeleteConfirm();
-    history.pushState({tab:currentTab,view:'main'},''); return;
-  }
-  const mc=document.getElementById('mainContent');
-  if(state.view==='sub'||(mc&&mc.querySelector('.hist-back'))){
-    currentTab=state.tab||'absensi';
-    render();
-    history.pushState({tab:currentTab,view:'main'},''); return;
-  }
-
-  // 3b. Kembali ke tab lain (misal dari Track/Kalender balik ke Absensi)
-  if(state.tab && state.tab!==currentTab){
-    currentTab=state.tab;
-    viewingStudent=null;
-    ['absensi','siswa','track','kirim','links','lainnya'].forEach(x=>{
-      const el=document.getElementById('tab-'+x);
-      if(el) el.classList.toggle('active',x===currentTab);
-    });
-    render();
-    history.pushState({tab:currentTab,view:'main'},''); return;
-  }
-
-  // 4. Di tab utama — double back untuk keluar
-  if(_backPressedOnce){
-    // Biarkan keluar (tidak push state)
+    const backTo=window._profileFrom||'siswa';
+    window._profileName=null; window._profileFrom=null;
+    llkSetTabNoHist(backTo);
     return;
   }
+  const mc=document.getElementById('mainContent');
+  if(mc&&mc.querySelector('.hist-back')){ llkPageEnter&&llkPageEnter(); render(); return; }
+
+  // 3. Tab lain → kembali ke Absensi
+  if(currentTab!=='absensi'){ llkSetTabNoHist('absensi'); return; }
+
+  // 4. Di Absensi tanpa jendela terbuka → sekali lagi untuk keluar
   _backPressedOnce=true;
   toast('Tekan sekali lagi untuk keluar');
-  history.pushState({tab:currentTab,view:'main'},'');
   clearTimeout(_backTimer);
   _backTimer=setTimeout(function(){_backPressedOnce=false;},2000);
+  const d=(history.state&&history.state.d)||0;
+  if(d>0) history.go(-d); // buang riwayat sisa supaya Back berikutnya benar-benar keluar
 });
+// Pindah tab tanpa menambah riwayat (dipakai tombol Back)
+function llkSetTabNoHist(t){
+  currentTab=t;
+  if(t!=='track') viewingStudent=null;
+  if(t!=='links'){ viewingLinkFolder=null; materiSection=null; }
+  ['absensi','siswa','track','kirim','links','lainnya'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.classList.toggle('active',x===t); });
+  render();
+}
 
 // ── TOGGLE AKSI SISWA ─────────────────────────────────
 function toggleSItem(el){
