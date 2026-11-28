@@ -9,6 +9,14 @@ _Terakhir diperbarui: 28 Nov 2026 (reschedule per tanggal, Sesuaikan Pertemuan)_
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
+## ⬅️ V1: tombol Back HP tidak lagi keluar aplikasi (28 Nov 2026, branch `ccr-61489cd9-0c4sao`)
+Laporan pemilik: banyak tombol Back langsung keluar aplikasi (mis. Edit Jadwal, Reschedule yang sedang diisi). Penyebab: (1) beberapa jendela tidak menambah riwayat (Reschedule, Absen/Catatan, dll) → Back melompatinya; (2) handler `popstate` menambah riwayat lagi setelah menutup jendela — tanpa sentuhan pengguna, sehingga Chrome Android menandai riwayat itu "boleh dilewati" dan Back berikutnya keluar aplikasi.
+Perbaikan (`index.html`, blok TOMBOL BACK HP + LLK_HIST):
+- `history.pushState/replaceState` dibungkus: tiap riwayat menyimpan kedalaman `state.d`. `history.back()/go()` dari kode ditandai (`_llkProgPop`) supaya diabaikan handler, dan **tidak pernah keluar aplikasi** di riwayat paling bawah.
+- Handler `popstate` tidak pernah `pushState`. Satu Back = satu langkah: tutup jendela teratas (`LLK_BACK_LAYERS`, urut dari yang paling atas) → tutup halaman (profil, detail Track, folder/Materi, sub-halaman Lainnya) → kembali ke tab Absensi → "Tekan sekali lagi untuk keluar" (sisa riwayat dibuang dengan `history.go(-d)`).
+- `llkEnsureBackDepth()` dipanggil setelah setiap ketukan: riwayat dicukupkan untuk semua jendela/halaman yang terbuka (dengan sentuhan pengguna → tidak dilewati Chrome).
+- Uji: `tests/v1-back.sim.cjs` (Pixel 7, 10 skenario: Reschedule sedang diisi, Absen, pemilih jam di Reschedule, profil → Jadwal & Jam, Edit → dialog "Anda yakin", Invoice, Lainnya → Pengaturan, tutup pakai Batal, pindah tab, Edit → Batal). Semua lulus, tanpa pushState tanpa sentuhan, tanpa error. Catatan: emulator tidak meniru penuh "riwayat dilewati" Chrome Android → tetap perlu dicoba di HP.
+
 ## 🔁 V1: Reschedule per tanggal + Sesuaikan Pertemuan (28 Nov 2026, branch `ccr-61489cd9-0c4sao`)
 Laporan user: murid baru 3 pertemuan tapi tagihan siklus 4x sudah muncul. Dicek semua kemungkinan reschedule (simulasi `tests/v1-reschedule.sim.cjs`, jam dipalsukan 26 Okt → 9 Nov). Yang sudah benar dari dulu: kartu tujuan Hadir = 1x, Alpa = 1x, Izin/Off = 0x; reschedule di hari yang sama aman.
 **Diperbaiki:**
