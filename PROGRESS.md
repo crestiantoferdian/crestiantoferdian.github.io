@@ -1,6 +1,6 @@
 # 📘 Progres Project LesLesanKu (LLK)
 
-_Terakhir diperbarui: 27 Nov 2026 (uji sebagai pengguna, form murid bertahap, tunggakan bulanan)_
+_Terakhir diperbarui: 28 Nov 2026 (reschedule per tanggal, Sesuaikan Pertemuan)_
 
 ## 📌 Langkah berikutnya (per 29 Sep 2026)
 0. Setelah PR #21 di-merge: Ctrl+Shift+R, cek logo sidebar laptop, tombol paket, dan scroll setelah bayar.
@@ -9,15 +9,17 @@ _Terakhir diperbarui: 27 Nov 2026 (uji sebagai pengguna, form murid bertahap, tu
 3. Pindah Midtrans ke **production**: Client Key (boleh dikirim ke Claude), Server Key (rahasia, pemilik tempel di Cloud Shell `.env`), Notification URL, cek metode pembayaran aktif.
 4. Rilis Play Store: ikuti **🚀 Rencana rilis Play Store** di bawah (Tahap 0 bisa mulai sekarang).
 
-## 🔎 V1: cek Reschedule vs hitungan tagihan (28 Nov 2026, belum diperbaiki — menunggu keputusan pemilik)
-Laporan user: murid baru 3 pertemuan tapi tagihan siklus 4x sudah muncul. Simulasi Playwright (jam dipalsukan 26 Okt → 9 Nov, siklus 4x, bayar belakang), absen lewat tombol kartu:
-- **Benar:** reschedule biasa → kartu tujuan Hadir = 1x, Alpa = 1x, Izin/Off = 0x. Reschedule di hari yang sama (jam lain) → kartu asal terkunci, aman.
-- **Bug 1 (dobel):** kartu asal bertanda "Pindah ke …" masih punya tombol Hadir/Izin/Alpa. Hadir di kartu asal + Hadir di kartu tujuan = 2x untuk 1 les.
-- **Bug 2 (dobel):** sama untuk Tambahan Kelas yang dipindah (movedTo): kartu asal & tujuan sama-sama bisa Hadir → 2x.
-- **Bug 3 (dobel, paling cocok dengan laporan):** reschedule disimpan per HARI (`{day,date}`), tanpa tanggal asal. Les Senin minggu depan dimajukan ke Kamis (padahal Senin ini sudah Hadir) → yang ditandai pindah malah Senin ini, Senin minggu depan tetap tampil normal; kalau ditekan Hadir → 4x padahal les nyata 3x.
-- **Bug 4:** setelah tanggal tujuan lewat, kartu asal di riwayat tidak lagi bertanda "Pindah ke" (cek `r.date>=today`) → tampil seperti belum diabsen & bisa ditandai Hadir → dobel.
-- **Bug 5 (kurang hitung):** murid 2 hari/minggu (Sen & Rab), Senin dipindah ke Rabu yang sama → kartu Rabu rutin hilang, hanya 1 kartu (1x) padahal 2 les.
-- Kecil: jam selesai reschedule dikosongkan → tampil "18:00–16:00" (memakai jam selesai lama).
+## 🔁 V1: Reschedule per tanggal + Sesuaikan Pertemuan (28 Nov 2026, branch `ccr-61489cd9-0c4sao`)
+Laporan user: murid baru 3 pertemuan tapi tagihan siklus 4x sudah muncul. Dicek semua kemungkinan reschedule (simulasi `tests/v1-reschedule.sim.cjs`, jam dipalsukan 26 Okt → 9 Nov). Yang sudah benar dari dulu: kartu tujuan Hadir = 1x, Alpa = 1x, Izin/Off = 0x; reschedule di hari yang sama aman.
+**Diperbaiki:**
+- **Kartu asal "Pindah ke …" dikunci** (Hadir/Izin/Alpa/Off diganti kotak "Absen di tanggal …" + tombol Reschedule). Berlaku juga untuk Tambahan Kelas yang dipindah. Dulu Hadir di asal + tujuan = 2x.
+- **Reschedule per TANGGAL:** jendela Reschedule punya pilihan **"Les yang dipindah"** (hari rutin itu 4 minggu lalu s/d 8 minggu ke depan; yang sudah Hadir/Alpa tidak bisa dipilih). Disimpan `{day, from, date, time, time2}` → hanya les tanggal itu yang pindah; bisa lebih dari 1 reschedule per hari rutin; kartu asal tetap terkunci walau tanggal tujuan sudah lewat. Batas "reschedule >1 minggu" dihapus (tidak perlu lagi). Reschedule lama (tanpa `from`) tetap pakai aturan lama, kecuali kunci kartu hanya untuk les ≤7 hari sebelum tanggal tujuan; data lama tidak diubah.
+- **Penjaga di `saveNote`:** Hadir/Alpa di les yang sudah dipindah ditolak (`llkMovedAwayTo`); untuk reschedule lama yang tanggalnya sudah lewat muncul konfirmasi "terhitung 2x" (`llkRsDoubleCandidate`).
+- **Tujuan = hari les rutin murid itu** (mis. Sen & Rab, Senin dipindah ke Rabu): dulu kartu Rabu rutin hilang (2 les tercatat 1x). Sekarang ditawarkan **Izin + Jadwal Tambahan** (`llkRsAsExtra`), kedua les tercatat.
+- **BUG baru ditemukan:** menyimpan Edit Murid **menghapus semua reschedule** murid itu (field tidak dipertahankan di `doSave`). Sekarang dipertahankan.
+- Jam selesai kosong di reschedule/tambahan tidak lagi menampilkan jam selesai lama ("18:00–16:00"). Pertemuan Awal tidak menandai Hadir di les yang sudah dipindah. Gabung cloud memakai kunci `date|day|from`.
+**Fitur baru — Sesuaikan Pertemuan** (Edit Murid › halaman 3 Bayar, hanya mode Per Sesi & saat Edit): angka **"Pertemuan sejak terakhir bayar"** (Bayar di Belakang → menggeser `lastPaidAt`, maks. jumlah pertemuan tercatat) atau **"Sisa pertemuan yang sudah dibayar"** (Bayar di Depan → menggeser `prepaidThrough`), tombol −/+, keterangan "tagihan muncul Nx lagi", baris di ringkasan halaman 4, toast setelah simpan. Hanya diterapkan kalau angkanya diubah; riwayat absensi tidak berubah. Kotak juga menampilkan peringatan **"Kemungkinan terhitung 2x"** (`llkRsDoubleList`: tanggal asal & tujuan reschedule sama-sama Hadir/Alpa). Profil murid › Info Pembayaran punya tombol **Sesuaikan Pertemuan** yang membuka halaman itu.
+**Belum dikerjakan:** reschedule lama di data guru tidak dimigrasi (tidak punya tanggal asal). Gabung cloud bisa memunculkan lagi reschedule yang dihapus di HP lain (perilaku lama).
 
 ## 🧪 V1: uji sebagai pengguna + form murid bertahap + tunggakan bulanan (27 Nov 2026, di branch `claude/llk-uji-pengguna-wizard`)
 **Simulasi Playwright (Pixel 7, jam dipalsukan 2 Nov → 5 Jan):** 5 murid per sesi (bayar belakang, bayar depan, 2 jadwal/minggu + pertemuan awal 3, bayar mendadak lewat Pembayaran Custom, hanya Tambahan Kelas) + 5 murid mode Bulanan (belakang, depan, mendadak, pindah belakang→depan di tengah bulan, tunggakan Oktober). Absen lewat tombol kartu: Hadir+progres+PR, Izin+alasan, Alpa, Off; kirim progres ke WA; Sudah Bayar (2x ketuk); Batalkan Pembayaran; ganti nama murid; Izin di masa depan (boleh) & Hadir di masa depan (ditolak); Nonaktifkan. Semua angka per sesi cocok dengan hitungan manual, tanpa error.
