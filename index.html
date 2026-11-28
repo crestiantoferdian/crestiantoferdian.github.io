@@ -1649,7 +1649,7 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
     <div class="mrow" id="tut-step-tarif">
       <div class="mfield"><label>Tarif per Sesi (Rp)</label><input id="f_rate" type="number" min="0" step="1000" placeholder="Default: 40.000"/></div>
       <div class="mfield"><label>Siklus Bayar</label>
-        <select id="f_pay_cycle">
+        <select id="f_pay_cycle" onchange="llkPayAdjChanged(true)">
           <option value="4">4x pertemuan</option>
           <option value="8">8x pertemuan</option>
           <option value="12">12x pertemuan</option>
@@ -1659,7 +1659,7 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
     </div>
     <div class="mfield" id="tut-step-paytiming">
       <label>Waktu Bayar</label>
-      <select id="f_pay_timing">
+      <select id="f_pay_timing" onchange="llkPayAdjInit()">
         <option value="">Ikuti pengaturan umum</option>
         <option value="belakang">Bayar di Belakang (setelah pertemuan)</option>
         <option value="depan">Bayar di Depan (sebelum pertemuan)</option>
@@ -1671,6 +1671,17 @@ input.llk-time,.mfield input.llk-time:focus{cursor:pointer;caret-color:transpare
         <input id="f_initial_sessions" type="number" min="0" placeholder="cth: 3" oninput="this.dataset.touched='1'"/>
         <div class="llk-hint">Pertemuan sebelum memakai aplikasi (opsional) — otomatis ditandai Hadir di jadwal sebelum hari ini</div>
       </div>
+    </div>
+    <div class="mfield" id="llkPayAdjWrap" style="display:none;margin-top:6px;padding:14px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--card2)">
+      <label id="llkPayAdjLabel" style="margin-bottom:8px">Sesuaikan pertemuan</label>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button type="button" class="llk-btn secondary sm" style="min-width:44px" onclick="llkPayAdjStep(-1)" aria-label="Kurangi">−</button>
+        <input id="f_pay_adj" type="number" min="0" inputmode="numeric" style="width:84px;text-align:center;font-weight:700" oninput="llkPayAdjChanged()"/>
+        <button type="button" class="llk-btn secondary sm" style="min-width:44px" onclick="llkPayAdjStep(1)" aria-label="Tambah">+</button>
+        <span id="llkPayAdjOf" style="font-size:0.88rem;color:var(--text2);font-weight:600"></span>
+      </div>
+      <div class="llk-hint" id="llkPayAdjHint" style="margin-top:8px"></div>
+      <div id="llkPayAdjDbl" style="display:none;margin-top:10px"></div>
     </div>
     </div>
     <div class="llk-wiz-page" data-page="4">
@@ -3458,9 +3469,13 @@ function renderAbsensi(){
     const rescueDateFmt=rsInfo?(()=>{const d=new Date(rsInfo.date+'T00:00:00');const days=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];return days[d.getDay()]+', '+d.getDate()+'/'+(d.getMonth()+1);})():'';
     // Reschedule di hari yang sama (jam berbeda)
     const samedayRs=s._sameday_reschedule||null;
+    // Kartu asal yang lesnya sudah dipindah ke tanggal lain: tombol absen dikunci
+    // (kalau tidak, Hadir di sini + Hadir di tanggal tujuan = terhitung 2x).
+    const movedLock=!samedayRs&&hasActiveReschedule&&llkIsMovedAwayCard(s,dateKey);
     // Tombol Reschedule harus membuka reschedule yang benar: kartu hasil pindah memakai hari
     // asal reschedule-nya (bukan hari les pertama), dan kartu tujuan sesi tambahan tetap ke sesi tambahannya.
     const rsExtraIdx=(s._isExtra||(s._isRescheduled&&s._extraIdx!==undefined&&s._extraIdx!==null))?s._extraIdx:null;
+    const rsBtn=`<button class="att-btn" onclick="openRescheduleModal('${jsAttr(s.name)}','${s._isRescheduled&&s._rescheduleDay?s._rescheduleDay:s.day}',${sidx},${rsExtraIdx!==null?rsExtraIdx:'null'},'${rsExtraIdx!==null?(s._extraDate||''):''}','${dateKey}');event.stopPropagation()" title="Reschedule" aria-label="Reschedule" style="${(s._hasActiveReschedule||s._isRescheduled)?'background:var(--amber-bg);border-color:transparent;color:var(--amber)':''}">${llkI('swap')}</button>`;
     // Efek visual untuk izin & alpa
     const isIzin=status==='izin';
     const isAlpa=status==='alpa';
@@ -3526,10 +3541,12 @@ function renderAbsensi(){
         <div class="att-btns" onclick="event.stopPropagation()">
             ${samedayRs
               ? `<div style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--plum);font-weight:600;padding:8px 10px;background:var(--plum-bg);border-radius:var(--r-sm)">${llkI('lock','sm')} Jadwal dipindah ke jam ${samedayRs.time}${samedayRs.time2?'–'+samedayRs.time2:''}</div>`
+              : movedLock
+              ? `<div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--izin-text);font-weight:600;padding:8px 10px;background:var(--amber-bg);border-radius:var(--r-sm);line-height:1.35">${llkI('lock','sm')}<span>Absen di tanggal ${rescueDateFmt}${(status==='hadir'||status==='alpa')?' · <b>di sini sudah tercatat '+(status==='hadir'?'Hadir':'Alpa')+'</b>':''}</span></div>${rsBtn}`
               : `<button class="att-btn a-hadir ${status==='hadir'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','hadir','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Hadir" title="Hadir">${llkI('check','bold')}</button>
             <button class="att-btn a-izin ${status==='izin'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','izin','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Izin" title="Izin">${llkI('hand')}</button>
             <button class="att-btn a-alpa ${status==='alpa'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','alpa','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Alpa" title="Alpa">${llkI('x','bold')}</button>
-            <button class="att-btn" onclick="openRescheduleModal('${jsAttr(s.name)}','${s._isRescheduled&&s._rescheduleDay?s._rescheduleDay:s.day}',${sidx},${rsExtraIdx!==null?rsExtraIdx:'null'},'${rsExtraIdx!==null?(s._extraDate||''):''}');event.stopPropagation()" title="Reschedule" aria-label="Reschedule" style="${(s._hasActiveReschedule||s._isRescheduled)?'background:var(--amber-bg);border-color:transparent;color:var(--amber)':''}">${llkI('swap')}</button>
+            ${rsBtn}
             <button class="att-btn a-off ${status==='off'?'on':''}" onclick="openNoteModal('${jsAttr(attKey)}','off','${jsAttr(s.name)}','${attDateKey}','${s.time||''}','${s.time2||''}')" aria-label="Off (guru izin)" title="Off — guru izin / berhalangan">Off</button>`
             }
             ${(!!(s.phone&&s.phone.replace(/\D/g,''))||!!(s.sheetLink&&s.sheetLink.trim()))&&status!=='izin'&&status!=='off'?`<button class="att-btn sheet-btn-${sidx} ${localStorage.getItem('sheet_sent_'+attDateKey+'_'+s.name.replace(/[^a-zA-Z0-9]/g,'_'))?'is-sent':'is-send'}" onclick="openSheetLinkByName('${jsAttr(s.name)}','${attDateKey}','${jsAttr(attKey)}')" aria-label="Kirim progres" title="Kirim progres">
@@ -3671,6 +3688,73 @@ function llkAskScheduleEffective(oldS, newS){
     try{ doSave(); } finally { window._llkSchedEffDate=null; }
   };
 }
+// ── RESCHEDULE PER TANGGAL ──
+// Reschedule baru menyimpan tanggal les yang dipindah: {day, from, date, time, time2}.
+// Reschedule lama (tanpa `from`) tetap memakai aturan lama: hari rutin yang sama
+// dianggap pindah selama tanggal tujuannya belum lewat.
+function llkDkAdd(dk, n){ const d=new Date(dk+'T00:00:00'); d.setDate(d.getDate()+n); return dateKeyOfDate(d); }
+function llkRsMovedFrom(s, dayName, dk, todayISO){
+  const list=s.reschedules||[];
+  return list.find(r=>r.from&&r.from===dk&&r.date!==dk&&r.day===dayName)
+    ||list.find(r=>!r.from&&r.day===dayName&&r.date>=(todayISO||todayStr()))
+    ||null;
+}
+// Les reguler / tambahan kelas di tanggal dk yang SUDAH DIPINDAH ke tanggal lain
+// (kartunya hanya info, tidak boleh ditandai Hadir/Alpa supaya tidak dihitung 2x).
+// Mengembalikan tanggal tujuan, atau '' kalau tidak dipindah.
+function llkMovedAwayTo(attKey, dk){
+  for(const s of students){
+    if(attKey===s.name){
+      if((s.reschedules||[]).some(r=>r.date===dk)) return ''; // kartu di tanggal ini = les hasil reschedule
+      const dn=dayNameFromDate(dk);
+      const se=llkScheduleAt(s, dk);
+      if(![se.day,se.day2,se.day3,se.day4].includes(dn)) return '';
+      const r=llkRsMovedFrom(s, dn, dk);
+      if(!r) return '';
+      if(r.from) return r.date;
+      // reschedule lama: hanya les rutin dalam 7 hari sebelum tanggal tujuan
+      return (r.date>dk&&dk>=llkDkAdd(r.date,-7))?r.date:'';
+    }
+    const pre=s.name+'_extra_';
+    if(attKey.startsWith(pre)){
+      const id=attKey.slice(pre.length);
+      const ed=(s.extraDates||[]).find((e,i)=>String(e.id!==undefined&&e.id!==null?e.id:i)===id);
+      if(ed&&ed.date===dk&&ed.movedTo&&ed.movedTo.date&&ed.movedTo.date!==dk) return ed.movedTo.date;
+      return '';
+    }
+  }
+  return '';
+}
+// Pertemuan yang kemungkinan terhitung 2x karena reschedule (kartu asal & tujuan
+// sama-sama Hadir/Alpa). Hanya membaca data; dipakai sebagai peringatan.
+function llkRsDoubleList(s){
+  const out=[], cnt=st=>st==='hadir'||st==='alpa';
+  const stOn=(dk,k)=>(attendance[dk]||{})[k];
+  (s.reschedules||[]).forEach(r=>{
+    if(!r.date||!cnt(stOn(r.date,s.name))) return;
+    let orig=r.from||'';
+    if(!orig){ for(let i=1;i<=7;i++){ const dk=llkDkAdd(r.date,-i); if(dayNameFromDate(dk)===r.day){ orig=dk; break; } } }
+    if(orig&&orig!==r.date&&cnt(stOn(orig,s.name))) out.push({from:orig,to:r.date,label:'Reschedule'});
+  });
+  (s.extraDates||[]).forEach((ed,i)=>{
+    if(!ed.movedTo||!ed.movedTo.date||ed.movedTo.date===ed.date) return;
+    const k=s.name+'_extra_'+(ed.id!==undefined&&ed.id!==null?ed.id:i);
+    if(cnt(stOn(ed.date,k))&&cnt(stOn(ed.movedTo.date,k))) out.push({from:ed.date,to:ed.movedTo.date,label:ed.note||s.extraNote||'Tambahan Kelas'});
+  });
+  return out;
+}
+// Reschedule LAMA (tanpa tanggal asal) yang tanggal tujuannya sudah lewat: kartu asal di
+// riwayat tampil biasa lagi. Kalau tanggal tujuan (≤7 hari setelahnya) sudah Hadir/Alpa,
+// kembalikan tanggal itu supaya guru diingatkan sebelum menandai dobel.
+function llkRsDoubleCandidate(attKey, dk){
+  const s=students.find(x=>x.name===attKey); if(!s) return '';
+  const dn=dayNameFromDate(dk);
+  if((s.reschedules||[]).some(r=>r.date===dk)) return '';
+  const r=(s.reschedules||[]).find(r=>!r.from&&r.day===dn&&r.date>dk&&dk>=llkDkAdd(r.date,-7));
+  if(!r) return '';
+  const st=(attendance[r.date]||{})[s.name];
+  return (st==='hadir'||st==='alpa')?r.date:'';
+}
 function getStudentsForDay(dayName, dateKey, includeInactive){
   const result=[];
 
@@ -3685,7 +3769,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
 
     // Cek apakah hari rutin murid ini (dayName) punya reschedule aktif di tanggal lain
     const todayISO=todayStr();
-    const rsForThisDay=(s.reschedules||[]).find(r=>r.day===dayName&&r.date>=todayISO);
+    const rsForThisDay=llkRsMovedFrom(s, dayName, dateKey, todayISO);
 
     if(rsForToday){
       // Cek apakah reschedule di hari yang SAMA dengan jadwal asli
@@ -3707,7 +3791,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
       // Tampilkan kartu jam baru (reschedule)
       result.push(Object.assign({},s,{
         time:rsForToday.time||s.time,
-        time2:rsForToday.time2||s.time2||'',
+        time2:rsForToday.time?(rsForToday.time2||''):(s.time2||''),
         _originalIdx:originalIdx,
         _isRescheduled:true,
         _isExtra:false,
@@ -3733,7 +3817,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
 
     // Jadwal hari ke-2
     if(s.day2&&s.day2===dayName&&!rsForToday&&!beforeStart){
-      const rs2=(s.reschedules||[]).find(r=>r.day===s.day2&&r.date>=todayISO);
+      const rs2=llkRsMovedFrom(s, dayName, dateKey, todayISO);
       result.push(Object.assign({},s,{
         time:s.time2a||s.time,
         time2:s.time2b||'',
@@ -3744,7 +3828,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
     }
     // Jadwal hari ke-3
     if(s.day3&&s.day3===dayName&&!rsForToday&&!beforeStart){
-      const rs3=(s.reschedules||[]).find(r=>r.day===s.day3&&r.date>=todayISO);
+      const rs3=llkRsMovedFrom(s, dayName, dateKey, todayISO);
       result.push(Object.assign({},s,{
         time:s.time3a||s.time,
         time2:s.time3b||'',
@@ -3755,7 +3839,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
     }
     // Jadwal hari ke-4
     if(s.day4&&s.day4===dayName&&!rsForToday&&!beforeStart){
-      const rs4=(s.reschedules||[]).find(r=>r.day===s.day4&&r.date>=todayISO);
+      const rs4=llkRsMovedFrom(s, dayName, dateKey, todayISO);
       result.push(Object.assign({},s,{
         time:s.time4a||s.time,
         time2:s.time4b||'',
@@ -3781,7 +3865,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
             const dn=['Min','Sen','Sel','Rab','Kam','Jum','Sab'][d.getDay()];
             result.push(Object.assign({},s,{
               time:ed.time||s.time,
-              time2:ed.time2||s.time2,
+              time2:ed.time?(ed.time2||''):(s.time2||''),
               _originalIdx:originalIdx,
               _isRescheduled:false,
               _isExtra:true,
@@ -3796,7 +3880,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
           } else {
             result.push(Object.assign({},s,{
               time:ed.time||s.time,
-              time2:ed.time2||s.time2,
+              time2:ed.time?(ed.time2||''):(s.time2||''),
               _originalIdx:originalIdx,
               _isRescheduled:false,
               _isExtra:true,
@@ -3813,7 +3897,7 @@ function getStudentsForDay(dayName, dateKey, includeInactive){
         if(ed.movedTo&&ed.movedTo.date===dateKey){
           result.push(Object.assign({},s,{
             time:ed.movedTo.time||ed.time||s.time,
-            time2:ed.movedTo.time2||ed.time2||s.time2||'',
+            time2:ed.movedTo.time?(ed.movedTo.time2||''):(ed.time2||s.time2||''),
             _originalIdx:originalIdx,
             _isRescheduled:true,
             _isExtra:false,
@@ -5594,6 +5678,22 @@ function saveNote(){
     const status=document.getElementById('noteStatus').value;
     // Pindah tanggal (dari Edit Catatan): status + catatan + foto + tugas PR ikut pindah
     const moveTo=noteStudent.fromTrack?(document.getElementById('noteDateInput').value||''):'';
+    // Les di tanggal ini sudah dipindah (reschedule) → Hadir/Alpa dicatat di tanggal tujuan saja,
+    // supaya 1 les tidak terhitung 2x.
+    if(status==='hadir'||status==='alpa'){
+      const tgtDk=moveTo||dateKey;
+      const mvTo=llkMovedAwayTo(noteStudent.name, tgtDk);
+      if(mvTo){ toast('⚠️ Les '+llkRsShort(tgtDk)+' sudah dipindah ke '+llkRsShort(mvTo)+' — tandai '+(status==='hadir'?'Hadir':'Alpa')+' di tanggal itu',4500); return; }
+      if(!window._llkDblOk){
+        const dbl=llkRsDoubleCandidate(noteStudent.name, tgtDk);
+        if(dbl){
+          showGenericConfirm('Les ini sudah dipindah?','Les '+escapeHtml(noteStudent.displayName||noteStudent.name)+' tanggal <b>'+llkRsShort(tgtDk)+'</b> sepertinya sudah di-reschedule ke <b>'+llkRsShort(dbl)+'</b> dan di sana sudah tercatat. Kalau ditandai lagi, les ini <b>terhitung 2x</b>.<br><br>Tetap tandai?','Tetap Tandai',function(){
+            window._llkDblOk=true; try{ saveNote(); } finally { window._llkDblOk=false; }
+          },false,'alert');
+          return;
+        }
+      }
+    }
     let movedFrom=null;
     if(moveTo && moveTo!==dateKey){
       const nm=noteStudent.name, dn=noteStudent.displayName||nm;
@@ -6345,6 +6445,7 @@ function renderStudentProfile(name, period){
   +'<div style="font-size:0.84rem;font-weight:600;margin-top:10px;color:'+(isDue?'var(--alpa)':'var(--hadir)')+'">'+escapeHtml(llkStripLeadEmoji(paymentStatusText(s,payInfo)))+'</div>'
     +(isDue||buildInvoiceDraft(s).items.length?'<button onclick="openInvoice(\''+jsAttr(name)+'\')" class="llk-btn block '+(isDue?'wa':'secondary')+'" style="margin-top:12px">'+llkI('receipt')+(isDue?' Tagih + Kirim Invoice':' Buat Invoice')+'</button>':'')
     +'<button onclick="openCustomPay(\''+jsAttr(name)+'\')" class="llk-btn block secondary" style="margin-top:8px">'+llkI('wallet')+' Pembayaran Custom</button>'
+    +(paymentMode==='session'&&students.indexOf(s)>=0?'<button onclick="openEdit('+students.indexOf(s)+',3)" class="llk-btn block soft" style="margin-top:8px">'+llkI('edit')+' Sesuaikan Pertemuan</button>':'')
     +(!isDue&&llkLastReceipt(s)?'<button onclick="openInvoice(\''+jsAttr(name)+'\',\''+jsAttr(llkLastReceipt(s).no)+'\')" class="llk-btn block soft" style="margin-top:8px">'+llkI('receipt')+' Kirim Ulang Kuitansi</button>':'')
     +invoiceHistoryHtml(s)
     +'</div>'
@@ -6908,7 +7009,8 @@ function llkIsMovedAwayCard(x, dk){
   if(x._sameday_reschedule) return true;
   if(!x._hasActiveReschedule) return false;
   if(x._isExtra) return true; // sesi tambahan yang sudah dipindah (movedTo)
-  return !x._rsInfo||!x._rsInfo.date||x._rsInfo.date>=dk;
+  if(x._rsInfo&&x._rsInfo.from) return x._rsInfo.from===dk; // reschedule per tanggal
+  return !x._rsInfo||!x._rsInfo.date||(x._rsInfo.date>=dk&&dk>=llkDkAdd(x._rsInfo.date,-7));
 }
 
 // Proyeksi: sesi yang BELUM terjadi/BELUM ditandai dari HARI INI sampai akhir
@@ -9130,7 +9232,69 @@ function llkWizInit(mode, page){
   llkWizSyncSlots();
   const ex=document.getElementById('extra-body-form'), exA=document.getElementById('extra-arrow-form');
   if(ex){ ex.style.display='block'; if(exA) exA.innerHTML=llkI('chevron-down'); }
+  llkPayAdjInit();
   llkWizGo(page||1,{force:true});
+}
+// ── SESUAIKAN PERTEMUAN (Edit Murid › Bayar) ──
+// Guru bisa mengoreksi hitungan siklus bayar (mis. ada les yang terhitung dobel):
+// Bayar di Belakang → "pertemuan sejak terakhir bayar" (menggeser lastPaidAt),
+// Bayar di Depan → "sisa pertemuan yang sudah dibayar" (menggeser prepaidThrough).
+// Riwayat absensi tidak diubah. Hanya mode pengingat Per Sesi.
+function llkPayAdjInit(){
+  const wrap=document.getElementById('llkPayAdjWrap'); if(!wrap) return;
+  const inp=document.getElementById('f_pay_adj');
+  delete inp.dataset.touched;
+  const s=editIdx!==null?students[editIdx]:null;
+  if(_llkWizMode!=='edit'||!s||paymentMode!=='session'){ wrap.style.display='none'; return; }
+  const timing=getPayTiming({payTiming:document.getElementById('f_pay_timing').value});
+  const all=countSessions(s.name);
+  let cur;
+  if(timing==='depan'){
+    const covered=(s.prepaidThrough!=null)?s.prepaidThrough:(s.lastPaidAt||0);
+    cur=Math.max(0,covered-all);
+    wrap.dataset.unpaid=Math.max(0,all-covered);
+  } else {
+    cur=Math.max(0,all-(s.lastPaidAt||0));
+    wrap.dataset.unpaid=0;
+  }
+  wrap.dataset.timing=timing; wrap.dataset.all=all; wrap.dataset.cur=cur;
+  inp.value=cur;
+  document.getElementById('llkPayAdjLabel').textContent=timing==='depan'?'Sisa pertemuan yang sudah dibayar':'Pertemuan sejak terakhir bayar';
+  const dbl=llkRsDoubleList(s), box=document.getElementById('llkPayAdjDbl');
+  if(dbl.length){
+    box.style.display='block';
+    box.innerHTML='<div class="llk-callout" style="background:var(--amber-bg);color:var(--izin-text);font-size:0.82rem;padding:10px 12px">'+llkI('alert')+'<div><b>Kemungkinan terhitung 2x</b> (les yang di-reschedule tercatat di tanggal asal &amp; tujuan):<br>'
+      +dbl.map(x=>'• '+llkRsShort(x.from)+' &amp; '+llkRsShort(x.to)+' · '+escapeHtml(x.label)).join('<br>')
+      +'<br>Ubah salah satunya jadi <b>Izin</b> di Absensi/riwayat, atau kurangi angka di atas.</div></div>';
+  } else { box.style.display='none'; box.innerHTML=''; }
+  wrap.style.display='block';
+  llkPayAdjChanged(true);
+}
+function llkPayAdjStep(d){
+  const inp=document.getElementById('f_pay_adj');
+  inp.value=Math.max(0,(parseInt(inp.value)||0)+d);
+  llkPayAdjChanged();
+}
+function llkPayAdjChanged(init){
+  const wrap=document.getElementById('llkPayAdjWrap'), inp=document.getElementById('f_pay_adj');
+  if(!wrap||wrap.style.display==='none'&&!init) return;
+  const timing=wrap.dataset.timing, all=parseInt(wrap.dataset.all)||0, cur=parseInt(wrap.dataset.cur)||0;
+  const cycle=parseInt(document.getElementById('f_pay_cycle').value)||4;
+  let v=Math.max(0,parseInt(inp.value)||0);
+  if(timing!=='depan'&&v>all){ v=all; inp.value=v; toast('ℹ️ Maksimal '+all+'x (semua pertemuan yang tercatat). Pertemuan sebelum pakai aplikasi → isi Pertemuan Awal',4500); }
+  if(!init) inp.dataset.touched=(v!==cur)?'1':'';
+  const changed=inp.dataset.touched==='1';
+  document.getElementById('llkPayAdjOf').textContent=timing==='depan'?'pertemuan':'dari '+cycle+'x';
+  let h;
+  if(timing==='depan'){
+    const unpaid=parseInt(wrap.dataset.unpaid)||0;
+    h=v>0?'Tagihan berikutnya muncul setelah '+v+'x pertemuan lagi.':'Tagihan (bayar di depan) langsung muncul.';
+    if(unpaid&&!changed) h+=' Saat ini ada <b>'+unpaid+'x pertemuan belum dibayar</b>.';
+  } else {
+    h=v>=cycle?'<b>Tagihan muncul</b> ('+v+'x).':'Tagihan muncul '+(cycle-v)+'x pertemuan lagi.';
+  }
+  h+=changed?' <b>Diubah dari '+cur+'x</b> — berlaku setelah Simpan. Riwayat absensi tidak berubah.':' Ubah kalau hitungannya tidak sesuai, mis. ada les yang terhitung dobel.';
+  document.getElementById('llkPayAdjHint').innerHTML=h;
 }
 function llkWizPageOf(el){ const pg=el&&el.closest?el.closest('.llk-wiz-page'):null; return pg?parseInt(pg.dataset.page,10):0; }
 function llkWizValid(n){
@@ -9239,6 +9403,9 @@ function llkWizRenderSummary(){
   h+=row('Tagih tiap',(paymentMode==='monthly'?'akhir bulan':cyc+'x pertemuan'),3);
   h+=row('Waktu bayar',escapeHtml(timing),3);
   if(init) h+=row('Pertemuan awal',init+'x (ditandai Hadir)',3);
+  const adj=document.getElementById('f_pay_adj'), adjW=document.getElementById('llkPayAdjWrap');
+  if(adj&&adj.dataset.touched==='1'&&adjW&&adjW.style.display!=='none')
+    h+=row(adjW.dataset.timing==='depan'?'Sisa terbayar':'Sejak terakhir bayar',escapeHtml(adjW.dataset.cur+'x → '+(parseInt(adj.value)||0)+'x'),3);
   box.innerHTML=h;
 }
 /* ═══ TUTORIAL "BUAT JADWAL MURID PERTAMA" — coachmark step-by-step ═══
@@ -9652,6 +9819,8 @@ function doSave(){
     if(old.prepaidThrough!=null) s.prepaidThrough=old.prepaidThrough;
     if(old.paidThruDate) s.paidThruDate=old.paidThruDate;
     if(old.invoices) s.invoices=old.invoices;
+    // BUGFIX: reschedule tidak ada di form, dulu ikut hilang tiap kali Edit Murid disimpan
+    if(old.reschedules&&old.reschedules.length) s.reschedules=old.reschedules;
     if(old.curriculumChecked) s.curriculumChecked=old.curriculumChecked;
     if(old.curriculumCardCollapsed!==undefined) s.curriculumCardCollapsed=old.curriculumCardCollapsed;
     if(old.curriculumCollapsedSections) s.curriculumCollapsedSections=old.curriculumCollapsedSections;
@@ -9710,8 +9879,24 @@ function doSave(){
     const firstInit=s.initialDates.slice().sort()[0];
     if(firstInit<s.startDate) s.startDate=firstInit;
   }
+  // Sesuaikan pertemuan (hanya kalau angkanya diubah guru)
+  let adjMsg='';
+  const adjInp=document.getElementById('f_pay_adj'), adjWrap=document.getElementById('llkPayAdjWrap');
+  if(editIdx!==null&&paymentMode==='session'&&adjInp&&adjInp.dataset.touched==='1'&&adjWrap&&adjWrap.style.display!=='none'){
+    const all=countSessions(s.name);
+    let v=Math.max(0,parseInt(adjInp.value)||0);
+    if(getPayTiming(s)==='depan'){
+      s.prepaidThrough=all+v;
+      if((s.lastPaidAt||0)>all) s.lastPaidAt=all;
+      adjMsg=' · sisa terbayar '+v+'x';
+    } else {
+      v=Math.min(v,all);
+      s.lastPaidAt=all-v;
+      adjMsg=' · '+v+'x sejak terakhir bayar';
+    }
+  }
   save();closeModal();render();
-  toast((editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`)+(initMarked?` · ${initMarked} pertemuan awal ditandai Hadir`:'')+(llkShifted?` · jadwal ${s.day} kini jadi Jadwal Rutin 1`:'')+(window._llkSchedChangedToast?' · jadwal baru berlaku mulai '+fmtInvDate(window._llkSchedChangedToast):''));
+  toast((editIdx!==null?`✅ ${s.name} diperbarui`:`✅ ${s.name} ditambahkan`)+(initMarked?` · ${initMarked} pertemuan awal ditandai Hadir`:'')+adjMsg+(llkShifted?` · jadwal ${s.day} kini jadi Jadwal Rutin 1`:'')+(window._llkSchedChangedToast?' · jadwal baru berlaku mulai '+fmtInvDate(window._llkSchedChangedToast):''));
   window._llkSchedChangedToast=false;
 }
 
@@ -9755,6 +9940,7 @@ function llkApplyInitialSessions(s, n, oldAuto){
     const dk=dateKeyOfDate(c), st=statusOn(dk);
     if(st==='izin'||st==='off') continue;
     if(st==='hadir'||st==='alpa'){ if(countExisting) found++; continue; }
+    if(llkMovedAwayTo(name, dk)) continue; // les tanggal ini sudah dipindah (reschedule)
     attendance[dk]=attendance[dk]||{}; attendance[dk][name]='hadir'; auto.push(dk); found++;
   }
   if(auto.length) s.initialDates=auto.sort();
@@ -10466,7 +10652,7 @@ function closeDeleteConfirm(){
 // ── RESCHEDULE ─────────────────────────────────────────
 let _rsName=null, _rsDay=null, _rsIdx=null, _rsExtraIdx=null;
 
-function openRescheduleModal(name, day, idx, extraIdx, extraDate){
+function openRescheduleModal(name, day, idx, extraIdx, extraDate, ctxDk){
   if(typeof requireLoginOrBlock==='function'&&!requireLoginOrBlock()) return;
   if(!name||name==='null'||name==='undefined'||idx===null||idx===undefined||!students[idx]){
     toast('❌ Data siswa tidak ditemukan, coba refresh halaman dulu');
@@ -10479,6 +10665,7 @@ function openRescheduleModal(name, day, idx, extraIdx, extraDate){
   const clearBtn=document.getElementById('rsClearBtn');
   const curInfo=document.getElementById('rs_current');
 
+  document.getElementById('rs_from_wrap').style.display=_rsExtraIdx!==null?'none':'';
   if(_rsExtraIdx!==null){
     // Mode: reschedule sesi Jadwal Tambahan — kartu asal tetap tampil dengan indikator "Pindah ke..."
     const ed=(s.extraDates||[])[_rsExtraIdx]||{};
@@ -10504,30 +10691,83 @@ function openRescheduleModal(name, day, idx, extraIdx, extraDate){
   }
 
   document.getElementById('rescheduleSubtitle').textContent=name+' · Jadwal '+day+(s.time?' '+s.time:'');
-  // Cek apakah sudah ada reschedule untuk hari ini
-  const existing=(s.reschedules||[]).find(r=>r.day===day);
-  if(existing){
-    document.getElementById('rs_date').value=existing.date||'';
-    document.getElementById('rs_time').value=existing.time||'';
-    document.getElementById('rs_time2').value=existing.time2||'';
+  // Reschedule yang sedang dibuka: kartu hasil pindah (tanggal tujuan) atau kartu asal yang dipindah
+  const ctx=ctxDk||window._currentDateKey||todayStr();
+  _rsLegacy=null;
+  let existing=(s.reschedules||[]).find(r=>r.date===ctx&&r.day===day)||llkRsMovedFrom(s, day, ctx);
+  let fromDk='';
+  if(existing&&existing.from) fromDk=existing.from;
+  else if(existing){
+    // Reschedule lama (tanpa tanggal asal): tebak les yang dipindah, nanti disimpan dengan tanggalnya
+    _rsLegacy=existing;
+    fromDk=dayNameFromDate(ctx)===day&&ctx!==existing.date?ctx:llkRsGuessFrom(s, existing);
+  } else {
+    fromDk=dayNameFromDate(ctx)===day?ctx:'';
+  }
+  llkRsFillFrom(s, day, fromDk);
+  llkRsFromChanged(existing);
+  document.getElementById('rescheduleOverlay').classList.add('open');
+}
+let _rsLegacy=null;
+function llkRsGuessFrom(s, r){
+  const st=dk=>(attendance[dk]||{})[s.name];
+  for(let i=1;i<=7;i++){ const dk=llkDkAdd(r.date,-i); if(dayNameFromDate(dk)===r.day&&st(dk)!=='hadir'&&st(dk)!=='alpa') return dk; }
+  for(let i=1;i<=7;i++){ const dk=llkDkAdd(r.date,i); if(dayNameFromDate(dk)===r.day) return dk; }
+  return '';
+}
+// Pilihan "Les yang dipindah": tanggal hari rutin ini dari 4 minggu lalu s/d 8 minggu ke depan.
+// Tanggal yang sudah Hadir/Alpa tidak bisa dipilih (sudah dihitung).
+function llkRsFillFrom(s, day, fromDk){
+  const sel=document.getElementById('rs_from');
+  const today=todayStr(), name=s.name;
+  const stTxt={hadir:'sudah Hadir',alpa:'sudah Alpa',izin:'Izin',off:'Off'};
+  const opts=[];
+  for(let i=-28;i<=56;i++){
+    const dk=llkDkAdd(today,i);
+    if(dayNameFromDate(dk)!==day) continue;
+    if(s.startDate&&dk<s.startDate) continue;
+    opts.push(dk);
+  }
+  if(fromDk&&!opts.includes(fromDk)){ opts.push(fromDk); opts.sort(); }
+  let firstFree='';
+  sel.innerHTML=opts.map(dk=>{
+    const st=(attendance[dk]||{})[name];
+    const done=(st==='hadir'||st==='alpa')&&dk!==fromDk;
+    const mv=(s.reschedules||[]).find(r=>r.from===dk&&r.date!==dk);
+    if(!done&&!firstFree&&dk>=today) firstFree=dk;
+    return '<option value="'+dk+'"'+(done?' disabled':'')+'>'+llkRsShort(dk)+(dk===today?' (hari ini)':'')+(stTxt[st]?' — '+stTxt[st]:'')+(mv?' → '+llkRsShort(mv.date):'')+'</option>';
+  }).join('');
+  sel.value=fromDk||firstFree||'';
+  sel.dataset.day=day;
+}
+// Pilih tanggal asal → isi tanggal/jam tujuan dari reschedule yang sudah ada untuk tanggal itu
+function llkRsFromChanged(forced){
+  const s=students[_rsIdx]; if(!s) return;
+  const from=document.getElementById('rs_from').value;
+  const ex=forced||(s.reschedules||[]).find(r=>r.from&&r.from===from)||(_rsLegacy&&from===llkRsGuessFrom(s,_rsLegacy)?_rsLegacy:null);
+  const clearBtn=document.getElementById('rsClearBtn');
+  const curInfo=document.getElementById('rs_current');
+  if(ex){
+    document.getElementById('rs_date').value=ex.date||'';
+    document.getElementById('rs_time').value=ex.time||'';
+    document.getElementById('rs_time2').value=ex.time2||'';
     clearBtn.style.display='';
     curInfo.style.display='block';
-    const d=new Date(existing.date+'T00:00:00');
-    const dn=['Min','Sen','Sel','Rab','Kam','Jum','Sab'][d.getDay()];
-    curInfo.textContent='Reschedule aktif: '+dn+', '+d.getDate()+'/'+(d.getMonth()+1)+(existing.time?' · '+existing.time+(existing.time2?'–'+existing.time2:''):'');
+    curInfo.textContent='Reschedule aktif: '+llkRsShort(ex.date)+(ex.time?' · '+ex.time+(ex.time2?'–'+ex.time2:''):'');
+    window._rsEditing=ex;
   } else {
     document.getElementById('rs_date').value='';
     document.getElementById('rs_time').value=s.time||'';
     document.getElementById('rs_time2').value=s.time2||'';
     clearBtn.style.display='none';
     curInfo.style.display='none';
+    window._rsEditing=null;
   }
-  document.getElementById('rescheduleOverlay').classList.add('open');
 }
 
 function closeRescheduleModal(){
   document.getElementById('rescheduleOverlay').classList.remove('open');
-  _rsName=null; _rsDay=null; _rsIdx=null; _rsExtraIdx=null;
+  _rsName=null; _rsDay=null; _rsIdx=null; _rsExtraIdx=null; window._rsEditing=null; _rsLegacy=null;
 }
 
 function saveReschedule(){
@@ -10562,37 +10802,57 @@ function saveReschedule(){
     return;
   }
 
-  // Reschedule disimpan per HARI rutin (bukan per tanggal asal). Kalau tanggal
-  // barunya melewati hari rutin itu lebih dari sekali, semua hari rutin di
-  // antaranya ikut dianggap "pindah" → sarankan Izin + Jadwal Tambahan saja.
-  const crossed=llkRsCrossedDates(_rsDay,date);
-  if(crossed.length>=2){ llkOpenRsLong(s,_rsDay,date,time,time2,crossed); return; }
-
-  if(!s.reschedules) s.reschedules=[];
-  // Hapus reschedule lama untuk hari ini jika ada
-  s.reschedules=s.reschedules.filter(r=>r.day!==_rsDay);
-  // Tambah yang baru
-  s.reschedules.push({day:_rsDay, date:date, time:time, time2:time2});
-  // Kalau hari yang direschedule ini adalah HARI INI, batalkan reminder lama-nya
-  if(_rsDay===todayDayName()) cancelReminderPush(todayStr(), s.name);
+  // Reschedule disimpan per TANGGAL les yang dipindah (from) → hanya les itu yang pindah.
+  const from=document.getElementById('rs_from').value;
+  if(!from){ toast('❌ Pilih dulu les tanggal berapa yang dipindah'); return; }
+  const stFrom=(attendance[from]||{})[s.name];
+  if(stFrom==='hadir'||stFrom==='alpa'){ toast('⚠️ Les '+llkRsShort(from)+' sudah tercatat '+(stFrom==='hadir'?'Hadir':'Alpa')+' — pilih les lain',4000); return; }
+  const editing=window._rsEditing||null;
+  const others=(s.reschedules||[]).filter(r=>r!==editing&&!(r.from&&r.from===from));
+  // Tanggal tujuan sudah punya les lain murid ini (jadwal rutin / reschedule lain / sudah diabsen)?
+  // Kunci absensinya sama → dua les jadi satu. Pakai Izin + Jadwal Tambahan supaya keduanya terhitung.
+  if(date!==from){
+    const dn=dayNameFromDate(date), se=llkScheduleAt(s,date);
+    const regular=[se.day,se.day2,se.day3,se.day4].includes(dn)&&!(s.startDate&&date<s.startDate)
+      &&!others.some(r=>r.from===date&&r.date!==date);
+    const otherRs=others.some(r=>r.date===date);
+    const stTo=(attendance[date]||{})[s.name];
+    if(regular||otherRs||(stTo&&stTo!=='belum')){
+      showGenericConfirm('Tanggal itu sudah ada les '+displayName,
+        llkRsShort(date)+' sudah ada jadwal les '+escapeHtml(displayName)+'. Supaya dua les itu sama-sama tercatat, les '+llkRsShort(from)+' ditandai <b>Izin</b> lalu dibuat <b>Jadwal Tambahan</b> di '+llkRsShort(date)+(time?' jam '+time:'')+'. Tagihan tetap dihitung 1x untuk les yang dipindah.',
+        'Izin + Jadwal Tambahan', function(){ llkRsAsExtra(s, _rsDay, from, date, time, time2, editing); }, false, 'swap');
+      return;
+    }
+  }
+  s.reschedules=others;
+  s.reschedules.push({day:_rsDay, from:from, date:date, time:time, time2:time2});
+  if(from===todayStr()) cancelReminderPush(todayStr(), s.name);
   save();
   closeRescheduleModal();
   render();
-  toast('✅ '+displayName+' direschedule ke '+dn+', '+d.getDate()+'/'+(d.getMonth()+1));
+  toast('✅ Les '+displayName+' '+llkRsShort(from)+' dipindah ke '+dn+', '+d.getDate()+'/'+(d.getMonth()+1));
+}
+// Les `from` → Izin, lalu Jadwal Tambahan di tanggal tujuan (dipakai kalau tanggal
+// tujuan sudah punya les rutin murid ini, supaya dua les tidak tergabung jadi satu).
+function llkRsAsExtra(s, day, from, toDk, time, time2, editing){
+  const cur=(attendance[from]||{})[s.name];
+  if(cur==='hadir'||cur==='alpa'){ toast('⚠️ '+llkRsShort(from)+' sudah '+cur+', pilih tanggal lain'); return; }
+  if(!cur||cur==='belum'){
+    attendance[from]=attendance[from]||{};
+    attendance[from][s.name]='izin';
+    cancelReminderPush(from, s.name);
+  }
+  const key=from+'_'+s.name, n=attNotes[key]||{};
+  if(!n.reason) attNotes[key]=Object.assign({reason:'',progress:'',prSiswa:'',prGuru:''},n,{reason:'Reschedule ke '+llkRsShort(toDk)+(time?' '+time:'')});
+  if(!s.extraDates) s.extraDates=[];
+  s.extraDates.push({id:'ex_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),date:toDk,time:time||s.time||'',time2:time2||'',attended:false,note:llkRsAutoNote(from)});
+  s.reschedules=(s.reschedules||[]).filter(x=>x!==editing&&!(x.from&&x.from===from));
+  save();
+  closeRescheduleModal();
+  render();
+  toast('✅ '+s.name+': Izin '+llkRsShort(from)+' + Jadwal Tambahan '+llkRsShort(toDk),4500);
 }
 
-// Tanggal hari rutin `day` mulai hari ini sampai SEBELUM tanggal tujuan —
-// semuanya akan tampil "Pindah ke …" di Absensi kalau disimpan sebagai reschedule.
-function llkRsCrossedDates(day, toDk){
-  const out=[], cur=new Date(todayStr()+'T00:00:00');
-  for(let i=0;i<400;i++){
-    const dk=dateKeyOfDate(cur);
-    if(dk>=toDk) break;
-    if(dayNameFromDate(dk)===day) out.push(dk);
-    cur.setDate(cur.getDate()+1);
-  }
-  return out;
-}
 function llkRsShort(dk){ const d=new Date(dk+'T00:00:00'); return DAY_SHORT_ID[d.getDay()]+', '+d.getDate()+' '+MONTH_SHORT_ID[d.getMonth()]; }
 function llkRsAutoNote(dk){
   const today=todayStr();
@@ -10602,79 +10862,6 @@ function llkRsAutoNote(dk){
   }
   return 'Ganti les '+llkRsShort(dk);
 }
-// Jendela saran: reschedule yang melewati >1 minggu → Izin di tanggal les yang
-// diganti + Jadwal Tambahan di tanggal baru (tagihan tetap 1x).
-function llkOpenRsLong(s, day, toDk, time, time2, crossed){
-  const idx=students.indexOf(s);
-  window._rsl={idx, day, date:toDk, time, time2, noteEdited:false};
-  const today=todayStr();
-  // Pilihan "les yang diganti": hari rutin 4 minggu terakhir + yang terlewati
-  const opts=[];
-  const back=new Date(today+'T00:00:00'); back.setDate(back.getDate()-28);
-  for(const cur=back; dateKeyOfDate(cur)<today; cur.setDate(cur.getDate()+1)){
-    const dk=dateKeyOfDate(cur); if(dayNameFromDate(dk)===day) opts.push(dk);
-  }
-  crossed.forEach(dk=>opts.push(dk));
-  const stTxt={hadir:'sudah Hadir',alpa:'sudah Alpa',izin:'sudah Izin',off:'Off'};
-  const optHtml=opts.map(dk=>{
-    const st=(attendance[dk]||{})[s.name];
-    const done=st==='hadir'||st==='alpa';
-    return '<option value="'+dk+'"'+(done?' disabled':'')+'>'+llkRsShort(dk)+(dk===today?' (hari ini)':'')+(stTxt[st]?' — '+stTxt[st]:'')+'</option>';
-  }).join('');
-  const toTxt=llkRsShort(toDk)+(time?' · '+time:'');
-  let el=document.getElementById('rsLongOverlay'); if(el) el.remove();
-  el=document.createElement('div');
-  el.id='rsLongOverlay'; el.className='overlay open'; el.style.zIndex='10002';
-  el.addEventListener('click',e=>{ if(e.target===el) llkCloseRsLong(); });
-  el.innerHTML='<div class="modal" style="max-width:420px">'
-    +'<div class="llk-dialog-ic warn">'+llkI('alert')+'</div>'
-    +'<div class="modal-title" style="justify-content:center;text-align:center">Reschedule lebih dari 1 minggu tidak bisa</div>'
-    +'<div class="llk-callout" style="font-size:0.86rem;margin-bottom:14px;line-height:1.55">'+llkI('info')+'<div><b>Saran:</b> tandai <b>Izin</b> di tanggal les yang diganti, lalu buat <b>Jadwal Tambahan</b> di <b>'+escapeHtml(toTxt)+'</b>. Tagihan tetap dihitung 1x.</div></div>'
-    +'<div class="mfield" style="margin-bottom:10px"><label>Les yang diganti</label><select id="rsl_from" onchange="llkRsLongPick()"><option value="">— pilih tanggal —</option>'+optHtml+'</select></div>'
-    +'<div class="mfield" style="margin-bottom:4px"><label>Judul jadwal tambahan</label><input id="rsl_note" type="text" maxlength="60" placeholder="mis. Reschedule minggu lalu" oninput="window._rsl&&(window._rsl.noteEdited=true)"/></div>'
-    +'<div class="llk-hint" style="margin-bottom:6px">Tampil di kartu Absensi tanggal '+escapeHtml(llkRsShort(toDk))+'. Contoh: "Reschedule minggu lalu", "Ganti les Senin 12 Okt".</div>'
-    +'<div class="mactions">'
-      +'<button class="mbtn mbtn-cancel" onclick="llkCloseRsLong()">Ganti Tanggal</button>'
-      +'<button class="mbtn mbtn-save" onclick="llkRsLongApply()">'+llkI('check')+' Izin + Jadwal Tambahan</button>'
-    +'</div></div>';
-  document.body.appendChild(el);
-}
-function llkRsLongPick(){
-  const v=document.getElementById('rsl_from').value, inp=document.getElementById('rsl_note');
-  if(v&&inp&&!(window._rsl&&window._rsl.noteEdited)) inp.value=llkRsAutoNote(v);
-}
-function llkCloseRsLong(){
-  const el=document.getElementById('rsLongOverlay'); if(el) el.remove();
-  window._rsl=null;
-}
-function llkRsLongApply(){
-  const r=window._rsl; if(!r) return;
-  const s=students[r.idx]; if(!s){ toast('❌ Data murid tidak ditemukan'); return; }
-  const from=document.getElementById('rsl_from').value;
-  if(!from){ toast('⚠️ Pilih dulu tanggal les yang diganti'); return; }
-  const note=(document.getElementById('rsl_note').value||'').trim()||llkRsAutoNote(from);
-  const cur=(attendance[from]||{})[s.name];
-  if(cur==='hadir'||cur==='alpa'){ toast('⚠️ '+llkRsShort(from)+' sudah '+cur+', pilih tanggal lain'); return; }
-  // 1) Tanggal asal → Izin (Izin/Off yang sudah ada dibiarkan)
-  if(!cur||cur==='belum'){
-    attendance[from]=attendance[from]||{};
-    attendance[from][s.name]='izin';
-    cancelReminderPush(from, s.name);
-  }
-  const key=from+'_'+s.name, n=attNotes[key]||{};
-  if(!n.reason) attNotes[key]=Object.assign({reason:'',progress:'',prSiswa:'',prGuru:''},n,{reason:'Reschedule ke '+llkRsShort(r.date)+(r.time?' '+r.time:'')});
-  // 2) Jadwal Tambahan di tanggal baru, dengan judulnya sendiri
-  if(!s.extraDates) s.extraDates=[];
-  s.extraDates.push({id:'ex_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),date:r.date,time:r.time||s.time||'',time2:r.time2||'',attended:false,note:note});
-  // 3) Reschedule lama untuk hari ini (kalau sedang diedit) diganti cara ini
-  s.reschedules=(s.reschedules||[]).filter(x=>x.day!==r.day);
-  save();
-  llkCloseRsLong();
-  closeRescheduleModal();
-  render();
-  toast('✅ '+s.name+': Izin '+llkRsShort(from)+' + Jadwal Tambahan '+llkRsShort(r.date),4500);
-}
-
 function clearReschedule(){
   const s=students[_rsIdx];
   if(!s) return;
@@ -10687,7 +10874,8 @@ function clearReschedule(){
     toast('✅ Reschedule sesi tambahan '+displayName+' dihapus');
     return;
   }
-  s.reschedules=(s.reschedules||[]).filter(r=>r.day!==_rsDay);
+  const ed=window._rsEditing;
+  s.reschedules=(s.reschedules||[]).filter(r=>r!==ed);
   save();
   closeRescheduleModal();
   render();
@@ -10702,8 +10890,13 @@ function clearReschedule(){
     <div class="modal-handle"></div>
     <div class="modal-title"><svg class="ico" aria-hidden="true"><use href="#i-swap"/></svg> Reschedule</div>
     <div id="rescheduleSubtitle" style="font-size:0.86rem;color:var(--muted);margin-bottom:16px"></div>
+    <div class="mfield" id="rs_from_wrap" style="margin-bottom:12px;display:none">
+      <label>Les yang dipindah</label>
+      <select id="rs_from" onchange="llkRsFromChanged()"></select>
+      <div class="llk-hint">Hanya tanggal ini yang pindah. Les di tanggal lain tetap seperti biasa.</div>
+    </div>
     <div class="mfield" style="margin-bottom:12px">
-      <label>Tanggal Reschedule</label>
+      <label id="rs_date_label">Pindah ke tanggal</label>
       <input type="date" id="rs_date"/>
     </div>
     <div class="mrow">
@@ -12245,8 +12438,9 @@ function mergeStudentLists(L, C){
     // Reschedule: gabung, buang duplikat (tanggal+hari sama)
     if(cs.reschedules&&cs.reschedules.length){
       const rs=(ls.reschedules||[]).slice();
-      const seen=new Set(rs.map(function(r){ return r.date+'|'+r.day; }));
-      cs.reschedules.forEach(function(r){ const k=r.date+'|'+r.day; if(!seen.has(k)){ seen.add(k); rs.push(Object.assign({},r)); } });
+      const rk=function(r){ return r.date+'|'+r.day+'|'+(r.from||''); };
+      const seen=new Set(rs.map(rk));
+      cs.reschedules.forEach(function(r){ const k=rk(r); if(!seen.has(k)){ seen.add(k); rs.push(Object.assign({},r)); } });
       ls.reschedules=rs;
     }
     // Tambahan Kelas: id-nya jadi bagian kunci absensi, jadi entri dari cloud
