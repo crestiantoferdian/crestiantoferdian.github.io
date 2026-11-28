@@ -9243,7 +9243,7 @@ function llkWizInit(mode, page){
 function llkPayAdjInit(){
   const wrap=document.getElementById('llkPayAdjWrap'); if(!wrap) return;
   const inp=document.getElementById('f_pay_adj');
-  delete inp.dataset.touched;
+  delete inp.dataset.touched; delete inp.dataset.confirmed;
   const s=editIdx!==null?students[editIdx]:null;
   if(_llkWizMode!=='edit'||!s||paymentMode!=='session'){ wrap.style.display='none'; return; }
   const timing=getPayTiming({payTiming:document.getElementById('f_pay_timing').value});
@@ -9270,6 +9270,23 @@ function llkPayAdjInit(){
   wrap.style.display='block';
   llkPayAdjChanged(true);
 }
+// Kembalikan true kalau boleh lanjut simpan. Kalau angka "Sesuaikan Pertemuan" diubah
+// dan belum dikonfirmasi, tampilkan "Anda yakin mengubah … menjadi …?" lalu simpan ulang.
+function llkPayAdjConfirmed(s){
+  const inp=document.getElementById('f_pay_adj'), wrap=document.getElementById('llkPayAdjWrap');
+  if(!inp||!wrap||wrap.style.display==='none'||inp.dataset.touched!=='1'||inp.dataset.confirmed==='1'||paymentMode!=='session') return true;
+  const depan=wrap.dataset.timing==='depan';
+  const cur=parseInt(wrap.dataset.cur)||0, v=Math.max(0,parseInt(inp.value)||0);
+  const cycle=parseInt(document.getElementById('f_pay_cycle').value)||4;
+  const apa=depan?'sisa pertemuan yang sudah dibayar':'pertemuan sejak terakhir bayar';
+  const efek=depan
+    ?(v>0?'Tagihan berikutnya muncul setelah <b>'+v+'x</b> pertemuan lagi.':'Tagihan (bayar di depan) <b>langsung muncul</b>.')
+    :(v>=cycle?'Tagihan <b>langsung muncul</b> ('+v+'x).':'Tagihan muncul <b>'+(cycle-v)+'x</b> pertemuan lagi.');
+  showGenericConfirm('Ubah hitungan pertemuan?',
+    'Anda yakin mengubah '+apa+' <b>'+escapeHtml(s.name)+'</b> dari <b>'+cur+'x</b> menjadi <b>'+v+'x</b>?<br><br>'+efek+'<br><span style="font-size:0.84rem;color:var(--muted)">Riwayat absensi tidak berubah.</span>',
+    'Ya, Ubah', function(){ inp.dataset.confirmed='1'; doSave(); }, false, 'alert');
+  return false;
+}
 function llkPayAdjStep(d){
   const inp=document.getElementById('f_pay_adj');
   inp.value=Math.max(0,(parseInt(inp.value)||0)+d);
@@ -9282,7 +9299,7 @@ function llkPayAdjChanged(init){
   const cycle=parseInt(document.getElementById('f_pay_cycle').value)||4;
   let v=Math.max(0,parseInt(inp.value)||0);
   if(timing!=='depan'&&v>all){ v=all; inp.value=v; toast('ℹ️ Maksimal '+all+'x (semua pertemuan yang tercatat). Pertemuan sebelum pakai aplikasi → isi Pertemuan Awal',4500); }
-  if(!init) inp.dataset.touched=(v!==cur)?'1':'';
+  if(!init){ inp.dataset.touched=(v!==cur)?'1':''; delete inp.dataset.confirmed; }
   const changed=inp.dataset.touched==='1';
   document.getElementById('llkPayAdjOf').textContent=timing==='depan'?'pertemuan':'dari '+cycle+'x';
   let h;
@@ -9805,6 +9822,8 @@ function doSave(){
   }
   if(!s.day&&!s.extraDates.length){toast('❌ Isi jadwal rutin, atau tambahkan minimal 1 tanggal di "Tambahan Kelas"');if(typeof llkWizGo==='function')llkWizGo(2,{force:true});return}
   if(editIdx===null && typeof isStudentLimitReached==='function' && isStudentLimitReached()){ closeModal(); showUpgradeOffer(true); return; }
+  // Pesan pengaman: hitungan pertemuan diubah → minta konfirmasi dulu sebelum disimpan
+  if(editIdx!==null&&!llkPayAdjConfirmed(s)) return;
   window._llkEditInitSnap=null;
   if(editIdx!==null){
     const old=students[editIdx];

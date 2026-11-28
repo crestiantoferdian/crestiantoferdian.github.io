@@ -88,13 +88,13 @@ const {chromium}=require('playwright');
  L('B sebelum:', (await stat(['B_asal']))[0]);
  const r1=await p.evaluate(()=>{openEdit(students.findIndex(x=>x.name==='B_asal'),3);const w=document.getElementById('llkPayAdjWrap');return {tampil:w.style.display,label:document.getElementById('llkPayAdjLabel').textContent,nilai:document.getElementById('f_pay_adj').value,hint:document.getElementById('llkPayAdjHint').innerText,dobel:document.getElementById('llkPayAdjDbl').innerText};});
  L(JSON.stringify(r1,null,1));
- const r2=await p.evaluate(()=>{llkPayAdjStep(-1);const h=document.getElementById('llkPayAdjHint').innerText;llkWizGo(4,{force:true});const sum=document.getElementById('llkWizSummary').innerText;_T.length=0;doSave();return {h,sum:sum.replace(/\s+/g,' '),toast:_T.join('|')};});
+ const r2=await p.evaluate(()=>{llkPayAdjStep(-1);const h=document.getElementById('llkPayAdjHint').innerText;llkWizGo(4,{force:true});const sum=document.getElementById('llkWizSummary').innerText;_T.length=0;doSave();confirmGenericConfirm();return {h,sum:sum.replace(/\s+/g,' '),toast:_T.join('|')};});
  L(JSON.stringify(r2,null,1));
  L('B sesudah:', (await stat(['B_asal']))[0]);
  // depan
  await p.evaluate(()=>{const s=students.find(x=>x.name==='A_izin');s.payTiming='depan';s.lastPaidAt=1;s.prepaidThrough=5;save();});
  L('A_izin depan sebelum:', (await stat(['A_izin']))[0]);
- const r3=await p.evaluate(()=>{openEdit(students.findIndex(x=>x.name==='A_izin'),3);const o={label:document.getElementById('llkPayAdjLabel').textContent,nilai:document.getElementById('f_pay_adj').value};document.getElementById('f_pay_adj').value=1;llkPayAdjChanged();o.hint=document.getElementById('llkPayAdjHint').innerText;doSave();return o;});
+ const r3=await p.evaluate(()=>{openEdit(students.findIndex(x=>x.name==='A_izin'),3);const o={label:document.getElementById('llkPayAdjLabel').textContent,nilai:document.getElementById('f_pay_adj').value};document.getElementById('f_pay_adj').value=1;llkPayAdjChanged();o.hint=document.getElementById('llkPayAdjHint').innerText;doSave();confirmGenericConfirm();return o;});
  L(JSON.stringify(r3)); L('A_izin depan sesudah:', (await stat(['A_izin']))[0]);
  // tidak disentuh = tidak berubah
  const before=await p.evaluate(()=>JSON.stringify(students.find(x=>x.name==='A_alpa')));
